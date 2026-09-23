@@ -29,8 +29,10 @@ class LiquidFloatingNav extends StatelessWidget {
 
   static const _icons = {
     0: (Icons.home_rounded, Icons.home_outlined),
-    1: (Icons.local_fire_department_rounded,
-        Icons.local_fire_department_outlined),
+    1: (
+      Icons.local_fire_department_rounded,
+      Icons.local_fire_department_outlined,
+    ),
     2: (Icons.search_rounded, Icons.search_rounded),
     3: (Icons.folder_rounded, Icons.folder_outlined),
     4: (Icons.person_rounded, Icons.person_outline_rounded),

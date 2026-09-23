@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
@@ -44,10 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     gradient: RadialGradient(
                       center: Alignment.topCenter,
                       radius: 1,
-                      colors: [
-                        Color(0x55E50914),
-                        Colors.transparent,
-                      ],
+                      colors: [Color(0x55E50914), Colors.transparent],
                     ),
                   ),
                 ),
@@ -92,8 +91,7 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-  final PageController _heroController =
-      PageController(viewportFraction: 0.74);
+  final PageController _heroController = PageController(viewportFraction: 0.74);
   int _heroPage = 0;
 
   @override
@@ -150,12 +148,7 @@ class _HomeTabState extends State<_HomeTab> {
                     horizontal: 8,
                     vertical: 12,
                   ),
-                  child: _HeroCard(
-                    item: item,
-                    showPlay: isCurrent,
-                    onTap: () =>
-                        _toast('${item.title} — trailer coming soon'),
-                  ),
+                  child: _HeroCard(item: item),
                 ),
               );
             },
@@ -164,11 +157,15 @@ class _HomeTabState extends State<_HomeTab> {
         const SizedBox(height: 4),
         _PageDots(count: MockCatalog.trending.length, index: _heroPage),
         const SizedBox(height: 28),
-        _CategoryGrid(onTap: (cat) {
-          _toast(cat.label == 'See all'
-              ? 'All fandom categories'
-              : 'Browsing ${cat.label}');
-        }),
+        _CategoryGrid(
+          onTap: (cat) {
+            _toast(
+              cat.label == 'See all'
+                  ? 'All fandom categories'
+                  : 'Browsing ${cat.label}',
+            );
+          },
+        ),
         const SizedBox(height: 34),
         _SectionHeader(
           title: 'Recommended For You',
@@ -222,8 +219,7 @@ class _HomeTabState extends State<_HomeTab> {
             physics: const BouncingScrollPhysics(),
             itemCount: MockCatalog.merch.length,
             separatorBuilder: (_, _) => const SizedBox(width: 14),
-            itemBuilder: (context, i) =>
-                _MerchCard(item: MockCatalog.merch[i]),
+            itemBuilder: (context, i) => _MerchCard(item: MockCatalog.merch[i]),
           ),
         ),
       ],
@@ -317,51 +313,112 @@ class _PageDots extends StatelessWidget {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.item,
-    required this.showPlay,
-    required this.onTap,
-  });
+class _HeroCard extends StatefulWidget {
+  const _HeroCard({required this.item});
 
   final TrendingFandom item;
-  final bool showPlay;
-  final VoidCallback onTap;
+
+  @override
+  State<_HeroCard> createState() => _HeroCardState();
+}
+
+class _HeroCardState extends State<_HeroCard> {
+  YoutubePlayerController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && (widget.item.videoId ?? '').isNotEmpty) {
+      _controller = YoutubePlayerController.fromVideoId(
+        videoId: widget.item.videoId ?? '',
+        autoPlay: true,
+        params: const YoutubePlayerParams(
+          mute: true,
+          loop: true,
+          showControls: false,
+          strictRelatedVideos: true,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: LiquidGlass(
-        radius: 24,
-        blur: showPlay ? 4 : 0.01,
-        borderColor: showPlay
-            ? Colors.white.withValues(alpha: 0.35)
-            : Colors.white.withValues(alpha: 0.1),
-        boxShadow: [
-          BoxShadow(
-            color: showPlay
-                ? AppColors.primary.withValues(alpha: 0.45)
-                : Colors.black.withValues(alpha: 0.5),
-            blurRadius: showPlay ? 40 : 28,
-            offset: const Offset(0, 16),
-          ),
-        ],
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
+    final media = kIsWeb
+        ? Image.network(
+            widget.item.thumbnailUrl,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (context, error, stackTrace) => DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: item.colors,
+                  colors: widget.item.colors,
                 ),
               ),
               child: Center(
                 child: Text(
-                  item.emoji,
+                  widget.item.emoji,
                   style: const TextStyle(fontSize: 68),
+                ),
+              ),
+            ),
+          )
+        : _controller == null
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.item.colors,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                widget.item.emoji,
+                style: const TextStyle(fontSize: 68),
+              ),
+            ),
+          )
+        : YoutubePlayer(controller: _controller!, aspectRatio: 0.74);
+
+    return LiquidGlass(
+      radius: 24,
+      blur: 0.01,
+      borderColor: Colors.white.withValues(alpha: 0.1),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.5),
+          blurRadius: 28,
+          offset: const Offset(0, 16),
+        ),
+      ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            media,
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.18),
+                      Colors.black.withValues(alpha: 0.45),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -389,7 +446,7 @@ class _HeroCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        item.category,
+                        widget.item.category,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -400,7 +457,7 @@ class _HeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      item.title,
+                      widget.item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -413,45 +470,8 @@ class _HeroCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (showPlay)
-              const Center(child: _PlayButton()),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PlayButton extends StatelessWidget {
-  const _PlayButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 66,
-      height: 66,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.98),
-            Colors.white.withValues(alpha: 0.82),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.play_arrow_rounded,
-        color: Color(0xFF111111),
-        size: 42,
       ),
     );
   }
@@ -482,10 +502,7 @@ class _CategoryGrid extends StatelessWidget {
             itemCount: MockCatalog.categories.length,
             itemBuilder: (context, i) {
               final cat = MockCatalog.categories[i];
-              return _CategoryTile(
-                category: cat,
-                onTap: () => onTap(cat),
-              );
+              return _CategoryTile(category: cat, onTap: () => onTap(cat));
             },
           ),
         );
@@ -532,9 +549,7 @@ class _CategoryTile extends StatelessWidget {
                     category.color.withValues(alpha: 0.25),
                   ],
                 ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                 boxShadow: [
                   BoxShadow(
                     color: category.color.withValues(alpha: 0.35),
@@ -674,8 +689,7 @@ class _PosterCard extends StatelessWidget {
                   ),
                 ),
                 child: Center(
-                  child:
-                      Text(item.emoji, style: const TextStyle(fontSize: 40)),
+                  child: Text(item.emoji, style: const TextStyle(fontSize: 40)),
                 ),
               ),
               Positioned(
@@ -867,8 +881,7 @@ class _MerchCard extends StatelessWidget {
                   ),
                 ),
                 child: Center(
-                  child:
-                      Text(item.emoji, style: const TextStyle(fontSize: 40)),
+                  child: Text(item.emoji, style: const TextStyle(fontSize: 40)),
                 ),
               ),
             ),
@@ -1112,7 +1125,9 @@ class _SearchTabState extends State<_SearchTab> {
                             colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
                           )
                         : null,
-                    color: selected ? null : Colors.white.withValues(alpha: 0.07),
+                    color: selected
+                        ? null
+                        : Colors.white.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: selected
@@ -1125,8 +1140,7 @@ class _SearchTabState extends State<_SearchTab> {
                     style: TextStyle(
                       color: selected ? Colors.white : Colors.white70,
                       fontSize: 13,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1145,8 +1159,7 @@ class _SearchTabState extends State<_SearchTab> {
               : GridView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
                   physics: const BouncingScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 14,
                     crossAxisSpacing: 14,
@@ -1230,7 +1243,9 @@ class _LibraryTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        ...MockCatalog.recommended.take(3).map(
+        ...MockCatalog.recommended
+            .take(3)
+            .map(
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _LibraryRow(item: t),
@@ -1328,13 +1343,10 @@ class _LibraryRow extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: item.colors),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
             ),
             child: Center(
-              child:
-                  Text(item.emoji, style: const TextStyle(fontSize: 24)),
+              child: Text(item.emoji, style: const TextStyle(fontSize: 24)),
             ),
           ),
           const SizedBox(width: 14),
@@ -1353,19 +1365,12 @@ class _LibraryRow extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   item.tag,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 12.5,
-                  ),
+                  style: const TextStyle(color: Colors.white60, fontSize: 12.5),
                 ),
               ],
             ),
           ),
-          const Icon(
-            Icons.bookmark_rounded,
-            color: AppColors.accent,
-            size: 20,
-          ),
+          const Icon(Icons.bookmark_rounded, color: AppColors.accent, size: 20),
         ],
       ),
     );
@@ -1507,8 +1512,7 @@ class _ProfileTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    profile?.shopName != null &&
-                            profile!.shopName!.isNotEmpty
+                    profile?.shopName != null && profile!.shopName!.isNotEmpty
                         ? profile.shopName!
                         : (user?.email ?? 'Local session'),
                     style: const TextStyle(
@@ -1533,9 +1537,7 @@ class _ProfileTab extends StatelessWidget {
             ),
             const SizedBox(height: 26),
             if (role == UserRole.fan) ...[
-              _SellerUpgradeCard(
-                onUpgrade: () => _showSellerSheet(context),
-              ),
+              _SellerUpgradeCard(onUpgrade: () => _showSellerSheet(context)),
               const SizedBox(height: 14),
             ] else if (role == UserRole.seller) ...[
               _ProfileTile(
@@ -1551,8 +1553,7 @@ class _ProfileTab extends StatelessWidget {
                 icon: Icons.admin_panel_settings_rounded,
                 label: 'Admin Console',
                 trailing: const _MiniBadge(text: 'Admin'),
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.admin),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.admin),
               ),
             _ProfileTile(
               icon: Icons.person_outline_rounded,
@@ -1589,8 +1590,9 @@ class _ProfileTab extends StatelessWidget {
               onTap: () async {
                 await AuthService.instance.signOut();
                 if (context.mounted) {
-                  Navigator.of(context)
-                      .pushNamedAndRemoveUntil('/', (route) => false);
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/', (route) => false);
                 }
               },
               child: LiquidGlass(
@@ -1731,8 +1733,7 @@ class _ProfileTab extends StatelessWidget {
                                   if (uid == null) {
                                     throw StateError('Not signed in.');
                                   }
-                                  await UserService.instance
-                                      .upgradeToSeller(
+                                  await UserService.instance.upgradeToSeller(
                                     uid: uid,
                                     shopName: controller.text,
                                   );
@@ -1742,8 +1743,9 @@ class _ProfileTab extends StatelessWidget {
                                 } catch (e) {
                                   setSheetState(() => loading = false);
                                   if (sheetContext.mounted) {
-                                    ScaffoldMessenger.of(sheetContext)
-                                        .showSnackBar(
+                                    ScaffoldMessenger.of(
+                                      sheetContext,
+                                    ).showSnackBar(
                                       SnackBar(content: Text('$e')),
                                     );
                                   }
@@ -1753,10 +1755,7 @@ class _ProfileTab extends StatelessWidget {
                           radius: 16,
                           blur: 18,
                           gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFFC1121F),
-                              Color(0xFF7F1D1D),
-                            ],
+                            colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
                           ),
                           borderColor: Colors.white.withValues(alpha: 0.2),
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1782,8 +1781,9 @@ class _ProfileTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       TextButton(
-                        onPressed:
-                            loading ? null : () => Navigator.pop(sheetContext, false),
+                        onPressed: loading
+                            ? null
+                            : () => Navigator.pop(sheetContext, false),
                         child: const Text(
                           'Not now',
                           style: TextStyle(color: Colors.white54),
@@ -1800,7 +1800,10 @@ class _ProfileTab extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      _toast(context, 'You’re a seller now — open Seller dashboard to list items.');
+      _toast(
+        context,
+        'You’re a seller now — open Seller dashboard to list items.',
+      );
     }
   }
 }
@@ -1814,18 +1817,15 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, colors) = switch (role) {
-      UserRole.admin => (
-          'Admin',
-          [Color(0xFFC1121F), Color(0xFF7F1D1D)],
-        ),
-      UserRole.seller => (
-          'Seller',
-          [Color(0xFF7C3AED), Color(0xFF4C1D95)],
-        ),
+      UserRole.admin => ('Admin', [Color(0xFFC1121F), Color(0xFF7F1D1D)]),
+      UserRole.seller => ('Seller', [Color(0xFF7C3AED), Color(0xFF4C1D95)]),
       UserRole.fan => (
-          'Fan',
-          [Colors.white.withValues(alpha: 0.16), Colors.white.withValues(alpha: 0.08)],
-        ),
+        'Fan',
+        [
+          Colors.white.withValues(alpha: 0.16),
+          Colors.white.withValues(alpha: 0.08),
+        ],
+      ),
     };
 
     return Container(
@@ -1860,9 +1860,7 @@ class _MiniBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
       ),
       child: Text(
         text,
@@ -1891,11 +1889,7 @@ class _SellerUpgradeCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0x597C3AED),
-            Color(0x33C1121F),
-            Color(0x1AFFFFFF),
-          ],
+          colors: [Color(0x597C3AED), Color(0x33C1121F), Color(0x1AFFFFFF)],
         ),
         borderColor: Colors.white.withValues(alpha: 0.22),
         padding: const EdgeInsets.all(18),
@@ -2033,14 +2027,8 @@ class _ProfileTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (trailing != null) ...[
-                trailing!,
-                const SizedBox(width: 8),
-              ],
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white38,
-              ),
+              if (trailing != null) ...[trailing!, const SizedBox(width: 8)],
+              const Icon(Icons.chevron_right_rounded, color: Colors.white38),
             ],
           ),
         ),

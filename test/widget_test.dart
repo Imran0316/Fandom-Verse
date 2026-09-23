@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fandom_verse/app.dart';
@@ -27,5 +28,18 @@ void main() {
     expect(find.text('Join FandomVerse'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
+  });
+
+  testWidgets('Home hero does not show fake play controls', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const FandomVerseApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Get Started'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+    expect(find.textContaining('trailer'), findsNothing);
   });
 }

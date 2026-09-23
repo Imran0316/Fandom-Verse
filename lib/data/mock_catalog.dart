@@ -6,12 +6,18 @@ class TrendingFandom {
     required this.category,
     required this.colors,
     required this.emoji,
+    this.videoId,
   });
 
   final String title;
   final String category;
   final List<Color> colors;
   final String emoji;
+  final String? videoId;
+
+  String get thumbnailUrl => videoId == null
+      ? ''
+      : 'https://img.youtube.com/vi/$videoId/hqdefault.jpg';
 }
 
 class FandomCategory {
@@ -73,34 +79,25 @@ class MerchItem {
 abstract final class MockCatalog {
   static const trending = <TrendingFandom>[
     TrendingFandom(
-      title: 'Jujutsu Kaisen',
-      category: 'Anime & Manga',
+      title: 'Pulse Drop',
+      category: 'Short Video',
       colors: [Color(0xFF7F1D1D), Color(0xFF1A0505)],
-      emoji: '⚔️',
+      emoji: '⚡',
+      videoId: 'hLLpNm88fbI',
     ),
     TrendingFandom(
-      title: 'Galactic Saga',
-      category: 'Movies & TV',
+      title: 'Orbit Beat',
+      category: 'Short Video',
       colors: [Color(0xFF1E3A5F), Color(0xFF050B14)],
-      emoji: '🌌',
+      emoji: '🚀',
+      videoId: 'fgTKH2-ReKE',
     ),
     TrendingFandom(
-      title: 'Esports Arena',
-      category: 'Gaming',
+      title: 'Neon Rush',
+      category: 'Short Video',
       colors: [Color(0xFF064E3B), Color(0xFF031510)],
       emoji: '🎮',
-    ),
-    TrendingFandom(
-      title: 'K-Pop World Tour',
-      category: 'Music & Idols',
-      colors: [Color(0xFF4C1D95), Color(0xFF12081F)],
-      emoji: '🎤',
-    ),
-    TrendingFandom(
-      title: 'Heroes Unbound',
-      category: 'Comics',
-      colors: [Color(0xFF7C2D12), Color(0xFF170804)],
-      emoji: '💥',
+      videoId: 'UE6UtfwmWu4',
     ),
   ];
 
