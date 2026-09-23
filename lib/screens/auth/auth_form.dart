@@ -18,7 +18,7 @@ class AuthForm extends StatefulWidget {
   });
 
   final AuthFormMode initialMode;
-  final VoidCallback onSuccess;
+  final ValueChanged<bool> onSuccess;
   final VoidCallback onClose;
 
   @override
@@ -107,7 +107,7 @@ class _AuthFormState extends State<AuthForm>
         );
       }
       if (!mounted) return;
-      widget.onSuccess();
+      widget.onSuccess(!_isSignIn);
     } catch (e) {
       _showMessage(_messageOf(e));
     } finally {
@@ -121,7 +121,7 @@ class _AuthFormState extends State<AuthForm>
     try {
       await AuthService.instance.signInWithGoogle();
       if (!mounted) return;
-      widget.onSuccess();
+      widget.onSuccess(false);
     } catch (e) {
       _showMessage(_messageOf(e));
     } finally {
@@ -306,9 +306,9 @@ class _AuthFormState extends State<AuthForm>
                     final t = Curves.easeOutCubic.transform(_swap.value);
                     final fade =
                         _swap.status == AnimationStatus.forward ||
-                                _swap.value == 1
-                            ? t
-                            : t;
+                            _swap.value == 1
+                        ? t
+                        : t;
                     return Opacity(
                       opacity: fade.clamp(0.0, 1.0),
                       child: Transform.translate(
