@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "248265494952",
+    "project_id": "fandomverse-cfe67",
+    "storage_bucket": "fandomverse-cfe67.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:248265494952:android:4d671cbfa03cab9e400d9d",
+        "android_client_info": {
+          "package_name": "com.fandomverse.fandom_verse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnaRWPxwSU5I_hyIDTK37phbC3LSC5rQo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
