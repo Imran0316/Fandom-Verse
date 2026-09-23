@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
+import 'screens/admin/admin_shell.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/get_started/get_started_screen.dart';
 import 'services/auth_service.dart';
@@ -23,6 +24,7 @@ class FandomVerseApp extends StatelessWidget {
         AppRoutes.signIn: (_) =>
             const GetStartedScreen(openAuthInitially: true),
         AppRoutes.dashboard: (_) => const DashboardScreen(),
+        AppRoutes.admin: (_) => const AdminGate(),
       },
     );
   }

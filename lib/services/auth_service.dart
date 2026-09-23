@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'user_service.dart';
+
 class AuthService {
   AuthService._();
 
@@ -45,10 +47,12 @@ class AuthService {
     required String password,
   }) async {
     if (!firebaseReady) _notConfigured();
-    return FirebaseAuth.instance.signInWithEmailAndPassword(
+    final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
+    await UserService.instance.ensureProfile(credential.user!);
+    return credential;
   }
 
   Future<UserCredential> signUpWithEmail({
@@ -65,6 +69,7 @@ class AuthService {
     if (displayName != null && displayName.trim().isNotEmpty) {
       await credential.user?.updateDisplayName(displayName.trim());
     }
+    await UserService.instance.ensureProfile(credential.user!);
     return credential;
   }
 
@@ -80,10 +85,13 @@ class AuthService {
         await account.authorizationClient.authorizeScopes(scopes);
 
     final credential = GoogleAuthProvider.credential(
-      idToken: idToken,
       accessToken: authorization.accessToken,
+      idToken: idToken,
     );
-    return FirebaseAuth.instance.signInWithCredential(credential);
+    final result =
+        await FirebaseAuth.instance.signInWithCredential(credential);
+    await UserService.instance.ensureProfile(result.user!);
+    return result;
   }
 
   Future<void> sendPasswordResetEmail(String email) async {

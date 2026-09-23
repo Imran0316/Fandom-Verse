@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/mock_catalog.dart';
+import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/user_service.dart';
 import '../../widgets/liquid_floating_nav.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -1434,148 +1437,525 @@ class _ProfileTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthService.instance.currentUser;
-    final name = AuthService.instance.greetingName;
 
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 130),
-      children: [
-        Center(
-          child: Column(
-            children: [
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
+    return StreamBuilder<UserProfile?>(
+      stream: UserService.instance.watchCurrent(),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final name = profile?.name.isNotEmpty == true
+            ? profile!.name
+            : AuthService.instance.greetingName;
+        final role = profile?.role ?? UserRole.fan;
+
+        return ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 130),
+          children: [
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
+                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.25),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.45),
+                          blurRadius: 30,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        name.isNotEmpty
+                            ? name.characters.first.toUpperCase()
+                            : 'F',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _RoleBadge(role: role, shopName: profile?.shopName),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.45),
-                      blurRadius: 30,
-                      offset: const Offset(0, 10),
+                  const SizedBox(height: 4),
+                  Text(
+                    profile?.shopName != null &&
+                            profile!.shopName!.isNotEmpty
+                        ? profile.shopName!
+                        : (user?.email ?? 'Local session'),
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: const [
+                      _InterestChip(label: 'Anime'),
+                      _InterestChip(label: 'Gaming'),
+                      _InterestChip(label: 'K-Pop'),
+                      _InterestChip(label: 'Comics'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 26),
+            if (role == UserRole.fan) ...[
+              _SellerUpgradeCard(
+                onUpgrade: () => _showSellerSheet(context),
+              ),
+              const SizedBox(height: 14),
+            ] else if (role == UserRole.seller) ...[
+              _ProfileTile(
+                icon: Icons.storefront_rounded,
+                label: 'Seller dashboard',
+                trailing: const _MiniBadge(text: 'Seller'),
+                onTap: () => _toast(context, 'Seller dashboard — coming next'),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (role == UserRole.admin)
+              _ProfileTile(
+                icon: Icons.admin_panel_settings_rounded,
+                label: 'Admin Console',
+                trailing: const _MiniBadge(text: 'Admin'),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.admin),
+              ),
+            _ProfileTile(
+              icon: Icons.person_outline_rounded,
+              label: 'Edit profile',
+              onTap: () {},
+            ),
+            _ProfileTile(
+              icon: Icons.favorite_outline_rounded,
+              label: 'My fandom interests',
+              onTap: () {},
+            ),
+            _ProfileTile(
+              icon: Icons.notifications_none_rounded,
+              label: 'Notifications',
+              onTap: () {},
+            ),
+            _ProfileTile(
+              icon: Icons.smart_toy_outlined,
+              label: 'AI Fan Helper',
+              onTap: () {},
+            ),
+            _ProfileTile(
+              icon: Icons.mail_outline_rounded,
+              label: 'Contact Us',
+              onTap: () {},
+            ),
+            _ProfileTile(
+              icon: Icons.info_outline_rounded,
+              label: 'About Us',
+              onTap: () {},
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () async {
+                await AuthService.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/', (route) => false);
+                }
+              },
+              child: LiquidGlass(
+                radius: 16,
+                blur: 20,
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.35),
+                    AppColors.primaryDark.withValues(alpha: 0.2),
+                  ],
+                ),
+                borderColor: AppColors.primary.withValues(alpha: 0.5),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout_rounded, size: 20, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    name.isNotEmpty
-                        ? name.characters.first.toUpperCase()
-                        : 'F',
-                    style: const TextStyle(
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static void _toast(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Fiverr-style self-serve upgrade — no admin approval.
+  static Future<void> _showSellerSheet(BuildContext context) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var loading = false;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                decoration: BoxDecoration(
+                  color: const Color(0xF2101018),
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14),
+                  ),
+                ),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Become a Seller',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Open your shop in one tap — list apparel, collectibles and fan merch. No approval wait.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 13.5,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: controller,
+                        enabled: !loading,
+                        style: const TextStyle(color: Colors.white),
+                        cursorColor: AppColors.accent,
+                        textInputAction: TextInputAction.done,
+                        validator: (v) {
+                          if (v == null || v.trim().length < 3) {
+                            return 'Shop name must be at least 3 characters';
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Shop name',
+                          floatingLabelBehavior: FloatingLabelBehavior.auto,
+                          prefixIcon: const Icon(Icons.storefront_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      GestureDetector(
+                        onTap: loading
+                            ? null
+                            : () async {
+                                if (!(formKey.currentState?.validate() ??
+                                    false)) {
+                                  return;
+                                }
+                                setSheetState(() => loading = true);
+                                try {
+                                  final uid =
+                                      AuthService.instance.currentUser?.uid;
+                                  if (uid == null) {
+                                    throw StateError('Not signed in.');
+                                  }
+                                  await UserService.instance
+                                      .upgradeToSeller(
+                                    uid: uid,
+                                    shopName: controller.text,
+                                  );
+                                  if (sheetContext.mounted) {
+                                    Navigator.of(sheetContext).pop(true);
+                                  }
+                                } catch (e) {
+                                  setSheetState(() => loading = false);
+                                  if (sheetContext.mounted) {
+                                    ScaffoldMessenger.of(sheetContext)
+                                        .showSnackBar(
+                                      SnackBar(content: Text('$e')),
+                                    );
+                                  }
+                                }
+                              },
+                        child: LiquidGlass(
+                          radius: 16,
+                          blur: 18,
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFC1121F),
+                              Color(0xFF7F1D1D),
+                            ],
+                          ),
+                          borderColor: Colors.white.withValues(alpha: 0.2),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: loading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Upgrade to Seller',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed:
+                            loading ? null : () => Navigator.pop(sheetContext, false),
+                        child: const Text(
+                          'Not now',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      _toast(context, 'You’re a seller now — open Seller dashboard to list items.');
+    }
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.role, this.shopName});
+
+  final UserRole role;
+  final String? shopName;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, colors) = switch (role) {
+      UserRole.admin => (
+          'Admin',
+          [Color(0xFFC1121F), Color(0xFF7F1D1D)],
+        ),
+      UserRole.seller => (
+          'Seller',
+          [Color(0xFF7C3AED), Color(0xFF4C1D95)],
+        ),
+      UserRole.fan => (
+          'Fan',
+          [Colors.white.withValues(alpha: 0.16), Colors.white.withValues(alpha: 0.08)],
+        ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniBadge extends StatelessWidget {
+  const _MiniBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.accent,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _SellerUpgradeCard extends StatelessWidget {
+  const _SellerUpgradeCard({required this.onUpgrade});
+
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onUpgrade,
+      child: LiquidGlass(
+        radius: 20,
+        blur: 26,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0x597C3AED),
+            Color(0x33C1121F),
+            Color(0x1AFFFFFF),
+          ],
+        ),
+        borderColor: Colors.white.withValues(alpha: 0.22),
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.storefront_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Become a Seller',
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 32,
+                      fontSize: 16,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                user?.email ?? 'Local session',
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 13.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: const [
-                  _InterestChip(label: 'Anime'),
-                  _InterestChip(label: 'Gaming'),
-                  _InterestChip(label: 'K-Pop'),
-                  _InterestChip(label: 'Comics'),
+                  SizedBox(height: 4),
+                  Text(
+                    'List merch, reach fans — upgrade in one tap',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12.5,
+                      height: 1.3,
+                    ),
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 30),
-        _ProfileTile(
-          icon: Icons.person_outline_rounded,
-          label: 'Edit profile',
-          onTap: () {},
-        ),
-        _ProfileTile(
-          icon: Icons.favorite_outline_rounded,
-          label: 'My fandom interests',
-          onTap: () {},
-        ),
-        _ProfileTile(
-          icon: Icons.notifications_none_rounded,
-          label: 'Notifications',
-          onTap: () {},
-        ),
-        _ProfileTile(
-          icon: Icons.smart_toy_outlined,
-          label: 'AI Fan Helper',
-          onTap: () {},
-        ),
-        _ProfileTile(
-          icon: Icons.mail_outline_rounded,
-          label: 'Contact Us',
-          onTap: () {},
-        ),
-        _ProfileTile(
-          icon: Icons.info_outline_rounded,
-          label: 'About Us',
-          onTap: () {},
-        ),
-        const SizedBox(height: 20),
-        GestureDetector(
-          onTap: () async {
-            await AuthService.instance.signOut();
-            if (context.mounted) {
-              Navigator.of(context)
-                  .pushNamedAndRemoveUntil('/', (route) => false);
-            }
-          },
-          child: LiquidGlass(
-            radius: 16,
-            blur: 20,
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primary.withValues(alpha: 0.35),
-                AppColors.primaryDark.withValues(alpha: 0.2),
-              ],
             ),
-            borderColor: AppColors.primary.withValues(alpha: 0.5),
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.logout_rounded, size: 20, color: Colors.white),
-                SizedBox(width: 8),
-                Text(
-                  'Sign Out',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Colors.white70,
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -1615,11 +1995,13 @@ class _ProfileTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.trailing,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1651,6 +2033,10 @@ class _ProfileTile extends StatelessWidget {
                   ),
                 ),
               ),
+              if (trailing != null) ...[
+                trailing!,
+                const SizedBox(width: 8),
+              ],
               const Icon(
                 Icons.chevron_right_rounded,
                 color: Colors.white38,
