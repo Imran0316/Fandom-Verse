@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'screens/admin/admin_shell.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/get_started/get_started_screen.dart';
+import 'screens/interests/interests_screen.dart';
 import 'services/auth_service.dart';
 
 class FandomVerseApp extends StatelessWidget {
@@ -23,6 +24,7 @@ class FandomVerseApp extends StatelessWidget {
         AppRoutes.getStarted: (_) => const GetStartedScreen(),
         AppRoutes.signIn: (_) =>
             const GetStartedScreen(openAuthInitially: true),
+        AppRoutes.interests: (_) => const InterestsScreen(),
         AppRoutes.dashboard: (_) => const DashboardScreen(),
         AppRoutes.admin: (_) => const AdminGate(),
       },
