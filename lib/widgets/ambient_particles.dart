@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class AmbientParticles extends StatefulWidget {
@@ -14,7 +15,14 @@ class _AmbientParticlesState extends State<AmbientParticles>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 18),
-  )..repeat();
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // Animated MaskFilter.blur is expensive on web — skip the loop there.
+    if (!kIsWeb) _controller.repeat();
+  }
 
   static const List<_Ember> _embers = [
     _Ember(x: 0.06, phase: 0.02, size: 2.6, speed: 1.0, kind: 0),

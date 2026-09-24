@@ -5,7 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/glass_button.dart';
-import '../../widgets/glass_container.dart';
+import '../../widgets/liquid_glass.dart';
 
 class InterestsScreen extends StatefulWidget {
   const InterestsScreen({super.key});
@@ -70,10 +70,20 @@ class _InterestsScreenState extends State<InterestsScreen> {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
-              child: GlassContainer(
-                blur: 30,
-                borderRadius: BorderRadius.circular(28),
-                color: const Color(0xCC0A0A10),
+              child: LiquidGlass(
+                radius: 28,
+                blur: 28,
+                tint: const Color(0x66080810),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.14),
+                    Colors.white.withValues(alpha: 0.05),
+                    AppColors.primary.withValues(alpha: 0.12),
+                  ],
+                ),
+                borderColor: Colors.white.withValues(alpha: 0.28),
                 padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import 'liquid_glass.dart';
 
-/// Indices: 0 Home · 1 Trending · 2 Search · 3 Library · 4 Profile
+/// Indices: 0 Home · 1 Trending · 2 Search · 3 Reels · 4 Profile
 /// Pill hosts 0/1/3/4 — Search (2) is the detached circle.
 class LiquidFloatingNav extends StatelessWidget {
   const LiquidFloatingNav({
@@ -23,7 +23,7 @@ class LiquidFloatingNav extends StatelessWidget {
     0: 'Home',
     1: 'Trending',
     2: 'Search',
-    3: 'Library',
+    3: 'Reels',
     4: 'Profile',
   };
 
@@ -34,7 +34,7 @@ class LiquidFloatingNav extends StatelessWidget {
       Icons.local_fire_department_outlined,
     ),
     2: (Icons.search_rounded, Icons.search_rounded),
-    3: (Icons.folder_rounded, Icons.folder_outlined),
+    3: (Icons.play_circle_rounded, Icons.play_circle_outline_rounded),
     4: (Icons.person_rounded, Icons.person_outline_rounded),
   };
 

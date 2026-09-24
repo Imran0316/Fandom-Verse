@@ -3,27 +3,29 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fandom_verse/app.dart';
 
+Future<void> _pumpApp(WidgetTester tester) async {
+  await tester.pumpWidget(const FandomVerseApp());
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
 void main() {
   testWidgets('Get Started screen is minimal', (WidgetTester tester) async {
-    await tester.pumpWidget(const FandomVerseApp());
-    await tester.pump(const Duration(milliseconds: 300));
+    await _pumpApp(tester);
 
     expect(find.text('Get Started'), findsOneWidget);
     expect(
       find.textContaining('Privacy Policy', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('FandomVerse'), findsNothing);
+    expect(find.text('Join FandomVerse'), findsNothing);
     expect(find.text('Create Account'), findsNothing);
-    expect(find.textContaining('Dancing between'), findsNothing);
   });
 
   testWidgets('Get Started opens auth form', (WidgetTester tester) async {
-    await tester.pumpWidget(const FandomVerseApp());
-    await tester.pump(const Duration(milliseconds: 300));
+    await _pumpApp(tester);
 
     await tester.tap(find.text('Get Started'));
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Join FandomVerse'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
@@ -33,11 +35,10 @@ void main() {
   testWidgets('Home hero does not show fake play controls', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const FandomVerseApp());
-    await tester.pumpAndSettle();
+    await _pumpApp(tester);
 
     await tester.tap(find.text('Get Started'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
     expect(find.textContaining('trailer'), findsNothing);

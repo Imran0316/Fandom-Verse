@@ -2,14 +2,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../../core/animations/app_transitions.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/mock_catalog.dart';
+import '../../models/catalog_docs.dart';
+import '../../models/community_docs.dart';
+import '../../models/post_docs.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/catalog_service.dart';
+import '../../services/community_service.dart';
+import '../../services/post_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/liquid_floating_nav.dart';
 import '../../widgets/liquid_glass.dart';
+import '../communities/post_card.dart';
+import '../reels/reels_tab.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -59,7 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _HomeTab(),
                     _TrendingTab(),
                     _SearchTab(),
-                    _LibraryTab(),
+                    ReelsTab(),
                     _ProfileTab(),
                   ],
                 ),
@@ -157,12 +166,102 @@ class _HomeTabState extends State<_HomeTab> {
         const SizedBox(height: 4),
         _PageDots(count: MockCatalog.trending.length, index: _heroPage),
         const SizedBox(height: 28),
-        _CategoryGrid(
-          onTap: (cat) {
-            _toast(
-              cat.label == 'See all'
-                  ? 'All fandom categories'
-                  : 'Browsing ${cat.label}',
+        StreamBuilder<List<FandomCategoryDoc>>(
+          stream: CatalogService.instance.watchCategories(),
+          builder: (context, snap) {
+            final cats = snap.data ?? const <FandomCategoryDoc>[];
+            if (cats.isEmpty) {
+              return _CategoryGrid(
+                onTap: (cat) => _toast('Browsing ${cat.label}'),
+              );
+            }
+            return _CategoryGridDoc(
+              categories: cats,
+              onTap: (cat) => _toast('Browsing ${cat.name}'),
+            );
+          },
+        ),
+        const SizedBox(height: 34),
+        _SectionHeader(
+          title: 'Communities',
+          onSeeAll: () => Navigator.pushNamed(context, AppRoutes.communities),
+        ),
+        StreamBuilder<List<CommunityDoc>>(
+          stream: CommunityService.instance.watchAll(),
+          builder: (context, snap) {
+            final communities = snap.data ?? const <CommunityDoc>[];
+            if (communities.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _CommunityPromoCard(
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.communities),
+                ),
+              );
+            }
+            final preview = communities.take(4).toList();
+            return SizedBox(
+              height: 118,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                physics: const BouncingScrollPhysics(),
+                itemCount: preview.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, i) {
+                  final c = preview[i];
+                  return _MiniCommunityCard(
+                    community: c,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.communityDetail,
+                      arguments: c.id,
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 34),
+        _SectionHeader(
+          title: 'Fan Feed',
+          onSeeAll: () => Navigator.pushNamed(context, AppRoutes.feed),
+        ),
+        StreamBuilder<List<PostDoc>>(
+          stream: PostService.instance.watchFeed(limit: 5),
+          builder: (context, snap) {
+            final posts = (snap.data ?? const <PostDoc>[]).take(3).toList();
+            if (posts.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _FeedPromoCard(
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.feed),
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  for (var i = 0; i < posts.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: PostCard(post: posts[i]),
+                    ),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.feed),
+                    child: const Text(
+                      'Open full feed',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
@@ -194,33 +293,74 @@ class _HomeTabState extends State<_HomeTab> {
           title: 'Upcoming Events',
           onSeeAll: () => _toast('Full event calendar'),
         ),
-        SizedBox(
-          height: 150,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            physics: const BouncingScrollPhysics(),
-            itemCount: MockCatalog.events.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 14),
-            itemBuilder: (context, i) =>
-                _EventCard(event: MockCatalog.events[i]),
-          ),
+        StreamBuilder<List<FandomEventDoc>>(
+          stream: CatalogService.instance.watchEvents(),
+          builder: (context, snap) {
+            final events = snap.data ?? const <FandomEventDoc>[];
+            if (events.isEmpty) {
+              return SizedBox(
+                height: 150,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: MockCatalog.events.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+                  itemBuilder: (context, i) =>
+                      _EventCard(event: MockCatalog.events[i]),
+                ),
+              );
+            }
+            return SizedBox(
+              height: 150,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                physics: const BouncingScrollPhysics(),
+                itemCount: events.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 14),
+                itemBuilder: (context, i) =>
+                    _EventCardDoc(event: events[i]),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 34),
         _SectionHeader(
           title: 'Merch Spotlight',
           onSeeAll: () => _toast('Official merchandise store'),
         ),
-        SizedBox(
-          height: 186,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            physics: const BouncingScrollPhysics(),
-            itemCount: MockCatalog.merch.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 14),
-            itemBuilder: (context, i) => _MerchCard(item: MockCatalog.merch[i]),
-          ),
+        StreamBuilder<List<MerchProductDoc>>(
+          stream: CatalogService.instance.watchMerch(),
+          builder: (context, snap) {
+            final merch = snap.data ?? const <MerchProductDoc>[];
+            if (merch.isEmpty) {
+              return SizedBox(
+                height: 186,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: MockCatalog.merch.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+                  itemBuilder: (context, i) =>
+                      _MerchCard(item: MockCatalog.merch[i]),
+                ),
+              );
+            }
+            return SizedBox(
+              height: 186,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                physics: const BouncingScrollPhysics(),
+                itemCount: merch.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 14),
+                itemBuilder: (context, i) =>
+                    _MerchCardDoc(item: merch[i]),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -255,20 +395,23 @@ class _HomeTabState extends State<_HomeTab> {
               ],
             ),
           ),
-          LiquidGlass(
-            radius: 16,
-            blur: 20,
-            padding: const EdgeInsets.all(10),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.14),
-                Colors.white.withValues(alpha: 0.06),
-              ],
-            ),
-            child: const Icon(
-              Icons.notifications_none_rounded,
-              color: Colors.white,
-              size: 22,
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
+            child: LiquidGlass(
+              radius: 16,
+              blur: 20,
+              padding: const EdgeInsets.all(10),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0.14),
+                  Colors.white.withValues(alpha: 0.06),
+                ],
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
           ),
         ],
@@ -507,6 +650,318 @@ class _CategoryGrid extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _CategoryGridDoc extends StatelessWidget {
+  const _CategoryGridDoc({
+    required this.categories,
+    required this.onTap,
+  });
+
+  final List<FandomCategoryDoc> categories;
+  final ValueChanged<FandomCategoryDoc> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ...categories.take(5),
+      if (categories.length > 5)
+        FandomCategoryDoc(
+          id: '__all__',
+          name: 'See all',
+          iconName: 'grid',
+          colorName: 'gray',
+        ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth - 40;
+        final cross = (width / 130).floor().clamp(3, 3);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cross,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.08,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, i) {
+              final cat = items[i];
+              return _CategoryDocTile(
+                category: cat,
+                onTap: () => onTap(cat),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CategoryDocTile extends StatelessWidget {
+  const _CategoryDocTile({required this.category, required this.onTap});
+
+  final FandomCategoryDoc category;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = category.color;
+    return GestureDetector(
+      onTap: onTap,
+      child: LiquidGlass(
+        radius: 20,
+        blur: 24,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.06),
+          ],
+        ),
+        borderColor: Colors.white.withValues(alpha: 0.14),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    color.withValues(alpha: 0.55),
+                    color.withValues(alpha: 0.25),
+                  ],
+                ),
+              ),
+              child: Icon(category.icon, color: Colors.white, size: 22),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              category.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EventCardDoc extends StatelessWidget {
+  const _EventCardDoc({required this.event});
+
+  final FandomEventDoc event;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = event.color;
+    return LiquidGlass(
+      radius: 20,
+      blur: 26,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          base.withValues(alpha: 0.55),
+          base.withValues(alpha: 0.9),
+        ],
+      ),
+      borderColor: Colors.white.withValues(alpha: 0.18),
+      child: SizedBox(
+        width: 224,
+        child: Stack(
+          children: [
+            Positioned(
+              right: -8,
+              top: -8,
+              child: Icon(
+                event.icon,
+                size: 88,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LiquidGlass(
+                    radius: 999,
+                    blur: 12,
+                    tint: Colors.white.withValues(alpha: 0.14),
+                    borderColor: Colors.white.withValues(alpha: 0.25),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      event.dateLabel,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    event.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_rounded,
+                        color: Colors.white70,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          event.city,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MerchCardDoc extends StatelessWidget {
+  const _MerchCardDoc({required this.item});
+
+  final MerchProductDoc item;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = item.color;
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        AppRoutes.product,
+        arguments: item,
+      ),
+      child: LiquidGlass(
+      radius: 20,
+      blur: 24,
+      gradient: LinearGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.12),
+          Colors.white.withValues(alpha: 0.05),
+        ],
+      ),
+      borderColor: Colors.white.withValues(alpha: 0.16),
+      child: SizedBox(
+        width: 144,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color.withValues(alpha: 0.7),
+                      color.withValues(alpha: 0.25),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: Center(
+                  child: item.imageUrl?.isNotEmpty == true
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.network(
+                            item.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Text(
+                              item.emoji,
+                              style: const TextStyle(fontSize: 40),
+                            ),
+                          ),
+                        )
+                      : Text(item.emoji, style: const TextStyle(fontSize: 40)),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.priceLabel,
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      ),
     );
   }
 }
@@ -986,7 +1441,11 @@ class _TrendingTab extends StatelessWidget {
                 itemBuilder: (context, i) => _PosterCard(
                   item: items[i],
                   width: double.infinity,
-                  onTap: () {},
+                  onTap: () => ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(content: Text(items[i].title)),
+                    ),
                 ),
               );
             },
@@ -1169,7 +1628,11 @@ class _SearchTabState extends State<_SearchTab> {
                   itemBuilder: (context, i) => _PosterCard(
                     item: results[i],
                     width: double.infinity,
-                    onTap: () {},
+                    onTap: () => ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(content: Text(results[i].title)),
+                      ),
                   ),
                 ),
         ),
@@ -1178,137 +1641,65 @@ class _SearchTabState extends State<_SearchTab> {
   }
 }
 
-/* --------------------------------- LIBRARY -------------------------------- */
+class _MiniCommunityCard extends StatelessWidget {
+  const _MiniCommunityCard({required this.community, required this.onTap});
 
-class _LibraryTab extends StatelessWidget {
-  const _LibraryTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 130),
-      children: [
-        const Text(
-          'Library',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Bookmarks, wishlists & offline saves',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-        ),
-        const SizedBox(height: 22),
-        Row(
-          children: const [
-            Expanded(
-              child: _LibraryStat(
-                value: '12',
-                label: 'Bookmarks',
-                icon: Icons.bookmark_rounded,
-                color: Color(0xFFE11D48),
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: _LibraryStat(
-                value: '6',
-                label: 'Wishlist',
-                icon: Icons.favorite_rounded,
-                color: Color(0xFFA855F7),
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: _LibraryStat(
-                value: '4',
-                label: 'Offline',
-                icon: Icons.download_rounded,
-                color: Color(0xFF10B981),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
-        const Text(
-          'Saved for later',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 14),
-        ...MockCatalog.recommended
-            .take(3)
-            .map(
-              (t) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _LibraryRow(item: t),
-              ),
-            ),
-        const SizedBox(height: 8),
-        const _EmptyState(
-          icon: Icons.folder_open_rounded,
-          title: 'Wishlist is empty',
-          subtitle: 'Tap the heart on merch to save items here.',
-        ),
-      ],
-    );
-  }
-}
-
-class _LibraryStat extends StatelessWidget {
-  const _LibraryStat({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-  final Color color;
+  final CommunityDoc community;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlass(
-      radius: 18,
-      blur: 22,
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          color.withValues(alpha: 0.18),
-          Colors.white.withValues(alpha: 0.06),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              community.color.withValues(alpha: 0.28),
+              Colors.white.withValues(alpha: 0.06),
+            ],
+          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  community.color,
+                  community.color.withValues(alpha: 0.55),
+                ]),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(community.icon, color: Colors.white, size: 18),
+            ),
+            const Spacer(),
             Text(
-              value,
+              community.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w800,
+                height: 1.2,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+              '${community.memberCount} members',
+              style: TextStyle(
+                color: community.color,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -1318,60 +1709,109 @@ class _LibraryStat extends StatelessWidget {
   }
 }
 
-class _LibraryRow extends StatelessWidget {
-  const _LibraryRow({required this.item});
+class _CommunityPromoCard extends StatelessWidget {
+  const _CommunityPromoCard({required this.onTap});
 
-  final MediaTitle item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlass(
-      radius: 16,
-      blur: 22,
-      gradient: LinearGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.12),
-          Colors.white.withValues(alpha: 0.05),
-        ],
-      ),
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: item.colors),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-            ),
-            child: Center(
-              child: Text(item.emoji, style: const TextStyle(fontSize: 24)),
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.25),
+              Colors.white.withValues(alpha: 0.05),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.diversity_3_rounded, color: AppColors.primary, size: 28),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Start a community',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  item.tag,
-                  style: const TextStyle(color: Colors.white60, fontSize: 12.5),
-                ),
-              ],
+                  SizedBox(height: 4),
+                  Text(
+                    'Gather your fandom — create or join a crew.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                  ),
+                ],
+              ),
             ),
+            Icon(Icons.chevron_right_rounded, color: Colors.white54),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedPromoCard extends StatelessWidget {
+  const _FeedPromoCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFFA855F7).withValues(alpha: 0.2),
+              Colors.white.withValues(alpha: 0.05),
+            ],
           ),
-          const Icon(Icons.bookmark_rounded, color: AppColors.accent, size: 20),
-        ],
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.bolt_rounded, color: Color(0xFFA855F7), size: 28),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Feed is warming up',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Post hot takes and see what the verse is saying.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.white54),
+          ],
+        ),
       ),
     );
   }
@@ -1459,56 +1899,99 @@ class _ProfileTab extends StatelessWidget {
             Center(
               child: Column(
                 children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
-                      ),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.25),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.45),
-                          blurRadius: 30,
-                          offset: const Offset(0, 10),
+                  GestureDetector(
+                    onTap: profile?.uid.isNotEmpty == true
+                        ? () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.userProfile,
+                              arguments: profile!.uid,
+                            )
+                        : null,
+                    child: Hero(
+                      tag: 'avatar-${profile?.uid ?? 'self'}',
+                      child: Container(
+                        width: 88,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
+                          ),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  AppColors.primary.withValues(alpha: 0.45),
+                              blurRadius: 30,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        name.isNotEmpty
-                            ? name.characters.first.toUpperCase()
-                            : 'F',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                        ),
+                        child: profile?.avatarUrl?.isNotEmpty == true
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(27),
+                                child: Image.network(
+                                  profile!.avatarUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => Center(
+                                    child: Text(
+                                      name.isNotEmpty
+                                          ? name.characters.first
+                                                .toUpperCase()
+                                          : 'F',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  name.isNotEmpty
+                                      ? name.characters.first.toUpperCase()
+                                      : 'F',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          name,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                  GestureDetector(
+                    onTap: profile?.uid.isNotEmpty == true
+                        ? () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.userProfile,
+                              arguments: profile!.uid,
+                            )
+                        : null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      _RoleBadge(role: role, shopName: profile?.shopName),
-                    ],
+                        const SizedBox(width: 10),
+                        _RoleBadge(role: role, shopName: profile?.shopName),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1521,16 +2004,13 @@ class _ProfileTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: const [
-                      _InterestChip(label: 'Anime'),
-                      _InterestChip(label: 'Gaming'),
-                      _InterestChip(label: 'K-Pop'),
-                      _InterestChip(label: 'Comics'),
-                    ],
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.interestsEditor,
+                      arguments: profile?.selectedFandoms ?? const <String>[],
+                    ),
+                    child: _FandomChips(profile: profile),
                   ),
                 ],
               ),
@@ -1539,90 +2019,133 @@ class _ProfileTab extends StatelessWidget {
             if (role == UserRole.fan) ...[
               _SellerUpgradeCard(onUpgrade: () => _showSellerSheet(context)),
               const SizedBox(height: 14),
-            ] else if (role == UserRole.seller) ...[
+            ] else if (role == UserRole.seller || profile?.isAdmin == true) ...[
               _ProfileTile(
                 icon: Icons.storefront_rounded,
                 label: 'Seller dashboard',
-                trailing: const _MiniBadge(text: 'Seller'),
-                onTap: () => _toast(context, 'Seller dashboard — coming next'),
+                trailing: _MiniBadge(
+                  text: profile?.isAdmin == true ? 'Admin' : 'Seller',
+                ),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.seller),
               ),
               const SizedBox(height: 12),
             ],
             if (role == UserRole.admin)
-              _ProfileTile(
-                icon: Icons.admin_panel_settings_rounded,
-                label: 'Admin Console',
-                trailing: const _MiniBadge(text: 'Admin'),
-                onTap: () => Navigator.pushNamed(context, AppRoutes.admin),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 40),
+                child: _ProfileTile(
+                  icon: Icons.admin_panel_settings_rounded,
+                  label: 'Admin Console',
+                  trailing: const _MiniBadge(text: 'Admin'),
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.admin),
+                ),
               ),
-            _ProfileTile(
-              icon: Icons.person_outline_rounded,
-              label: 'Edit profile',
-              onTap: () {},
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 60),
+              child: _ProfileTile(
+                icon: Icons.person_outline_rounded,
+                label: 'My profile',
+                onTap: () {
+                  final uid = AuthService.instance.currentUser?.uid;
+                  if (uid == null || uid.isEmpty) {
+                    _toast(context, 'Sign in to view your profile');
+                    return;
+                  }
+                  Navigator.pushNamed(
+                    context,
+                    AppRoutes.userProfile,
+                    arguments: uid,
+                  );
+                },
+              ),
             ),
-            _ProfileTile(
-              icon: Icons.favorite_outline_rounded,
-              label: 'My fandom interests',
-              onTap: () {},
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 90),
+              child: _ProfileTile(
+                icon: Icons.edit_outlined,
+                label: 'Edit profile',
+                onTap: () async {
+                  final uid = AuthService.instance.currentUser?.uid;
+                  if (uid == null) {
+                    _toast(context, 'Sign in to edit your profile');
+                    return;
+                  }
+                  final current = profile ??
+                      await UserService.instance.fetch(uid);
+                  if (!context.mounted) return;
+                  await Navigator.pushNamed(
+                    context,
+                    AppRoutes.editProfile,
+                    arguments: current,
+                  );
+                },
+              ),
             ),
-            _ProfileTile(
-              icon: Icons.notifications_none_rounded,
-              label: 'Notifications',
-              onTap: () {},
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 120),
+              child: _ProfileTile(
+                icon: Icons.favorite_outline_rounded,
+                label: 'My fandom interests',
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.interestsEditor,
+                  arguments: profile?.selectedFandoms ?? const <String>[],
+                ),
+              ),
             ),
-            _ProfileTile(
-              icon: Icons.smart_toy_outlined,
-              label: 'AI Fan Helper',
-              onTap: () {},
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 150),
+              child: _ProfileTile(
+                icon: Icons.shopping_cart_outlined,
+                label: 'Cart',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.cart),
+              ),
             ),
-            _ProfileTile(
-              icon: Icons.mail_outline_rounded,
-              label: 'Contact Us',
-              onTap: () {},
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 165),
+              child: _ProfileTile(
+                icon: Icons.receipt_long_outlined,
+                label: 'My orders',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.orders),
+              ),
             ),
-            _ProfileTile(
-              icon: Icons.info_outline_rounded,
-              label: 'About Us',
-              onTap: () {},
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 180),
+              child: _ProfileTile(
+                icon: Icons.notifications_none_rounded,
+                label: 'Notifications',
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.notifications),
+              ),
+            ),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 210),
+              child: _ProfileTile(
+                icon: Icons.smart_toy_outlined,
+                label: 'AI Fan Helper',
+                trailing: const _MiniBadge(text: 'AI'),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.aiHelper),
+              ),
+            ),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 240),
+              child: _ProfileTile(
+                icon: Icons.mail_outline_rounded,
+                label: 'Contact Us',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.contact),
+              ),
+            ),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 270),
+              child: _ProfileTile(
+                icon: Icons.info_outline_rounded,
+                label: 'About Us',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.about),
+              ),
             ),
             const SizedBox(height: 20),
-            GestureDetector(
-              onTap: () async {
-                await AuthService.instance.signOut();
-                if (context.mounted) {
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil('/', (route) => false);
-                }
-              },
-              child: LiquidGlass(
-                radius: 16,
-                blur: 20,
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary.withValues(alpha: 0.35),
-                    AppColors.primaryDark.withValues(alpha: 0.2),
-                  ],
-                ),
-                borderColor: AppColors.primary.withValues(alpha: 0.5),
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.logout_rounded, size: 20, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      'Sign Out',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _SignOutButton(),
           ],
         );
       },
@@ -1808,6 +2331,119 @@ class _ProfileTab extends StatelessWidget {
   }
 }
 
+class _SignOutButton extends StatefulWidget {
+  const _SignOutButton();
+
+  @override
+  State<_SignOutButton> createState() => _SignOutButtonState();
+}
+
+class _SignOutButtonState extends State<_SignOutButton> {
+  bool _busy = false;
+
+  Future<void> _confirmAndSignOut() async {
+    if (_busy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xF2101018),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        title: const Text(
+          'Sign out?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+        ),
+        content: const Text(
+          'You can sign back in anytime with your email or Google account.',
+          style: TextStyle(color: Colors.white70, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Sign out',
+              style: TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await AuthService.instance.signOut();
+    } catch (_) {
+      // Still leave the session — a stuck Google SDK must not lock the user in.
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.getStarted,
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _busy ? null : _confirmAndSignOut,
+      child: Opacity(
+        opacity: _busy ? 0.7 : 1,
+        child: LiquidGlass(
+          radius: 16,
+          blur: 20,
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.35),
+              AppColors.primaryDark.withValues(alpha: 0.2),
+            ],
+          ),
+          borderColor: AppColors.primary.withValues(alpha: 0.5),
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_busy)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.logout_rounded,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              const SizedBox(width: 8),
+              Text(
+                _busy ? 'Signing out…' : 'Sign Out',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RoleBadge extends StatelessWidget {
   const _RoleBadge({required this.role, this.shopName});
 
@@ -1950,6 +2586,38 @@ class _SellerUpgradeCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FandomChips extends StatelessWidget {
+  const _FandomChips({this.profile});
+
+  final UserProfile? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final fandoms = profile?.selectedFandoms ?? const <String>[];
+    if (fandoms.isEmpty) {
+      return const Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          _InterestChip(label: 'Anime'),
+          _InterestChip(label: 'Gaming'),
+          _InterestChip(label: 'K-Pop'),
+          _InterestChip(label: 'Comics'),
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        for (final f in fandoms) _InterestChip(label: f),
+      ],
     );
   }
 }

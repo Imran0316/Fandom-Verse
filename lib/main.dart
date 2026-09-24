@@ -8,16 +8,16 @@ import 'services/auth_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  // Don't block the first frame on Firebase — paint the shell immediately
+  // and flip the flag when init finishes (or fails).
+  final firebase = Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  ).then((_) {
     AuthService.firebaseReady = true;
-  } catch (_) {
-    // Placeholder options or missing config — app runs in UI-only mode
-    // until `flutterfire configure` generates real firebase_options.dart.
+  }).catchError((_) {
     AuthService.firebaseReady = false;
-  }
+  });
 
   runApp(const FandomVerseApp());
+  await firebase;
 }

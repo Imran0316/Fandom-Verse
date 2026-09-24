@@ -48,6 +48,16 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin();
+
+      match /cart/{productId} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    // ---- Categories (admin-managed, everyone signed-in can read) ----
+    match /categories/{categoryId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
     }
 
     // ---- Communities / posts / merch / events (Phase 1+) ----
@@ -55,8 +65,26 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if isAdmin()
+      allow update: if isAdmin()
+        || resource.data.ownerUid == request.auth.uid
+        // Join/leave only bumps the counter — any signed-in member may do that.
+        || (signedIn()
+            && request.resource.data.diff(resource.data)
+                 .affectedKeys()
+                 .hasOnly(['memberCount']));
+      allow delete: if isAdmin()
         || resource.data.ownerUid == request.auth.uid;
+
+      match /members/{memberUid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && memberUid == request.auth.uid;
+        allow delete: if isAdmin()
+          || memberUid == request.auth.uid
+          || get(/databases/$(database)/documents/communities/$(communityId)).data.ownerUid == request.auth.uid;
+        allow update: if isAdmin()
+          || memberUid == request.auth.uid
+          || get(/databases/$(database)/documents/communities/$(communityId)).data.ownerUid == request.auth.uid;
+      }
     }
 
     match /posts/{postId} {
@@ -103,6 +131,16 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if signedIn();
       allow create, update, delete: if isAdmin();
+    }
+
+    // ---- Orders ----
+    match /orders/{orderId} {
+      allow read: if signedIn()
+        && (resource.data.buyerUid == request.auth.uid || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.buyerUid == request.auth.uid;
+      allow update, delete: if isAdmin()
+        || resource.data.buyerUid == request.auth.uid;
     }
 
     match /{document=**} {
