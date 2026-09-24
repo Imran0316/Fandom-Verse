@@ -4,7 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/glass_button.dart';
-import '../../widgets/glass_container.dart';
+import '../../widgets/liquid_glass.dart';
 import '../../widgets/liquid_segmented_control.dart';
 
 enum AuthFormMode { signIn, signUp }
@@ -230,30 +230,51 @@ class _AuthFormState extends State<AuthForm>
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Container(
-        padding: const EdgeInsets.all(1.2),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.35),
-              Colors.white.withValues(alpha: 0.06),
-              AppColors.primary.withValues(alpha: 0.35),
-            ],
-          ),
+    // Liquid glass: light blur, very low fill so the hero image stays visible.
+    return Container(
+      padding: const EdgeInsets.all(1),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.4),
+            Colors.white.withValues(alpha: 0.08),
+            AppColors.primary.withValues(alpha: 0.22),
+            Colors.white.withValues(alpha: 0.22),
+          ],
+          stops: const [0, 0.35, 0.7, 1],
         ),
-        child: GlassContainer(
-          blur: 40,
-          borderRadius: const BorderRadius.all(Radius.circular(27)),
-          color: const Color(0xCC0A0A10),
-          borderColor: Colors.transparent,
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 26),
-          child: Form(
-            key: _formKey,
-            child: Column(
+      ),
+      child: LiquidGlass(
+        radius: 27,
+        blur: 12,
+        tint: const Color(0x1F080810),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.1),
+            Colors.white.withValues(alpha: 0.03),
+            Colors.white.withValues(alpha: 0.06),
+            AppColors.primary.withValues(alpha: 0.08),
+          ],
+          stops: const [0, 0.4, 0.75, 1],
+        ),
+        borderColor: Colors.white.withValues(alpha: 0.26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 40,
+            spreadRadius: -6,
+            offset: const Offset(0, 18),
+          ),
+        ],
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 26),
+        child: Form(
+          key: _formKey,
+          child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -389,7 +410,6 @@ class _AuthFormState extends State<AuthForm>
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
-}

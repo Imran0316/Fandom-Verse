@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'user_service.dart';
@@ -101,9 +104,21 @@ class AuthService {
 
   Future<void> signOut() async {
     if (!firebaseReady) return;
+
+    if (!kIsWeb) {
+      try {
+        await GoogleSignIn.instance
+            .signOut()
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {}
+    }
+
     try {
-      await GoogleSignIn.instance.signOut();
-    } catch (_) {}
-    await FirebaseAuth.instance.signOut();
+      await FirebaseAuth.instance
+          .signOut()
+          .timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      debugPrint('AuthService: FirebaseAuth.signOut timed out');
+    }
   }
 }

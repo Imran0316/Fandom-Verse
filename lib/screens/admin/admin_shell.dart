@@ -4,8 +4,10 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/catalog_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/liquid_glass.dart';
+import 'admin_panels.dart';
 
 /// Blocks non-admins and shows a lightweight admin console.
 class AdminGate extends StatelessWidget {
@@ -293,150 +295,26 @@ class _AdminSection extends StatelessWidget {
 
   final int index;
 
-  static const _blocks = [
-    (
-      title: 'Platform overview',
-      subtitle: 'Live metrics from Firestore.',
-      tiles: <(String, String, IconData)>[],
-    ),
-    (
-      title: 'User management',
-      subtitle: 'Search accounts and change fan ↔ seller ↔ admin. Admins only — rules enforce.',
-      tiles: <(String, String, IconData)>[],
-    ),
-    (
-      title: 'Category management',
-      subtitle: 'Add, edit or remove fandom categories (Anime, Gaming, …).',
-      tiles: [
-        ('Anime', 'edit', Icons.theaters_rounded),
-        ('Gaming', 'edit', Icons.sports_esports_rounded),
-        ('+ Add new', 'create', Icons.add_rounded),
-      ],
-    ),
-    (
-      title: 'Content moderation',
-      subtitle: 'Review posts, cosplays and comments. Remove or pin.',
-      tiles: [
-        ('Recent posts', 'review', Icons.dynamic_feed_rounded),
-        ('Pinned', '0', Icons.push_pin_rounded),
-        ('Removed', '0', Icons.delete_outline_rounded),
-      ],
-    ),
-    (
-      title: 'Events',
-      subtitle: 'Add, edit or remove conventions and meetups.',
-      tiles: [
-        ('Upcoming', 'manage', Icons.event_rounded),
-        ('+ Add event', 'create', Icons.add_location_alt_rounded),
-      ],
-    ),
-    (
-      title: 'Merchandise',
-      subtitle: 'Approve listings, remove products, manage sellers.',
-      tiles: [
-        ('Products', 'manage', Icons.inventory_2_rounded),
-        ('Sellers', 'manage', Icons.badge_rounded),
-        ('Flagged', '0', Icons.report_gmailerrorred_rounded),
-      ],
-    ),
-    (
-      title: 'Reports queue',
-      subtitle: 'Resolve user reports on content and accounts.',
-      tiles: [
-        ('Open', '0', Icons.inbox_rounded),
-        ('Resolved', '0', Icons.task_alt_rounded),
-      ],
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    if (index == 0) return const _OverviewPanel();
-    if (index == 1) return const _UsersPanel();
-
-    final block = _blocks[index];
-    final tiles = block.tiles;
-
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-      children: [
-        Text(
-          block.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          block.subtitle,
-          style: const TextStyle(
-            color: Colors.white60,
-            fontSize: 13.5,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 20),
-        ...tiles.map(
-          (t) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: LiquidGlass(
-              radius: 18,
-              blur: 22,
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0.12),
-                  Colors.white.withValues(alpha: 0.05),
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
-                      ),
-                    ),
-                    child: Icon(t.$3, color: Colors.white, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      t.$1,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    t.$2,
-                    style: const TextStyle(
-                      color: AppColors.accent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: Colors.white38,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+    switch (index) {
+      case 0:
+        return const _OverviewPanel();
+      case 1:
+        return const _UsersPanel();
+      case 2:
+        return const CategoriesPanel();
+      case 3:
+        return const ContentModerationPanel();
+      case 4:
+        return const EventsPanel();
+      case 5:
+        return const MerchAdminPanel();
+      case 6:
+        return const ReportsPanel();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }
 
@@ -518,6 +396,7 @@ class _OverviewPanelState extends State<_OverviewPanel> {
   int? _posts;
   int? _communities;
   int? _merch;
+  int? _categories;
   Object? _error;
 
   @override
@@ -528,17 +407,21 @@ class _OverviewPanelState extends State<_OverviewPanel> {
 
   Future<void> _load() async {
     try {
+      await CatalogService.instance.seedCategoriesIfEmpty();
       final users = await UserService.instance.countCollection('users');
       final posts = await UserService.instance.countCollection('posts');
       final communities =
           await UserService.instance.countCollection('communities');
       final merch = await UserService.instance.countCollection('merch');
+      final categories =
+          await UserService.instance.countCollection('categories');
       if (!mounted) return;
       setState(() {
         _users = users;
         _posts = posts;
         _communities = communities;
         _merch = merch;
+        _categories = categories;
         _error = null;
       });
     } catch (e) {
@@ -551,6 +434,7 @@ class _OverviewPanelState extends State<_OverviewPanel> {
   Widget build(BuildContext context) {
     final tiles = [
       ('Users', _users, Icons.groups_rounded),
+      ('Categories', _categories, Icons.category_rounded),
       ('Communities', _communities, Icons.diversity_3_rounded),
       ('Posts', _posts, Icons.forum_rounded),
       ('Merch', _merch, Icons.storefront_rounded),
@@ -930,7 +814,15 @@ class _UsersPanelState extends State<_UsersPanel> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _GlassCard(
-                      onTap: _busy ? null : () => _openRoleSheet(u),
+                      onTap: _busy
+                          ? null
+                          : () {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.userProfile,
+                                arguments: u.uid,
+                              );
+                            },
                       child: Row(
                         children: [
                           CircleAvatar(
@@ -997,7 +889,17 @@ class _UsersPanelState extends State<_UsersPanel> {
                             ),
                           ),
                           _RolePill(role: u.role),
-                          const SizedBox(width: 6),
+                          IconButton(
+                            tooltip: 'Change role',
+                            onPressed: _busy
+                                ? null
+                                : () => _openRoleSheet(u),
+                            icon: const Icon(
+                              Icons.swap_horiz_rounded,
+                              color: Colors.white54,
+                              size: 20,
+                            ),
+                          ),
                           const Icon(
                             Icons.chevron_right_rounded,
                             color: Colors.white38,

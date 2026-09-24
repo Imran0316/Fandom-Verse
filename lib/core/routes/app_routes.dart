@@ -6,4 +6,19 @@ class AppRoutes {
   static const String interests = '/interests';
   static const String dashboard = '/dashboard';
   static const String admin = '/admin';
+  static const String seller = '/seller';
+  static const String userProfile = '/user-profile';
+  static const String editProfile = '/edit-profile';
+  static const String interestsEditor = '/interests-editor';
+  static const String notifications = '/notifications';
+  static const String aiHelper = '/ai-helper';
+  static const String contact = '/contact';
+  static const String about = '/about';
+  static const String communities = '/communities';
+  static const String createCommunity = '/communities/create';
+  static const String communityDetail = '/communities/detail';
+  static const String feed = '/feed';
+  static const String cart = '/cart';
+  static const String orders = '/orders';
+  static const String product = '/product';
 }

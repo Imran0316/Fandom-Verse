@@ -39,6 +39,10 @@ dependencies:
   google_sign_in: ^7.2.0
   cloud_firestore: ^6.10.0
   youtube_player_flutter: ^10.0.1
+  lottie: ^3.6.1
+  page_transition: ^2.2.2
+  http: ^1.6.0
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +68,7 @@ flutter:
 
   assets:
     - lib/assets/images/
+    - lib/assets/lottie/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -57,6 +57,71 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
         final thumbWidth = segmentWidth - 8;
         final thumbLeft = 4.0 + (widget.selectedIndex * segmentWidth);
 
+        Widget track = Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 450),
+              curve: spring,
+              left: thumbLeft,
+              top: 4,
+              bottom: 4,
+              width: thumbWidth,
+              child: AnimatedBuilder(
+                animation: _thumbPulse,
+                builder: (context, child) {
+                  final t = _thumbPulse.value;
+                  final bounce =
+                      1 + 0.04 * (1 - Curves.easeOutBack.transform(t));
+                  final dir = widget.selectedIndex - _lastIndex;
+                  final shift = 6.0 * dir * (1 - Curves.easeOut.transform(t));
+                  return Transform.translate(
+                    offset: Offset(shift, 0),
+                    child: Transform.scale(scale: bounce, child: child),
+                  );
+                },
+                child: const _LiquidThumb(),
+              ),
+            ),
+            Positioned.fill(
+              child: Row(
+                children: List.generate(count, (i) {
+                  final selected = i == widget.selectedIndex;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => widget.onIndexChanged(i),
+                      child: Center(
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 280),
+                          curve: Curves.easeOut,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: selected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            letterSpacing: 0.2,
+                            color: selected
+                                ? Colors.white
+                                : const Color(0xFF9CA3AF),
+                          ),
+                          child: Text(widget.labels[i]),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        );
+
+        // Frosted track so the segmented control reads as glass.
+        track = BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: track,
+        );
+
         return Container(
           height: 48,
           clipBehavior: Clip.none,
@@ -72,74 +137,7 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 450),
-                    curve: spring,
-                    left: thumbLeft,
-                    top: 4,
-                    bottom: 4,
-                    width: thumbWidth,
-                    child: AnimatedBuilder(
-                      animation: _thumbPulse,
-                      builder: (context, child) {
-                        final t = _thumbPulse.value;
-                        final bounce =
-                            1 + 0.04 * (1 - Curves.easeOutBack.transform(t));
-                        final dir = widget.selectedIndex - _lastIndex;
-                        final shift =
-                            6.0 * dir * (1 - Curves.easeOut.transform(t));
-                        return Transform.translate(
-                          offset: Offset(shift, 0),
-                          child: Transform.scale(
-                            scale: bounce,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: _LiquidThumb(),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Row(
-                      children: List.generate(count, (i) {
-                        final selected = i == widget.selectedIndex;
-                        return Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => widget.onIndexChanged(i),
-                            child: Center(
-                              child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 280),
-                                curve: Curves.easeOut,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: selected
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                  letterSpacing: 0.2,
-                                  color: selected
-                                      ? Colors.white
-                                      : const Color(0xFF9CA3AF),
-                                ),
-                                child: Text(widget.labels[i]),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          child: ClipRRect(borderRadius: BorderRadius.circular(15), child: track),
         );
       },
     );
@@ -147,6 +145,8 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
 }
 
 class _LiquidThumb extends StatelessWidget {
+  const _LiquidThumb();
+
   @override
   Widget build(BuildContext context) {
     return Container(

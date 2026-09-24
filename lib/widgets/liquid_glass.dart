@@ -7,7 +7,7 @@ class LiquidGlass extends StatelessWidget {
     super.key,
     required this.child,
     this.radius = 20,
-    this.blur = 28,
+    this.blur = 24,
     this.tint = const Color(0xB30A0A10),
     this.borderColor,
     this.gradient,
@@ -68,7 +68,7 @@ class LiquidGlassPill extends StatelessWidget {
     super.key,
     required this.child,
     this.radius = 999,
-    this.blur = 30,
+    this.blur = 14,
     this.padding = EdgeInsets.zero,
   });
 
