@@ -99,7 +99,7 @@ Future<void> showSuccessSheet(
                 width: 100,
                 height: 100,
                 repeat: false,
-                asset: 'assets/lottie/success.json',
+                asset: 'lib/assets/lottie/success.json',
                 fallback: const PulseDot(size: 72),
               ),
               const SizedBox(height: 12),

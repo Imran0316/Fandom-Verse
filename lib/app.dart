@@ -4,6 +4,7 @@ import 'core/animations/app_transitions.dart';
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'models/catalog_docs.dart';
+import 'models/community_docs.dart';
 import 'models/content_docs.dart';
 import 'screens/admin/admin_shell.dart';
 import 'screens/admin/content_editor_screen.dart';
@@ -12,6 +13,7 @@ import 'screens/content/explore_screen.dart';
 import 'screens/content/saved_screen.dart';
 import 'screens/communities/communities_screen.dart';
 import 'screens/communities/community_detail_screen.dart';
+import 'screens/communities/edit_community_screen.dart';
 import 'screens/communities/feed_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/get_started/get_started_screen.dart';
@@ -20,13 +22,14 @@ import 'screens/profile/about_screen.dart';
 import 'screens/profile/ai_helper_screen.dart';
 import 'screens/profile/contact_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
+import 'screens/profile/follow_requests_screen.dart';
 import 'screens/profile/notifications_screen.dart';
 import 'screens/profile/user_profile_screen.dart';
 import 'screens/seller/seller_dashboard.dart';
 import 'screens/shop/cart_screen.dart';
 import 'screens/shop/orders_screen.dart';
 import 'screens/shop/product_detail_screen.dart';
-import 'services/auth_service.dart';
+import 'screens/splash/splash_screen.dart';
 
 class FandomVerseApp extends StatelessWidget {
   const FandomVerseApp({super.key});
@@ -42,6 +45,9 @@ class FandomVerseApp extends StatelessWidget {
 
         Widget page;
         switch (name) {
+          case AppRoutes.splash:
+            page = const SplashScreen();
+            break;
           case AppRoutes.getStarted:
             page = const GetStartedScreen();
             break;
@@ -61,9 +67,7 @@ class FandomVerseApp extends StatelessWidget {
             page = const SellerDashboardScreen();
             break;
           case AppRoutes.editProfile:
-            page = EditProfileScreen(
-              profile: settings.arguments as dynamic,
-            );
+            page = EditProfileScreen(profile: settings.arguments as dynamic);
             break;
           case AppRoutes.interestsEditor:
             page = InterestsEditorScreen(
@@ -87,6 +91,14 @@ class FandomVerseApp extends StatelessWidget {
             break;
           case AppRoutes.createCommunity:
             page = const CreateCommunityScreen();
+            break;
+          case AppRoutes.editCommunity:
+            final community = settings.arguments;
+            if (community is CommunityDoc) {
+              page = EditCommunityScreen(community: community);
+            } else {
+              page = const Scaffold(body: SizedBox.shrink());
+            }
             break;
           case AppRoutes.communityDetail:
             final id = settings.arguments as String?;
@@ -149,12 +161,17 @@ class FandomVerseApp extends StatelessWidget {
               page = UserProfileScreen(uid: uid);
             }
             break;
+          case AppRoutes.followRequests:
+            page = const FollowRequestsScreen();
+            break;
           default:
             page = const GetStartedScreen();
         }
 
-        // Dashboard / get-started keep default fade; secondary screens animate.
-        if (name == AppRoutes.dashboard || name == AppRoutes.getStarted) {
+        // Dashboard / splash / get-started keep default fade; secondary screens animate.
+        if (name == AppRoutes.dashboard ||
+            name == AppRoutes.splash ||
+            name == AppRoutes.getStarted) {
           return MaterialPageRoute(builder: (_) => page, settings: settings);
         }
         if (name == AppRoutes.admin ||
@@ -168,6 +185,8 @@ class FandomVerseApp extends StatelessWidget {
         if (name == AppRoutes.editProfile ||
             name == AppRoutes.interestsEditor ||
             name == AppRoutes.createCommunity ||
+            name == AppRoutes.editCommunity ||
+            name == AppRoutes.followRequests ||
             name == AppRoutes.cart ||
             name == AppRoutes.orders ||
             name == AppRoutes.contentEditor) {
@@ -183,9 +202,7 @@ class FandomVerseApp extends StatelessWidget {
         }
         return AppTransitions.fadeSlide(page, settings: settings);
       },
-      initialRoute: AuthService.instance.isSignedIn
-          ? AppRoutes.dashboard
-          : AppRoutes.getStarted,
+      initialRoute: AppRoutes.splash,
     );
   }
 }

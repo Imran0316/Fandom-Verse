@@ -58,7 +58,7 @@ class ContactScreen extends StatelessWidget {
                       child: LottieView(
                         width: 88,
                         height: 88,
-                        asset: 'assets/lottie/sparkle.json',
+                        asset: 'lib/assets/lottie/sparkle.json',
                         fallback: const PulseDot(size: 72),
                       ),
                     ),

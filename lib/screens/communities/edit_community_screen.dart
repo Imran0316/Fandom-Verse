@@ -1,406 +1,33 @@
 import 'package:flutter/material.dart';
 
-import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/community_docs.dart';
-import '../../services/auth_service.dart';
 import '../../services/community_service.dart';
 import '../../services/image_upload_service.dart';
-import '../../services/stream_cache.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/glass_button.dart';
-import '../../widgets/liquid_glass.dart';
-import '../../core/animations/app_transitions.dart';
 
-class CommunitiesScreen extends StatefulWidget {
-  const CommunitiesScreen({super.key});
-
-  @override
-  State<CommunitiesScreen> createState() => _CommunitiesScreenState();
-}
-
-class _CommunitiesScreenState extends State<CommunitiesScreen> {
-  bool _joinedOnly = false;
-  final _all = StreamCache<List<CommunityDoc>>(
-    () => CommunityService.instance.watchAll(),
-  );
-  final _joined = StreamCache<List<CommunityDoc>>(
-    () => CommunityService.instance.watchJoined(),
-  );
-
-  Future<void> _openCreate() async {
-    final created = await Navigator.pushNamed<bool>(
-      context,
-      AppRoutes.createCommunity,
-    );
-    if (created == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Community created')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundDeep,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.arrow_back_rounded),
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Communities',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _openCreate,
-                        tooltip: 'Create community',
-                        style: IconButton.styleFrom(
-                          backgroundColor:
-                              AppColors.primary.withValues(alpha: 0.3),
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.add_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Row(
-                    children: [
-                      _FilterChip(
-                        label: 'All',
-                        selected: !_joinedOnly,
-                        onTap: () => setState(() => _joinedOnly = false),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterChip(
-                        label: 'Joined',
-                        selected: _joinedOnly,
-                        onTap: () => setState(() => _joinedOnly = true),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: StreamBuilder<List<CommunityDoc>>(
-                    stream: _joinedOnly ? _joined() : _all(),
-                    builder: (context, snap) {
-                      if (snap.connectionState == ConnectionState.waiting &&
-                          snap.data == null) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      }
-                      final items = snap.data ?? const <CommunityDoc>[];
-                      if (items.isEmpty) {
-                        return _EmptyCommunities(
-                          joinedOnly: _joinedOnly,
-                          onBrowseAll: _joinedOnly
-                              ? () => setState(() => _joinedOnly = false)
-                              : null,
-                        );
-                      }
-                      return ListView.separated(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                        itemCount: items.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, i) {
-                          final c = items[i];
-                          return FadeSlideIn(
-                            key: ValueKey(c.id),
-                            delay: Duration(milliseconds: 40 * i.clamp(0, 8)),
-                            child: _CommunityTile(community: c),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          gradient: selected
-              ? const LinearGradient(
-                  colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
-                )
-              : null,
-          color: selected ? null : Colors.white.withValues(alpha: 0.08),
-          border: Border.all(
-            color: selected
-                ? Colors.white.withValues(alpha: 0.25)
-                : Colors.white.withValues(alpha: 0.12),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.white70,
-            fontWeight: FontWeight.w700,
-            fontSize: 13.5,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CommunityTile extends StatelessWidget {
-  const _CommunityTile({required this.community});
+/// Owner-only form to update a community's name, description, cover image
+/// and profile image. Prefilled from the [CommunityDoc] passed as the route
+/// argument; saves through [CommunityService.updateCommunity] (merge write,
+/// so counts and createdAt are untouched).
+class EditCommunityScreen extends StatefulWidget {
+  const EditCommunityScreen({super.key, required this.community});
 
   final CommunityDoc community;
 
   @override
-  Widget build(BuildContext context) {
-    return LiquidGlass(
-      radius: 18,
-      blur: 22,
-      gradient: LinearGradient(
-        colors: [
-          community.color.withValues(alpha: 0.2),
-          Colors.white.withValues(alpha: 0.05),
-        ],
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => Navigator.pushNamed(
-            context,
-            AppRoutes.communityDetail,
-            arguments: community.id,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      community.color,
-                      community.color.withValues(alpha: 0.55),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                ),
-                child: community.profileImageUrl?.isNotEmpty == true
-                    ? Image.network(
-                        community.profileImageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            Icon(community.icon, color: Colors.white, size: 26),
-                      )
-                    : Icon(community.icon, color: Colors.white, size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      community.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (community.description.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        community.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.people_alt_rounded,
-                          size: 13,
-                          color: community.color,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${community.memberCount} member${community.memberCount == 1 ? '' : 's'}',
-                          style: TextStyle(
-                            color: community.color,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.45),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  State<EditCommunityScreen> createState() => _EditCommunityScreenState();
 }
 
-class _EmptyCommunities extends StatelessWidget {
-  const _EmptyCommunities({
-    required this.joinedOnly,
-    this.onBrowseAll,
-  });
-
-  final bool joinedOnly;
-  final VoidCallback? onBrowseAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LiquidGlass(
-              radius: 28,
-              blur: 20,
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.28),
-                  Colors.white.withValues(alpha: 0.06),
-                ],
-              ),
-              padding: const EdgeInsets.all(22),
-              child: const Icon(
-                Icons.diversity_3_rounded,
-                color: Colors.white,
-                size: 36,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              joinedOnly ? 'No communities yet' : 'No communities found',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              joinedOnly
-                  ? 'Join a fandom crew or create your own.'
-                  : 'Be the first — spin up a community for your fandom.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 13.5,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: 220,
-              child: GlassButton(
-                label: joinedOnly ? 'Browse all' : 'Create community',
-                icon: joinedOnly
-                    ? Icons.explore_rounded
-                    : Icons.add_rounded,
-                onPressed: () {
-                  if (joinedOnly) {
-                    onBrowseAll?.call();
-                  } else {
-                    Navigator.pushNamed(context, AppRoutes.createCommunity);
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Create-community form (full-screen route).
-class CreateCommunityScreen extends StatefulWidget {
-  const CreateCommunityScreen({super.key});
-
-  @override
-  State<CreateCommunityScreen> createState() => _CreateCommunityScreenState();
-}
-
-class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
-  final _name = TextEditingController();
-  final _description = TextEditingController();
-  String _iconName = 'anime';
-  String _colorName = 'rose';
+class _EditCommunityScreenState extends State<EditCommunityScreen> {
+  late final TextEditingController _name;
+  late final TextEditingController _description;
+  late String _iconName;
+  late String _colorName;
+  late String? _coverUrl;
+  late String? _profileUrl;
   bool _saving = false;
-  String? _coverUrl;
-  String? _profileUrl;
   bool _uploadingCover = false;
   bool _uploadingProfile = false;
 
@@ -423,6 +50,18 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     ('amber', Color(0xFFF59E0B)),
     ('cyan', Color(0xFF06B6D4)),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final community = widget.community;
+    _name = TextEditingController(text: community.name);
+    _description = TextEditingController(text: community.description);
+    _iconName = community.iconName;
+    _colorName = community.colorName;
+    _coverUrl = community.coverImageUrl;
+    _profileUrl = community.profileImageUrl;
+  }
 
   @override
   void dispose() {
@@ -477,25 +116,29 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
       );
       return;
     }
-    final uid = AuthService.instance.currentUser?.uid;
-    if (uid == null) return;
     setState(() => _saving = true);
     try {
-      await CommunityService.instance.create(
-        name: name,
-        description: _description.text.trim(),
-        ownerUid: uid,
-        iconName: _iconName,
-        colorName: _colorName,
-        profileImageUrl: _profileUrl,
-        coverImageUrl: _coverUrl,
-      );
+      await CommunityService.instance.updateCommunity(widget.community.id, {
+        'name': name,
+        'description': _description.text.trim(),
+        'iconName': _iconName,
+        'colorName': _colorName,
+        'profileImageUrl': _profileUrl,
+        'coverImageUrl': _coverUrl,
+      });
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Community updated')),
+      );
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+      final text = e.toString();
+      final friendly = text.contains('permission')
+          ? 'Not allowed — publish updated firestore.rules and try again.'
+          : 'Save failed: $text';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Create failed: $e')),
+        SnackBar(content: Text(friendly)),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -526,7 +169,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                     ),
                     const SizedBox(width: 8),
                     const Text(
-                      'New community',
+                      'Edit community',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -805,7 +448,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                 ),
                 const SizedBox(height: 32),
                 GlassButton(
-                  label: 'Create community',
+                  label: 'Save changes',
                   isLoading: _saving,
                   onPressed: _saving ? null : _submit,
                 ),

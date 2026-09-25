@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/follow_docs.dart';
+import '../models/notification_docs.dart';
 import '../models/user_profile.dart';
 import 'auth_service.dart';
+import 'notification_service.dart';
 
 class UserService {
   UserService._();
@@ -170,5 +173,161 @@ class UserService {
         .count()
         .get();
     return agg.count ?? 0;
+  }
+
+  /* ------------------------------ Follow system ------------------------------ */
+
+  CollectionReference<Map<String, dynamic>> _followersOf(String uid) =>
+      _col.doc(uid).collection('followers');
+
+  CollectionReference<Map<String, dynamic>> _followingOf(String uid) =>
+      _col.doc(uid).collection('following');
+
+  CollectionReference<Map<String, dynamic>> _requestsOf(String uid) =>
+      _col.doc(uid).collection('followRequests');
+
+  Future<String?> _requireUid() async {
+    if (!await _ready) return null;
+    return AuthService.instance.currentUser?.uid;
+  }
+
+  /// Viewer → target: creates a pending follow request on the target's doc
+  /// and drops a follow-request notification in their inbox (same batch —
+  /// deterministic `follow_{actor}` id, so a resend upserts, never dups).
+  Future<void> sendFollowRequest(String targetUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null) throw StateError('Sign in required.');
+    if (myUid == targetUid) return;
+    final me = await fetch(myUid);
+    final at = FieldValue.serverTimestamp();
+    final batch = FirebaseFirestore.instance.batch();
+    batch.set(_requestsOf(targetUid).doc(myUid), {
+      'uid': myUid,
+      'displayName': me?.name ?? '',
+      'avatarUrl': me?.avatarUrl,
+      'bio': me?.bio,
+      'at': at,
+    });
+    batch.set(
+      NotificationService.instance.docFor(
+        targetUid,
+        id: NotificationService.followId(myUid),
+      ),
+      NotificationService.instance.data(
+        recipientUid: targetUid,
+        actorUid: myUid,
+        actorName: me?.name ?? '',
+        actorAvatarUrl: me?.avatarUrl,
+        type: NotificationKind.followRequested.value,
+      ),
+    );
+    await batch.commit();
+  }
+
+  /// Viewer → target: withdraws a request the viewer sent (and the
+  /// notification that came with it).
+  Future<void> cancelFollowRequest(String targetUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null) throw StateError('Sign in required.');
+    final batch = FirebaseFirestore.instance.batch();
+    batch.delete(_requestsOf(targetUid).doc(myUid));
+    batch.delete(NotificationService.instance.docFor(
+      targetUid,
+      id: NotificationService.followId(myUid),
+    ));
+    await batch.commit();
+  }
+
+  /// Target → viewer: accepts an inbound request. One batch writes both
+  /// edge mirrors, bumps both counters (followerCount on self, and the
+  /// other user's followingCount — the ±1 exception in the rules), and
+  /// clears the follow-request notification.
+  Future<void> acceptFollowRequest(String fromUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null) throw StateError('Sign in required.');
+    final request =
+        (await _requestsOf(myUid).doc(fromUid).get()).data() ?? const {};
+    final me = await fetch(myUid);
+    final at = FieldValue.serverTimestamp();
+
+    final batch = FirebaseFirestore.instance.batch();
+    batch.delete(_requestsOf(myUid).doc(fromUid));
+    batch.delete(NotificationService.instance.docFor(
+      myUid,
+      id: NotificationService.followId(fromUid),
+    ));
+    batch.set(_followersOf(myUid).doc(fromUid), {
+      'uid': fromUid,
+      'displayName': (request['displayName'] as String?) ?? '',
+      'avatarUrl': request['avatarUrl'],
+      'at': at,
+    });
+    batch.set(_followingOf(fromUid).doc(myUid), {
+      'uid': myUid,
+      'displayName': me?.name ?? '',
+      'avatarUrl': me?.avatarUrl,
+      'at': at,
+    });
+    batch.update(docFor(myUid), {'followerCount': FieldValue.increment(1)});
+    batch.update(docFor(fromUid), {'followingCount': FieldValue.increment(1)});
+    await batch.commit();
+  }
+
+  /// Target → viewer: declines an inbound request (and its notification).
+  Future<void> declineFollowRequest(String fromUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null) throw StateError('Sign in required.');
+    final batch = FirebaseFirestore.instance.batch();
+    batch.delete(_requestsOf(myUid).doc(fromUid));
+    batch.delete(NotificationService.instance.docFor(
+      myUid,
+      id: NotificationService.followId(fromUid),
+    ));
+    await batch.commit();
+  }
+
+  /// Viewer → target: removes both edge mirrors and both counters.
+  Future<void> unfollow(String targetUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null) throw StateError('Sign in required.');
+    final batch = FirebaseFirestore.instance.batch();
+    batch.delete(_followersOf(targetUid).doc(myUid));
+    batch.delete(_followingOf(myUid).doc(targetUid));
+    batch.update(docFor(myUid), {'followingCount': FieldValue.increment(-1)});
+    batch.update(docFor(targetUid), {'followerCount': FieldValue.increment(-1)});
+    await batch.commit();
+  }
+
+  /// One-shot checks backing the profile Follow button (no live listeners
+  /// for relationships — the button refreshes after each action).
+  Future<bool> isFollowing(String targetUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null || myUid == targetUid) return false;
+    return (await _followingOf(myUid).doc(targetUid).get()).exists;
+  }
+
+  Future<bool> hasPendingRequestTo(String targetUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null || myUid == targetUid) return false;
+    return (await _requestsOf(targetUid).doc(myUid).get()).exists;
+  }
+
+  Future<bool> hasIncomingRequestFrom(String targetUid) async {
+    final myUid = await _requireUid();
+    if (myUid == null || myUid == targetUid) return false;
+    return (await _requestsOf(myUid).doc(targetUid).get()).exists;
+  }
+
+  /// Pending inbound requests for the caller (newest first) — inbox screen
+  /// and the badge on your own profile.
+  Stream<List<FollowDoc>> watchFollowRequests() {
+    final myUid = AuthService.instance.currentUser?.uid;
+    if (!AuthService.firebaseReady || myUid == null) {
+      return Stream.value(const []);
+    }
+    return _requestsOf(myUid)
+        .orderBy('at', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map(FollowDoc.fromDoc).toList());
   }
 }

@@ -1,6 +1,7 @@
 class AppRoutes {
   AppRoutes._();
 
+  static const String splash = '/splash';
   static const String getStarted = '/';
   static const String signIn = '/sign-in';
   static const String interests = '/interests';
@@ -16,8 +17,10 @@ class AppRoutes {
   static const String about = '/about';
   static const String communities = '/communities';
   static const String createCommunity = '/communities/create';
+  static const String editCommunity = '/communities/edit';
   static const String communityDetail = '/communities/detail';
   static const String feed = '/feed';
+  static const String followRequests = '/follow-requests';
   static const String cart = '/cart';
   static const String orders = '/orders';
   static const String product = '/product';

@@ -12,6 +12,9 @@ class CommunityDoc {
     this.iconName = 'grid',
     this.colorName = 'rose',
     this.memberCount = 1,
+    this.postCount = 0,
+    this.profileImageUrl,
+    this.coverImageUrl,
     this.createdAt,
   });
 
@@ -22,6 +25,9 @@ class CommunityDoc {
   final String iconName;
   final String colorName;
   final int memberCount;
+  final int postCount;
+  final String? profileImageUrl;
+  final String? coverImageUrl;
   final DateTime? createdAt;
 
   IconData get icon => CatalogIcons.fromName(iconName);
@@ -38,6 +44,9 @@ class CommunityDoc {
       iconName: (data['iconName'] as String?) ?? 'grid',
       colorName: (data['colorName'] as String?) ?? 'rose',
       memberCount: (data['memberCount'] as num?)?.toInt() ?? 1,
+      postCount: (data['postCount'] as num?)?.toInt() ?? 0,
+      profileImageUrl: data['profileImageUrl'] as String?,
+      coverImageUrl: data['coverImageUrl'] as String?,
       createdAt: created is Timestamp ? created.toDate() : null,
     );
   }
@@ -49,6 +58,9 @@ class CommunityDoc {
         'iconName': iconName,
         'colorName': colorName,
         'memberCount': memberCount,
+        'postCount': postCount,
+        'profileImageUrl': profileImageUrl,
+        'coverImageUrl': coverImageUrl,
         'createdAt': createdAt != null
             ? Timestamp.fromDate(createdAt!)
             : FieldValue.serverTimestamp(),

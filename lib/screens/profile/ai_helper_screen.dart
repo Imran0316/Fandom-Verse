@@ -115,7 +115,7 @@ class _AiHelperScreenState extends State<AiHelperScreen> {
                       LottieView(
                         width: 36,
                         height: 36,
-                        asset: 'assets/lottie/sparkle.json',
+                        asset: 'lib/assets/lottie/sparkle.json',
                         fallback: const PulseDot(size: 28),
                       ),
                       const SizedBox(width: 8),

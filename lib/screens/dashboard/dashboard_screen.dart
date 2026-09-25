@@ -6,12 +6,15 @@ import '../../core/theme/app_colors.dart';
 import '../../data/mock_catalog.dart';
 import '../../models/catalog_docs.dart';
 import '../../models/community_docs.dart';
+import '../../models/notification_docs.dart';
 import '../../models/post_docs.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/community_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/post_service.dart';
+import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
 import '../../widgets/liquid_floating_nav.dart';
 import '../../widgets/liquid_glass.dart';
@@ -99,6 +102,16 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
+  final _communities = StreamCache<List<CommunityDoc>>(
+    () => CommunityService.instance.watchAll(),
+  );
+  final _feed = StreamCache<List<PostDoc>>(
+    () => PostService.instance.watchFeed(limit: 5),
+  );
+  final _notifications = StreamCache<List<NotificationDoc>>(
+    () => NotificationService.instance.watch(),
+  );
+
   void _toast(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -126,7 +139,7 @@ class _HomeTabState extends State<_HomeTab> {
           onSeeAll: () => Navigator.pushNamed(context, AppRoutes.communities),
         ),
         StreamBuilder<List<CommunityDoc>>(
-          stream: CommunityService.instance.watchAll(),
+          stream: _communities(),
           builder: (context, snap) {
             final communities = snap.data ?? const <CommunityDoc>[];
             if (communities.isEmpty) {
@@ -138,26 +151,25 @@ class _HomeTabState extends State<_HomeTab> {
                 ),
               );
             }
-            final preview = communities.take(4).toList();
-            return SizedBox(
-              height: 118,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                physics: const BouncingScrollPhysics(),
-                itemCount: preview.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, i) {
-                  final c = preview[i];
-                  return _MiniCommunityCard(
-                    community: c,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.communityDetail,
-                      arguments: c.id,
+            final preview = communities.take(3).toList();
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  for (final c in preview)
+                    Padding(
+                      key: ValueKey(c.id),
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _CommunityRow(
+                        community: c,
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.communityDetail,
+                          arguments: c.id,
+                        ),
+                      ),
                     ),
-                  );
-                },
+                ],
               ),
             );
           },
@@ -168,7 +180,7 @@ class _HomeTabState extends State<_HomeTab> {
           onSeeAll: () => Navigator.pushNamed(context, AppRoutes.feed),
         ),
         StreamBuilder<List<PostDoc>>(
-          stream: PostService.instance.watchFeed(limit: 5),
+          stream: _feed(),
           builder: (context, snap) {
             final posts = (snap.data ?? const <PostDoc>[]).take(3).toList();
             if (posts.isEmpty) {
@@ -185,6 +197,7 @@ class _HomeTabState extends State<_HomeTab> {
                 children: [
                   for (var i = 0; i < posts.length; i++)
                     Padding(
+                      key: ValueKey(posts[i].id),
                       padding: const EdgeInsets.only(bottom: 12),
                       child: PostCard(post: posts[i]),
                     ),
@@ -344,10 +357,22 @@ class _HomeTabState extends State<_HomeTab> {
                 onTap: () => Navigator.pushNamed(context, AppRoutes.saved),
               ),
               const SizedBox(width: 8),
-              _TopBarAction(
-                icon: Icons.notifications_none_rounded,
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.notifications),
+              StreamBuilder<List<NotificationDoc>>(
+                stream: _notifications(),
+                builder: (context, snap) {
+                  final unread =
+                      (snap.data ?? const <NotificationDoc>[])
+                          .where((n) => !n.read)
+                          .length;
+                  return _TopBarAction(
+                    icon: Icons.notifications_none_rounded,
+                    badge: unread,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.notifications,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -358,26 +383,63 @@ class _HomeTabState extends State<_HomeTab> {
 }
 
 class _TopBarAction extends StatelessWidget {
-  const _TopBarAction({required this.icon, required this.onTap});
+  const _TopBarAction({
+    required this.icon,
+    required this.onTap,
+    this.badge = 0,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: LiquidGlass(
-        radius: 16,
-        blur: 20,
-        padding: const EdgeInsets.all(10),
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.14),
-            Colors.white.withValues(alpha: 0.06),
-          ],
-        ),
-        child: Icon(icon, color: Colors.white, size: 22),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          LiquidGlass(
+            radius: 16,
+            blur: 20,
+            padding: const EdgeInsets.all(10),
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.14),
+                Colors.white.withValues(alpha: 0.06),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+          if (badge > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 1.5,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC1121F),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: AppColors.backgroundDeep,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  badge > 9 ? '9+' : '$badge',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1414,8 +1476,8 @@ class _SearchTabState extends State<_SearchTab> {
   }
 }
 
-class _MiniCommunityCard extends StatelessWidget {
-  const _MiniCommunityCard({required this.community, required this.onTap});
+class _CommunityRow extends StatelessWidget {
+  const _CommunityRow({required this.community, required this.onTap});
 
   final CommunityDoc community;
   final VoidCallback onTap;
@@ -1425,26 +1487,25 @@ class _MiniCommunityCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 140,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
             colors: [
-              community.color.withValues(alpha: 0.28),
-              Colors.white.withValues(alpha: 0.06),
+              community.color.withValues(alpha: 0.34),
+              community.color.withValues(alpha: 0.12),
+              Colors.white.withValues(alpha: 0.05),
             ],
           ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          border: Border.all(color: community.color.withValues(alpha: 0.4)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -1452,30 +1513,74 @@ class _MiniCommunityCard extends StatelessWidget {
                     community.color.withValues(alpha: 0.55),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: community.color.withValues(alpha: 0.45),
+                    blurRadius: 12,
+                  ),
+                ],
               ),
-              child: Icon(community.icon, color: Colors.white, size: 18),
+              child: Icon(community.icon, color: Colors.white, size: 22),
             ),
-            const Spacer(),
-            Text(
-              community.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    community.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.people_alt_rounded,
+                        size: 13,
+                        color: community.color,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${community.memberCount} '
+                        '${community.memberCount == 1 ? 'member' : 'members'}',
+                        style: TextStyle(
+                          color: community.color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.article_outlined,
+                        size: 13,
+                        color: Colors.white.withValues(alpha: 0.45),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${community.postCount} '
+                        '${community.postCount == 1 ? 'post' : 'posts'}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${community.memberCount} members',
-              style: TextStyle(
-                color: community.color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white.withValues(alpha: 0.4),
             ),
           ],
         ),

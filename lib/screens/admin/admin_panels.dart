@@ -959,7 +959,8 @@ class ContentModerationPanel extends StatelessWidget {
     return StreamBuilder<List<PostDoc>>(
       stream: PostService.instance.watchFeed(limit: 50),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+        if (snap.connectionState == ConnectionState.waiting &&
+            snap.data == null) {
           return const Center(child: CircularProgressIndicator());
         }
         final posts = snap.data ?? const <PostDoc>[];

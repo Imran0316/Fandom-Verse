@@ -22,6 +22,45 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // A counter field may only be added (initial 0/1), unchanged, or move
+    // by exactly ±1 (batch like / repost / follow bumps from other users).
+    function counterOnly(key) {
+      return (key in request.resource.data)
+        && (
+          !(key in resource.data)
+            ? request.resource.data[key] == 0 || request.resource.data[key] == 1
+            : request.resource.data[key] == resource.data[key]
+              || request.resource.data[key] == resource.data[key] + 1
+              || request.resource.data[key] == resource.data[key] - 1
+        );
+    }
+
+    // Signed-in users may bump exactly the post counters and nothing else
+    // (liking / commenting / reposting someone else's post).
+    function validPostCounters() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['likeCount', 'commentCount', 'repostCount'])
+        && counterOnly('likeCount')
+        && counterOnly('commentCount')
+        && counterOnly('repostCount');
+    }
+
+    // Comment counters: likes / replies (±1) and the reactions tally (map).
+    function validCommentCounters() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['likeCount', 'replyCount', 'reactions'])
+        && counterOnly('likeCount')
+        && counterOnly('replyCount');
+    }
+
+    // Follow counters on any user's profile (accept / unfollow bumps).
+    function validFollowCounters() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['followerCount', 'followingCount'])
+        && counterOnly('followerCount')
+        && counterOnly('followingCount');
+    }
+
     // ---- Users ----
     match /users/{uid} {
       allow read: if signedIn();
@@ -34,6 +73,8 @@ service cloud.firestore {
       // Self: edit profile fields only (role must stay the same), except
       // the one-way fan → seller upgrade. Admins may set fan/seller/admin
       // on any user (Admin Console). New accounts always start as fan.
+      // Anyone signed-in may bump follower/following counters by ±1 —
+      // that is how follow requests and unfollows update the other side.
       allow update: if (
           isSelf(uid)
           && request.resource.data.role == resource.data.role
@@ -45,12 +86,55 @@ service cloud.firestore {
         ) || (
           isAdmin()
           && request.resource.data.role in ['fan', 'seller', 'admin']
+        ) || (
+          signedIn()
+          && validFollowCounters()
         );
 
       allow delete: if isAdmin();
 
       match /cart/{productId} {
         allow read, write: if isSelf(uid);
+      }
+
+      // ---- Follow graph ----
+      // followers/{followerUid}: the target maintains their own follower
+      // list on accept (only they may write into it, so requests cannot be
+      // bypassed). The follower may remove themselves (unfollow).
+      match /followers/{followerUid} {
+        allow read: if signedIn();
+        allow create: if isSelf(uid);
+        allow delete: if isSelf(uid) || followerUid == request.auth.uid;
+      }
+
+      // following/{targetUid}: written by the target on accept — they may
+      // only ever name themselves as the target of the edge.
+      match /following/{targetUid} {
+        allow read: if signedIn();
+        allow create: if isSelf(uid) || targetUid == request.auth.uid;
+        allow delete: if isSelf(uid) || targetUid == request.auth.uid;
+      }
+
+      // followRequests/{fromUid}: pending inbound requests. The requester
+      // writes / cancels their own doc; the target reads / accepts / declines.
+      match /followRequests/{fromUid} {
+        allow read: if isSelf(uid) || fromUid == request.auth.uid;
+        allow create: if fromUid == request.auth.uid;
+        allow delete: if isSelf(uid) || fromUid == request.auth.uid;
+      }
+
+      // Activity notifications (likes / comments / replies / follow
+      // requests). Created by the actor with their own uid stamped on the
+      // doc; only the recipient reads, marks or clears them. The actor may
+      // remove their own notification (withdrawing a follow request).
+      match /notifications/{notificationId} {
+        allow read: if isSelf(uid);
+        allow create: if signedIn()
+          && request.resource.data.recipientUid == uid
+          && request.resource.data.actorUid == request.auth.uid;
+        allow update: if isSelf(uid);
+        allow delete: if isSelf(uid)
+          || resource.data.actorUid == request.auth.uid;
       }
     }
 
@@ -102,11 +186,12 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid;
       allow update: if isAdmin()
         || resource.data.ownerUid == request.auth.uid
-        // Join/leave only bumps the counter — any signed-in member may do that.
+        // Join/leave bumps memberCount; posting bumps postCount — any
+        // signed-in member may do exactly those counter writes.
         || (signedIn()
             && request.resource.data.diff(resource.data)
                  .affectedKeys()
-                 .hasOnly(['memberCount']));
+                 .hasOnly(['memberCount', 'postCount']));
       allow delete: if isAdmin()
         || resource.data.ownerUid == request.auth.uid;
 
@@ -127,7 +212,9 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.authorUid == request.auth.uid;
       allow update: if isAdmin()
-        || resource.data.authorUid == request.auth.uid;
+        || resource.data.authorUid == request.auth.uid
+        // Likes / comments / reposts bump counters on anyone's post.
+        || (signedIn() && validPostCounters());
       allow delete: if isAdmin()
         || resource.data.authorUid == request.auth.uid;
 
@@ -141,10 +228,38 @@ service cloud.firestore {
         allow read: if signedIn();
         allow create: if signedIn()
           && request.resource.data.authorUid == request.auth.uid;
+        // Authors may edit/delete their comment; anyone signed-in may bump
+        // the like/reply counters and the reactions tally by batch writes.
         allow update: if isAdmin()
-          || resource.data.authorUid == request.auth.uid;
+          || resource.data.authorUid == request.auth.uid
+          || (signedIn() && validCommentCounters());
         allow delete: if isAdmin()
           || resource.data.authorUid == request.auth.uid;
+
+        // Liking a comment: one like doc per user.
+        match /likes/{likeUid} {
+          allow read: if signedIn();
+          allow create: if signedIn() && likeUid == request.auth.uid;
+          allow delete: if signedIn() && likeUid == request.auth.uid;
+        }
+
+        // Emoji reactions: one reaction doc per user (the chosen emoji).
+        match /reactions/{reactUid} {
+          allow read: if signedIn();
+          allow create, update: if signedIn() && reactUid == request.auth.uid;
+          allow delete: if signedIn() && reactUid == request.auth.uid;
+        }
+
+        // Replies to a comment.
+        match /replies/{replyId} {
+          allow read: if signedIn();
+          allow create: if signedIn()
+            && request.resource.data.authorUid == request.auth.uid;
+          allow update: if isAdmin()
+            || resource.data.authorUid == request.auth.uid;
+          allow delete: if isAdmin()
+            || resource.data.authorUid == request.auth.uid;
+        }
       }
 
       match /reposts/{repostUid} {

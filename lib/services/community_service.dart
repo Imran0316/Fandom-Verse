@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/streams.dart';
 import '../models/community_docs.dart';
 import 'auth_service.dart';
 
@@ -23,14 +24,14 @@ class CommunityService {
   /* ------------------------------ Communities ----------------------------- */
 
   Stream<List<CommunityDoc>> watchAll() {
-    if (!_ready) return Stream.value(const []);
+    if (!_ready) return onceStream(const []);
     return _col.orderBy('createdAt', descending: true).snapshots().map(
           (s) => s.docs.map(CommunityDoc.fromDoc).toList(),
         );
   }
 
   Stream<CommunityDoc?> watch(String communityId) {
-    if (!_ready) return Stream.value(null);
+    if (!_ready) return onceStream(null);
     return _doc(communityId).snapshots().map((snap) {
       if (!snap.exists) return null;
       return CommunityDoc.fromDoc(snap);
@@ -50,6 +51,8 @@ class CommunityService {
     required String ownerUid,
     required String iconName,
     required String colorName,
+    String? profileImageUrl,
+    String? coverImageUrl,
   }) async {
     if (!_ready) throw StateError('Firebase is not configured yet.');
     final ref = await _col.add({
@@ -59,6 +62,9 @@ class CommunityService {
       'iconName': iconName,
       'colorName': colorName,
       'memberCount': 1,
+      'postCount': 0,
+      'profileImageUrl': profileImageUrl,
+      'coverImageUrl': coverImageUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
     await _members(ref.id).doc(ownerUid).set({
@@ -81,7 +87,7 @@ class CommunityService {
 
   Stream<CommunityMemberDoc?> watchMembership(String communityId) {
     final uid = _uid;
-    if (!_ready || uid == null) return Stream.value(null);
+    if (!_ready || uid == null) return onceStream(null);
     return _members(communityId).doc(uid).snapshots().map((snap) {
       if (!snap.exists) return null;
       return CommunityMemberDoc.fromDoc(snap);
@@ -98,7 +104,7 @@ class CommunityService {
   /// Communities the current user belongs to (collectionGroup on members).
   Stream<List<CommunityDoc>> watchJoined() {
     final uid = _uid;
-    if (!_ready || uid == null) return Stream.value(const []);
+    if (!_ready || uid == null) return onceStream(const []);
     return FirebaseFirestore.instance
         .collectionGroup('members')
         .where(
