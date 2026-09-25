@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../core/animations/app_transitions.dart';
 import '../../core/routes/app_routes.dart';
@@ -18,6 +16,7 @@ import '../../services/user_service.dart';
 import '../../widgets/liquid_floating_nav.dart';
 import '../../widgets/liquid_glass.dart';
 import '../communities/post_card.dart';
+import '../content/discovery_sections.dart';
 import '../reels/reels_tab.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -100,25 +99,6 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-  final PageController _heroController = PageController(viewportFraction: 0.74);
-  int _heroPage = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _heroController.addListener(() {
-      final page = _heroController.page?.round() ?? 0;
-      if (page != _heroPage && mounted) {
-        setState(() => _heroPage = page);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _heroController.dispose();
-    super.dispose();
-  }
 
   void _toast(String message) {
     ScaffoldMessenger.of(context)
@@ -139,32 +119,8 @@ class _HomeTabState extends State<_HomeTab> {
       children: [
         const SizedBox(height: 10),
         _topBar(),
-        const SizedBox(height: 18),
-        SizedBox(
-          height: 320,
-          child: PageView.builder(
-            controller: _heroController,
-            itemCount: MockCatalog.trending.length,
-            itemBuilder: (context, index) {
-              final item = MockCatalog.trending[index];
-              final isCurrent = _heroPage == index;
-              return AnimatedScale(
-                scale: isCurrent ? 1 : 0.9,
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutCubic,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
-                  ),
-                  child: _HeroCard(item: item),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 4),
-        _PageDots(count: MockCatalog.trending.length, index: _heroPage),
+        const SizedBox(height: 20),
+        const DiscoveryHome(),
         const SizedBox(height: 28),
         StreamBuilder<List<FandomCategoryDoc>>(
           stream: CatalogService.instance.watchCategories(),
@@ -395,24 +351,24 @@ class _HomeTabState extends State<_HomeTab> {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
-            child: LiquidGlass(
-              radius: 16,
-              blur: 20,
-              padding: const EdgeInsets.all(10),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0.14),
-                  Colors.white.withValues(alpha: 0.06),
-                ],
+          Row(
+            children: [
+              _TopBarAction(
+                icon: Icons.travel_explore_rounded,
+                onTap: () => Navigator.pushNamed(context, AppRoutes.explore),
               ),
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                color: Colors.white,
-                size: 22,
+              const SizedBox(width: 8),
+              _TopBarAction(
+                icon: Icons.bookmark_border_rounded,
+                onTap: () => Navigator.pushNamed(context, AppRoutes.saved),
               ),
-            ),
+              const SizedBox(width: 8),
+              _TopBarAction(
+                icon: Icons.notifications_none_rounded,
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.notifications),
+              ),
+            ],
           ),
         ],
       ),
@@ -420,201 +376,27 @@ class _HomeTabState extends State<_HomeTab> {
   }
 }
 
-class _PageDots extends StatelessWidget {
-  const _PageDots({required this.count, required this.index});
+class _TopBarAction extends StatelessWidget {
+  const _TopBarAction({required this.icon, required this.onTap});
 
-  final int count;
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (i) {
-        final active = i == index;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: active ? 22 : 7,
-          height: 7,
-          decoration: BoxDecoration(
-            color: active ? AppColors.primary : Colors.white24,
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.6),
-                      blurRadius: 10,
-                    ),
-                  ]
-                : null,
-          ),
-        );
-      }),
-    );
-  }
-}
-
-class _HeroCard extends StatefulWidget {
-  const _HeroCard({required this.item});
-
-  final TrendingFandom item;
-
-  @override
-  State<_HeroCard> createState() => _HeroCardState();
-}
-
-class _HeroCardState extends State<_HeroCard> {
-  YoutubePlayerController? _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!kIsWeb && (widget.item.videoId ?? '').isNotEmpty) {
-      _controller = YoutubePlayerController.fromVideoId(
-        videoId: widget.item.videoId ?? '',
-        autoPlay: true,
-        params: const YoutubePlayerParams(
-          mute: true,
-          loop: true,
-          showControls: false,
-          strictRelatedVideos: true,
-        ),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller?.close();
-    super.dispose();
-  }
+  final IconData icon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final media = kIsWeb
-        ? Image.network(
-            widget.item.thumbnailUrl,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            errorBuilder: (context, error, stackTrace) => DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: widget.item.colors,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  widget.item.emoji,
-                  style: const TextStyle(fontSize: 68),
-                ),
-              ),
-            ),
-          )
-        : _controller == null
-        ? DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: widget.item.colors,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                widget.item.emoji,
-                style: const TextStyle(fontSize: 68),
-              ),
-            ),
-          )
-        : YoutubePlayer(controller: _controller!, aspectRatio: 0.74);
-
-    return LiquidGlass(
-      radius: 24,
-      blur: 0.01,
-      borderColor: Colors.white.withValues(alpha: 0.1),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.5),
-          blurRadius: 28,
-          offset: const Offset(0, 16),
-        ),
-      ],
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            media,
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.18),
-                      Colors.black.withValues(alpha: 0.45),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: LiquidGlass(
-                radius: 18,
-                blur: 24,
-                tint: const Color(0x66000000),
-                borderColor: Colors.white.withValues(alpha: 0.12),
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        widget.item.category,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: LiquidGlass(
+        radius: 16,
+        blur: 20,
+        padding: const EdgeInsets.all(10),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.14),
+            Colors.white.withValues(alpha: 0.06),
           ],
         ),
+        child: Icon(icon, color: Colors.white, size: 22),
       ),
     );
   }
@@ -2092,6 +1874,22 @@ class _ProfileTab extends StatelessWidget {
                   AppRoutes.interestsEditor,
                   arguments: profile?.selectedFandoms ?? const <String>[],
                 ),
+              ),
+            ),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 138),
+              child: _ProfileTile(
+                icon: Icons.bookmark_border_rounded,
+                label: 'Saved discoveries',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.saved),
+              ),
+            ),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 144),
+              child: _ProfileTile(
+                icon: Icons.travel_explore_rounded,
+                label: 'Explore fandoms',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.explore),
               ),
             ),
             FadeSlideIn(

@@ -21,4 +21,10 @@ class AppRoutes {
   static const String cart = '/cart';
   static const String orders = '/orders';
   static const String product = '/product';
+
+  // ---- V1: content management + exploration ----
+  static const String contentDetail = '/content';
+  static const String explore = '/explore';
+  static const String saved = '/saved';
+  static const String contentEditor = '/admin/content/edit';
 }

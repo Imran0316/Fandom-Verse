@@ -384,7 +384,11 @@ class SellerDashboardScreen extends StatelessWidget {
                                   if (sheetContext.mounted) {
                                     ScaffoldMessenger.of(sheetContext)
                                         .showSnackBar(
-                                      SnackBar(content: Text('$e')),
+                                      SnackBar(
+                                        content: Text(
+                                          ImageUploadService.friendlyMessage(e),
+                                        ),
+                                      ),
                                     );
                                   }
                                 } finally {

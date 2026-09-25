@@ -4,7 +4,12 @@ import 'core/animations/app_transitions.dart';
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'models/catalog_docs.dart';
+import 'models/content_docs.dart';
 import 'screens/admin/admin_shell.dart';
+import 'screens/admin/content_editor_screen.dart';
+import 'screens/content/content_detail_screen.dart';
+import 'screens/content/explore_screen.dart';
+import 'screens/content/saved_screen.dart';
 import 'screens/communities/communities_screen.dart';
 import 'screens/communities/community_detail_screen.dart';
 import 'screens/communities/feed_screen.dart';
@@ -108,6 +113,34 @@ class FandomVerseApp extends StatelessWidget {
               page = const Scaffold(body: SizedBox.shrink());
             }
             break;
+          case AppRoutes.contentDetail:
+            final detailArgs = settings.arguments;
+            if (detailArgs is ContentDetailArgs) {
+              page = ContentDetailScreen(args: detailArgs);
+            } else {
+              page = const Scaffold(body: SizedBox.shrink());
+            }
+            break;
+          case AppRoutes.explore:
+            final exploreArgs = settings.arguments;
+            if (exploreArgs is ExploreArgs) {
+              page = ExploreScreen(
+                initialFandomId: exploreArgs.fandomId,
+                initialType: exploreArgs.type,
+              );
+            } else {
+              page = const ExploreScreen();
+            }
+            break;
+          case AppRoutes.saved:
+            page = const SavedScreen();
+            break;
+          case AppRoutes.contentEditor:
+            final editorArgs = settings.arguments;
+            page = ContentEditorScreen(
+              existing: editorArgs is ContentDoc ? editorArgs : null,
+            );
+            break;
           case AppRoutes.userProfile:
             final uid = settings.arguments as String?;
             if (uid == null || uid.isEmpty) {
@@ -136,8 +169,14 @@ class FandomVerseApp extends StatelessWidget {
             name == AppRoutes.interestsEditor ||
             name == AppRoutes.createCommunity ||
             name == AppRoutes.cart ||
-            name == AppRoutes.orders) {
+            name == AppRoutes.orders ||
+            name == AppRoutes.contentEditor) {
           return AppTransitions.bottomUp(page, settings: settings);
+        }
+        if (name == AppRoutes.contentDetail ||
+            name == AppRoutes.explore ||
+            name == AppRoutes.saved) {
+          return AppTransitions.rightToLeft(page, settings: settings);
         }
         if (name == AppRoutes.aiHelper) {
           return AppTransitions.scaleFade(page, settings: settings);

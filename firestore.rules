@@ -60,6 +60,41 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // ---- V1 Content: fandoms + content categories (admin-managed) ----
+    match /fandoms/{fandomId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /contentCategories/{categoryId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---- V1 Content: unified `contents` collection ----
+    // Admins manage everything. Fans may only read published docs — the
+    // client hides drafts, but rules guarantee it.
+    match /contents/{contentId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.status == 'published');
+      allow create: if isAdmin()
+        && request.resource.data.status in ['draft', 'published']
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---- V1 Bookmarks: fans own their saved library ----
+    match /bookmarks/{bookmarkId} {
+      allow read: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
     // ---- Communities / posts / merch / events (Phase 1+) ----
     match /communities/{communityId} {
       allow read: if signedIn();

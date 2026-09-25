@@ -8,6 +8,7 @@ import '../../services/catalog_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/liquid_glass.dart';
 import 'admin_panels.dart';
+import 'content_management.dart';
 
 /// Blocks non-admins and shows a lightweight admin console.
 class AdminGate extends StatelessWidget {
@@ -125,9 +126,10 @@ class _AdminShellState extends State<AdminShell> {
 
   static const _sections = [
     (label: 'Overview', icon: Icons.insights_rounded),
+    (label: 'Content', icon: Icons.auto_stories_rounded),
     (label: 'Users', icon: Icons.groups_rounded),
-    (label: 'Categories', icon: Icons.category_rounded),
-    (label: 'Content', icon: Icons.forum_rounded),
+    (label: 'Fandoms', icon: Icons.category_rounded),
+    (label: 'Posts', icon: Icons.forum_rounded),
     (label: 'Events', icon: Icons.event_rounded),
     (label: 'Merch', icon: Icons.storefront_rounded),
     (label: 'Reports', icon: Icons.flag_rounded),
@@ -301,16 +303,18 @@ class _AdminSection extends StatelessWidget {
       case 0:
         return const _OverviewPanel();
       case 1:
-        return const _UsersPanel();
+        return const ContentManagementPanel();
       case 2:
-        return const CategoriesPanel();
+        return const _UsersPanel();
       case 3:
-        return const ContentModerationPanel();
+        return const CategoriesPanel();
       case 4:
-        return const EventsPanel();
+        return const ContentModerationPanel();
       case 5:
-        return const MerchAdminPanel();
+        return const EventsPanel();
       case 6:
+        return const MerchAdminPanel();
+      case 7:
         return const ReportsPanel();
       default:
         return const SizedBox.shrink();
