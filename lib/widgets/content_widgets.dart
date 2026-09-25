@@ -7,8 +7,18 @@ import 'liquid_glass.dart';
 /* --------------------------------- Helpers -------------------------------- */
 
 const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 String contentDateLabel(DateTime? date) {
@@ -370,7 +380,8 @@ class ContentErrorState extends StatelessWidget {
     return ContentEmptyState(
       icon: Icons.cloud_off_rounded,
       title: 'Could not load discoveries',
-      message: message ??
+      message:
+          message ??
           'Check your connection and try again. Your fandoms will be waiting.',
       action: onRetry,
       actionLabel: onRetry == null ? null : 'Try again',
@@ -644,6 +655,19 @@ class FandomRailCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
+                if (fandom.coverImageUrl?.isNotEmpty == true)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.08),
+                          Colors.black.withValues(alpha: 0.72),
+                        ],
+                      ),
+                    ),
+                  ),
                 Positioned(
                   left: 12,
                   top: 12,
@@ -714,7 +738,11 @@ class ContentRow extends StatelessWidget {
         return _TriviaRow(content: content, onTap: onTap, trailing: trailing);
       case ContentType.article:
       case ContentType.lore:
-        return _EditorialRow(content: content, onTap: onTap, trailing: trailing);
+        return _EditorialRow(
+          content: content,
+          onTap: onTap,
+          trailing: trailing,
+        );
     }
   }
 }

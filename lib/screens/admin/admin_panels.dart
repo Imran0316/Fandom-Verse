@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
+import '../../models/content_docs.dart';
 import '../../models/post_docs.dart';
 import '../../services/catalog_service.dart';
+import '../../services/image_upload_service.dart';
 import '../../services/post_service.dart';
+import '../../services/taxonomy_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
@@ -90,7 +93,11 @@ class AdminEmptyBox extends StatelessWidget {
 Future<void> showAdminSheet(
   BuildContext context, {
   required String title,
-  required Widget Function(BuildContext sheetContext, void Function(VoidCallback) setSheetState) fields,
+  required Widget Function(
+    BuildContext sheetContext,
+    void Function(VoidCallback) setSheetState,
+  )
+  fields,
   required Future<void> Function() onSubmit,
 }) async {
   final formKey = GlobalKey<FormState>();
@@ -109,6 +116,9 @@ Future<void> showAdminSheet(
             ),
             child: Container(
               margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.88,
+              ),
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
               decoration: BoxDecoration(
                 color: const Color(0xF2101018),
@@ -142,7 +152,13 @@ Future<void> showAdminSheet(
                       ),
                     ),
                     const SizedBox(height: 18),
-                    fields(sheetContext, setSheetState),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        child: fields(sheetContext, setSheetState),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     GlassButton(
                       label: loading ? 'Saving…' : 'Save',
@@ -160,9 +176,9 @@ Future<void> showAdminSheet(
                         } catch (e) {
                           setSheetState(() => loading = false);
                           if (sheetContext.mounted) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              SnackBar(content: Text('$e')),
-                            );
+                            ScaffoldMessenger.of(
+                              sheetContext,
+                            ).showSnackBar(SnackBar(content: Text('$e')));
                           }
                         }
                       },
@@ -279,10 +295,12 @@ DropdownButtonFormField<String> colorDropdown({
 class CategoriesPanel extends StatelessWidget {
   const CategoriesPanel({super.key});
 
-  void _edit(BuildContext context, FandomCategoryDoc? existing) {
+  void _edit(BuildContext context, FandomDoc? existing) {
     final name = TextEditingController(text: existing?.name ?? '');
     var icon = existing?.iconName ?? 'anime';
     var color = existing?.colorName ?? 'rose';
+    var coverUrl = existing?.coverImageUrl;
+    var uploading = false;
 
     showAdminSheet(
       context,
@@ -307,14 +325,86 @@ class CategoriesPanel extends StatelessWidget {
               value: color,
               onChanged: (v) => setSheetState(() => color = v ?? color),
             ),
+            const SizedBox(height: 14),
+            if (coverUrl != null && coverUrl!.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 2.4,
+                  child: Image.network(
+                    coverUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'Image preview unavailable',
+                        style: TextStyle(color: Colors.white60),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (coverUrl != null && coverUrl!.isNotEmpty)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: uploading
+                      ? null
+                      : () => setSheetState(() => coverUrl = null),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  label: const Text('Remove image'),
+                ),
+              ),
+            OutlinedButton.icon(
+              onPressed: uploading
+                  ? null
+                  : () async {
+                      setSheetState(() => uploading = true);
+                      try {
+                        final url = await ImageUploadService.instance.pickAndUpload(
+                          name:
+                              'fandom-cover-${DateTime.now().millisecondsSinceEpoch}',
+                        );
+                        if (url != null) {
+                          setSheetState(() => coverUrl = url);
+                        }
+                      } catch (error) {
+                        if (sheetContext.mounted) {
+                          ScaffoldMessenger.of(sheetContext).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                ImageUploadService.friendlyMessage(error),
+                              ),
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (sheetContext.mounted) {
+                          setSheetState(() => uploading = false);
+                        }
+                      }
+                    },
+              icon: uploading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.image_outlined),
+              label: Text(
+                uploading ? 'Uploading image…' : 'Choose cover image',
+              ),
+            ),
           ],
         );
       },
-      onSubmit: () => CatalogService.instance.upsertCategory(
+      onSubmit: () => TaxonomyService.instance.upsertFandom(
         id: existing?.id,
         name: name.text,
         iconName: icon,
         colorName: color,
+        coverImageUrl: coverUrl,
         sortOrder: existing?.sortOrder ?? 99,
       ),
     );
@@ -327,7 +417,7 @@ class CategoriesPanel extends StatelessWidget {
       children: [
         AdminSectionHeader(
           title: 'Category management',
-          subtitle: 'Fandom categories shown on Home. Admin write only.',
+          subtitle: 'Fandoms shown in Trending Fandoms. Admin write only.',
           action: IconButton(
             onPressed: () => _edit(context, null),
             style: IconButton.styleFrom(
@@ -338,8 +428,8 @@ class CategoriesPanel extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: StreamBuilder<List<FandomCategoryDoc>>(
-            stream: CatalogService.instance.watchCategories(),
+          child: StreamBuilder<List<FandomDoc>>(
+            stream: TaxonomyService.instance.watchFandoms(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -350,7 +440,8 @@ class CategoriesPanel extends StatelessWidget {
               final items = snap.data ?? const [];
               if (items.isEmpty) {
                 return const AdminEmptyBox(
-                  message: 'No categories yet. Tap + to add one.\n'
+                  message:
+                      'No categories yet. Tap + to add one.\n'
                       'Republish firestore.rules (categories) if writes fail.',
                 );
               }
@@ -416,22 +507,26 @@ class CategoriesPanel extends StatelessWidget {
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
                                       child: const Text('Cancel'),
                                     ),
                                     TextButton(
                                       onPressed: () => Navigator.pop(ctx, true),
                                       child: const Text(
                                         'Delete',
-                                        style: TextStyle(color: AppColors.accent),
+                                        style: TextStyle(
+                                          color: AppColors.accent,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               );
                               if (ok == true) {
-                                await CatalogService.instance
-                                    .deleteCategory(c.id);
+                                await CatalogService.instance.deleteCategory(
+                                  c.id,
+                                );
                               }
                             },
                             icon: const Icon(
@@ -465,6 +560,8 @@ class EventsPanel extends StatelessWidget {
     final date = TextEditingController(text: existing?.dateLabel ?? '');
     var icon = existing?.iconName ?? 'event';
     var color = existing?.colorName ?? 'red';
+    var coverUrl = existing?.coverImageUrl;
+    var uploading = false;
 
     showAdminSheet(
       context,
@@ -496,6 +593,77 @@ class EventsPanel extends StatelessWidget {
                   (v == null || v.trim().isEmpty) ? 'Date required' : null,
             ),
             const SizedBox(height: 14),
+            if (coverUrl != null && coverUrl!.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 2.4,
+                  child: Image.network(
+                    coverUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'Image preview unavailable',
+                        style: TextStyle(color: Colors.white60),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (coverUrl != null && coverUrl!.isNotEmpty)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: uploading
+                      ? null
+                      : () => setSheetState(() => coverUrl = null),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  label: const Text('Remove image'),
+                ),
+              ),
+            OutlinedButton.icon(
+              onPressed: uploading
+                  ? null
+                  : () async {
+                      setSheetState(() => uploading = true);
+                      try {
+                        final url = await ImageUploadService.instance.pickAndUpload(
+                          name:
+                              'event-cover-${DateTime.now().millisecondsSinceEpoch}',
+                        );
+                        if (url != null) {
+                          setSheetState(() => coverUrl = url);
+                        }
+                      } catch (error) {
+                        if (sheetContext.mounted) {
+                          ScaffoldMessenger.of(sheetContext).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                ImageUploadService.friendlyMessage(error),
+                              ),
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (sheetContext.mounted) {
+                          setSheetState(() => uploading = false);
+                        }
+                      }
+                    },
+              icon: uploading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.image_outlined),
+              label: Text(
+                uploading ? 'Uploading image...' : 'Choose cover image',
+              ),
+            ),
+            const SizedBox(height: 14),
             iconDropdown(
               value: icon,
               onChanged: (v) => setSheetState(() => icon = v ?? icon),
@@ -515,6 +683,7 @@ class EventsPanel extends StatelessWidget {
         dateLabel: date.text,
         iconName: icon,
         colorName: color,
+        coverImageUrl: coverUrl,
         startAt: existing?.startAt ?? DateTime.now(),
       ),
     );
@@ -661,7 +830,8 @@ class MerchAdminPanel extends StatelessWidget {
                   .toList();
               if (items.isEmpty) {
                 return const AdminEmptyBox(
-                  message: 'No products yet. Sellers create listings from '
+                  message:
+                      'No products yet. Sellers create listings from '
                       'their Seller dashboard.',
                 );
               }
@@ -739,14 +909,17 @@ class MerchAdminPanel extends StatelessWidget {
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
                                       child: const Text('Cancel'),
                                     ),
                                     TextButton(
                                       onPressed: () => Navigator.pop(ctx, true),
                                       child: const Text(
                                         'Delete',
-                                        style: TextStyle(color: AppColors.accent),
+                                        style: TextStyle(
+                                          color: AppColors.accent,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -895,8 +1068,9 @@ class ContentModerationPanel extends StatelessWidget {
                                   ),
                                 );
                                 if (ok == true) {
-                                  await PostService.instance
-                                      .adminDeletePost(p.id);
+                                  await PostService.instance.adminDeletePost(
+                                    p.id,
+                                  );
                                 }
                               },
                               icon: const Icon(

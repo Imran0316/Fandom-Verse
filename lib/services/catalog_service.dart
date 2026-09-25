@@ -21,9 +21,10 @@ class CatalogService {
 
   Stream<List<FandomCategoryDoc>> watchCategories() {
     if (!_ready) return Stream.value(const []);
-    return _categories.orderBy('sortOrder').snapshots().map(
-          (s) => s.docs.map(FandomCategoryDoc.fromDoc).toList(),
-        );
+    return _categories
+        .orderBy('sortOrder')
+        .snapshots()
+        .map((s) => s.docs.map(FandomCategoryDoc.fromDoc).toList());
   }
 
   Future<void> upsertCategory({
@@ -76,9 +77,10 @@ class CatalogService {
 
   Stream<List<FandomEventDoc>> watchEvents() {
     if (!_ready) return Stream.value(const []);
-    return _events.orderBy('startAt').snapshots().map(
-          (s) => s.docs.map(FandomEventDoc.fromDoc).toList(),
-        );
+    return _events
+        .orderBy('startAt')
+        .snapshots()
+        .map((s) => s.docs.map(FandomEventDoc.fromDoc).toList());
   }
 
   Future<void> upsertEvent({
@@ -88,6 +90,7 @@ class CatalogService {
     required String dateLabel,
     required String iconName,
     required String colorName,
+    String? coverImageUrl,
     DateTime? startAt,
   }) async {
     final data = {
@@ -96,6 +99,7 @@ class CatalogService {
       'dateLabel': dateLabel.trim(),
       'iconName': iconName,
       'colorName': colorName,
+      'coverImageUrl': coverImageUrl,
       'startAt': startAt != null ? Timestamp.fromDate(startAt) : null,
     };
     if (id == null || id.isEmpty) {
@@ -111,7 +115,10 @@ class CatalogService {
 
   Stream<List<MerchProductDoc>> watchMerch({bool activeOnly = true}) {
     if (!_ready) return Stream.value(const []);
-    Query<Map<String, dynamic>> q = _merch.orderBy('createdAt', descending: true);
+    Query<Map<String, dynamic>> q = _merch.orderBy(
+      'createdAt',
+      descending: true,
+    );
     // Firestore can't combine orderBy + where cheaply without index;
     // filter active in memory for simplicity on small catalogs.
     return q.snapshots().map((s) {

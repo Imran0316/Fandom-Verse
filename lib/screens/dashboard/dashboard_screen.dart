@@ -99,7 +99,6 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-
   void _toast(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -121,22 +120,6 @@ class _HomeTabState extends State<_HomeTab> {
         _topBar(),
         const SizedBox(height: 20),
         const DiscoveryHome(),
-        const SizedBox(height: 28),
-        StreamBuilder<List<FandomCategoryDoc>>(
-          stream: CatalogService.instance.watchCategories(),
-          builder: (context, snap) {
-            final cats = snap.data ?? const <FandomCategoryDoc>[];
-            if (cats.isEmpty) {
-              return _CategoryGrid(
-                onTap: (cat) => _toast('Browsing ${cat.label}'),
-              );
-            }
-            return _CategoryGridDoc(
-              categories: cats,
-              onTap: (cat) => _toast('Browsing ${cat.name}'),
-            );
-          },
-        ),
         const SizedBox(height: 34),
         _SectionHeader(
           title: 'Communities',
@@ -275,8 +258,7 @@ class _HomeTabState extends State<_HomeTab> {
                 physics: const BouncingScrollPhysics(),
                 itemCount: events.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 14),
-                itemBuilder: (context, i) =>
-                    _EventCardDoc(event: events[i]),
+                itemBuilder: (context, i) => _EventCardDoc(event: events[i]),
               ),
             );
           },
@@ -312,8 +294,7 @@ class _HomeTabState extends State<_HomeTab> {
                 physics: const BouncingScrollPhysics(),
                 itemCount: merch.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 14),
-                itemBuilder: (context, i) =>
-                    _MerchCardDoc(item: merch[i]),
+                itemBuilder: (context, i) => _MerchCardDoc(item: merch[i]),
               ),
             );
           },
@@ -437,10 +418,7 @@ class _CategoryGrid extends StatelessWidget {
 }
 
 class _CategoryGridDoc extends StatelessWidget {
-  const _CategoryGridDoc({
-    required this.categories,
-    required this.onTap,
-  });
+  const _CategoryGridDoc({required this.categories, required this.onTap});
 
   final List<FandomCategoryDoc> categories;
   final ValueChanged<FandomCategoryDoc> onTap;
@@ -476,10 +454,7 @@ class _CategoryGridDoc extends StatelessWidget {
             itemCount: items.length,
             itemBuilder: (context, i) {
               final cat = items[i];
-              return _CategoryDocTile(
-                category: cat,
-                onTap: () => onTap(cat),
-              );
+              return _CategoryDocTile(category: cat, onTap: () => onTap(cat));
             },
           ),
         );
@@ -563,16 +538,36 @@ class _EventCardDoc extends StatelessWidget {
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          base.withValues(alpha: 0.55),
-          base.withValues(alpha: 0.9),
-        ],
+        colors: [base.withValues(alpha: 0.55), base.withValues(alpha: 0.9)],
       ),
       borderColor: Colors.white.withValues(alpha: 0.18),
       child: SizedBox(
         width: 224,
         child: Stack(
           children: [
+            if (event.coverImageUrl?.isNotEmpty == true)
+              Positioned.fill(
+                child: Image.network(
+                  event.coverImageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            if (event.coverImageUrl?.isNotEmpty == true)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.2),
+                        Colors.black.withValues(alpha: 0.78),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               right: -8,
               top: -8,
@@ -658,91 +653,91 @@ class _MerchCardDoc extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = item.color;
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(
-        context,
-        AppRoutes.product,
-        arguments: item,
-      ),
+      onTap: () =>
+          Navigator.pushNamed(context, AppRoutes.product, arguments: item),
       child: LiquidGlass(
-      radius: 20,
-      blur: 24,
-      gradient: LinearGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.12),
-          Colors.white.withValues(alpha: 0.05),
-        ],
-      ),
-      borderColor: Colors.white.withValues(alpha: 0.16),
-      child: SizedBox(
-        width: 144,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      color.withValues(alpha: 0.7),
-                      color.withValues(alpha: 0.25),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                  ),
-                ),
-                child: Center(
-                  child: item.imageUrl?.isNotEmpty == true
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: Image.network(
-                            item.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Text(
-                              item.emoji,
-                              style: const TextStyle(fontSize: 40),
-                            ),
-                          ),
-                        )
-                      : Text(item.emoji, style: const TextStyle(fontSize: 40)),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.priceLabel,
-                    style: const TextStyle(
-                      color: AppColors.accent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        radius: 20,
+        blur: 24,
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.12),
+            Colors.white.withValues(alpha: 0.05),
           ],
         ),
-      ),
+        borderColor: Colors.white.withValues(alpha: 0.16),
+        child: SizedBox(
+          width: 144,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        color.withValues(alpha: 0.7),
+                        color.withValues(alpha: 0.25),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Center(
+                    child: item.imageUrl?.isNotEmpty == true
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.network(
+                              item.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Text(
+                                item.emoji,
+                                style: const TextStyle(fontSize: 40),
+                              ),
+                            ),
+                          )
+                        : Text(
+                            item.emoji,
+                            style: const TextStyle(fontSize: 40),
+                          ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.priceLabel,
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1225,9 +1220,7 @@ class _TrendingTab extends StatelessWidget {
                   width: double.infinity,
                   onTap: () => ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(content: Text(items[i].title)),
-                    ),
+                    ..showSnackBar(SnackBar(content: Text(items[i].title))),
                 ),
               );
             },
@@ -1412,9 +1405,7 @@ class _SearchTabState extends State<_SearchTab> {
                     width: double.infinity,
                     onTap: () => ScaffoldMessenger.of(context)
                       ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        SnackBar(content: Text(results[i].title)),
-                      ),
+                      ..showSnackBar(SnackBar(content: Text(results[i].title))),
                   ),
                 ),
         ),
@@ -1455,10 +1446,12 @@ class _MiniCommunityCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  community.color,
-                  community.color.withValues(alpha: 0.55),
-                ]),
+                gradient: LinearGradient(
+                  colors: [
+                    community.color,
+                    community.color.withValues(alpha: 0.55),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(community.icon, color: Colors.white, size: 18),
@@ -1684,10 +1677,10 @@ class _ProfileTab extends StatelessWidget {
                   GestureDetector(
                     onTap: profile?.uid.isNotEmpty == true
                         ? () => Navigator.pushNamed(
-                              context,
-                              AppRoutes.userProfile,
-                              arguments: profile!.uid,
-                            )
+                            context,
+                            AppRoutes.userProfile,
+                            arguments: profile!.uid,
+                          )
                         : null,
                     child: Hero(
                       tag: 'avatar-${profile?.uid ?? 'self'}',
@@ -1704,8 +1697,7 @@ class _ProfileTab extends StatelessWidget {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  AppColors.primary.withValues(alpha: 0.45),
+                              color: AppColors.primary.withValues(alpha: 0.45),
                               blurRadius: 30,
                               offset: const Offset(0, 10),
                             ),
@@ -1720,8 +1712,7 @@ class _ProfileTab extends StatelessWidget {
                                   errorBuilder: (_, _, _) => Center(
                                     child: Text(
                                       name.isNotEmpty
-                                          ? name.characters.first
-                                                .toUpperCase()
+                                          ? name.characters.first.toUpperCase()
                                           : 'F',
                                       style: const TextStyle(
                                         color: Colors.white,
@@ -1751,10 +1742,10 @@ class _ProfileTab extends StatelessWidget {
                   GestureDetector(
                     onTap: profile?.uid.isNotEmpty == true
                         ? () => Navigator.pushNamed(
-                              context,
-                              AppRoutes.userProfile,
-                              arguments: profile!.uid,
-                            )
+                            context,
+                            AppRoutes.userProfile,
+                            arguments: profile!.uid,
+                          )
                         : null,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1808,8 +1799,7 @@ class _ProfileTab extends StatelessWidget {
                 trailing: _MiniBadge(
                   text: profile?.isAdmin == true ? 'Admin' : 'Seller',
                 ),
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.seller),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.seller),
               ),
               const SizedBox(height: 12),
             ],
@@ -1853,8 +1843,8 @@ class _ProfileTab extends StatelessWidget {
                     _toast(context, 'Sign in to edit your profile');
                     return;
                   }
-                  final current = profile ??
-                      await UserService.instance.fetch(uid);
+                  final current =
+                      profile ?? await UserService.instance.fetch(uid);
                   if (!context.mounted) return;
                   await Navigator.pushNamed(
                     context,
@@ -2160,7 +2150,10 @@ class _SignOutButtonState extends State<_SignOutButton> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -2184,10 +2177,9 @@ class _SignOutButtonState extends State<_SignOutButton> {
       // Still leave the session — a stuck Google SDK must not lock the user in.
     }
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      AppRoutes.getStarted,
-      (route) => false,
-    );
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppRoutes.getStarted, (route) => false);
   }
 
   @override
@@ -2220,11 +2212,7 @@ class _SignOutButtonState extends State<_SignOutButton> {
                   ),
                 )
               else
-                const Icon(
-                  Icons.logout_rounded,
-                  size: 20,
-                  color: Colors.white,
-                ),
+                const Icon(Icons.logout_rounded, size: 20, color: Colors.white),
               const SizedBox(width: 8),
               Text(
                 _busy ? 'Signing out…' : 'Sign Out',
@@ -2413,9 +2401,7 @@ class _FandomChips extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       alignment: WrapAlignment.center,
-      children: [
-        for (final f in fandoms) _InterestChip(label: f),
-      ],
+      children: [for (final f in fandoms) _InterestChip(label: f)],
     );
   }
 }

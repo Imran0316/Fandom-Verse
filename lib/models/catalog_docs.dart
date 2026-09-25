@@ -48,7 +48,8 @@ abstract final class CatalogIcons {
     'orange': Color(0xFFF97316),
   };
 
-  static Color colorFromName(String? name) => colors[name] ?? const Color(0xFFE11D48);
+  static Color colorFromName(String? name) =>
+      colors[name] ?? const Color(0xFFE11D48);
 
   static String colorNameOf(Color color) {
     for (final e in colors.entries) {
@@ -76,7 +77,9 @@ class FandomCategoryDoc {
   IconData get icon => CatalogIcons.fromName(iconName);
   Color get color => CatalogIcons.colorFromName(colorName);
 
-  factory FandomCategoryDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory FandomCategoryDoc.fromDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? const {};
     return FandomCategoryDoc(
       id: doc.id,
@@ -88,11 +91,11 @@ class FandomCategoryDoc {
   }
 
   Map<String, dynamic> toMap() => {
-        'name': name,
-        'iconName': iconName,
-        'colorName': colorName,
-        'sortOrder': sortOrder,
-      };
+    'name': name,
+    'iconName': iconName,
+    'colorName': colorName,
+    'sortOrder': sortOrder,
+  };
 }
 
 class FandomEventDoc {
@@ -103,6 +106,7 @@ class FandomEventDoc {
     required this.dateLabel,
     this.iconName = 'event',
     this.colorName = 'red',
+    this.coverImageUrl,
     this.startAt,
   });
 
@@ -112,6 +116,7 @@ class FandomEventDoc {
   final String dateLabel;
   final String iconName;
   final String colorName;
+  final String? coverImageUrl;
   final DateTime? startAt;
 
   IconData get icon => CatalogIcons.fromName(iconName);
@@ -127,18 +132,20 @@ class FandomEventDoc {
       dateLabel: (data['dateLabel'] as String?) ?? '',
       iconName: (data['iconName'] as String?) ?? 'event',
       colorName: (data['colorName'] as String?) ?? 'red',
+      coverImageUrl: data['coverImageUrl'] as String?,
       startAt: start is Timestamp ? start.toDate() : null,
     );
   }
 
   Map<String, dynamic> toMap() => {
-        'title': title,
-        'city': city,
-        'dateLabel': dateLabel,
-        'iconName': iconName,
-        'colorName': colorName,
-        'startAt': startAt != null ? Timestamp.fromDate(startAt!) : null,
-      };
+    'title': title,
+    'city': city,
+    'dateLabel': dateLabel,
+    'iconName': iconName,
+    'colorName': colorName,
+    'coverImageUrl': coverImageUrl,
+    'startAt': startAt != null ? Timestamp.fromDate(startAt!) : null,
+  };
 }
 
 class MerchProductDoc {
@@ -189,16 +196,17 @@ class MerchProductDoc {
   }
 
   Map<String, dynamic> toMap() => {
-        'name': name,
-        'priceLabel': priceLabel,
-        'sellerUid': sellerUid,
-        'sellerName': sellerName,
-        'emoji': emoji,
-        'colorName': colorName,
-        'description': description,
-        'imageUrl': imageUrl,
-        'active': active,
-        'createdAt':
-            createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
-      };
+    'name': name,
+    'priceLabel': priceLabel,
+    'sellerUid': sellerUid,
+    'sellerName': sellerName,
+    'emoji': emoji,
+    'colorName': colorName,
+    'description': description,
+    'imageUrl': imageUrl,
+    'active': active,
+    'createdAt': createdAt != null
+        ? Timestamp.fromDate(createdAt!)
+        : FieldValue.serverTimestamp(),
+  };
 }
