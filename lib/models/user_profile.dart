@@ -30,6 +30,7 @@ class UserProfile {
     this.shopName,
     this.selectedFandoms = const [],
     this.followerCount = 0,
+    this.followingCount = 0,
     this.createdAt,
   });
 
@@ -44,6 +45,7 @@ class UserProfile {
   final String? shopName;
   final List<String> selectedFandoms;
   final int followerCount;
+  final int followingCount;
   final DateTime? createdAt;
 
   bool get isFan => role == UserRole.fan;
@@ -70,6 +72,7 @@ class UserProfile {
     String? shopName,
     List<String>? selectedFandoms,
     int? followerCount,
+    int? followingCount,
   }) {
     return UserProfile(
       uid: uid,
@@ -81,6 +84,7 @@ class UserProfile {
       shopName: shopName ?? this.shopName,
       selectedFandoms: selectedFandoms ?? this.selectedFandoms,
       followerCount: followerCount ?? this.followerCount,
+      followingCount: followingCount ?? this.followingCount,
       createdAt: createdAt,
     );
   }
@@ -96,6 +100,7 @@ class UserProfile {
       'shopName': shopName,
       'selectedFandoms': selectedFandoms,
       'followerCount': followerCount,
+      'followingCount': followingCount,
       'createdAt':
           createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
@@ -115,6 +120,7 @@ class UserProfile {
       selectedFandoms:
           List<String>.from((data['selectedFandoms'] as List?) ?? const []),
       followerCount: (data['followerCount'] as num?)?.toInt() ?? 0,
+      followingCount: (data['followingCount'] as num?)?.toInt() ?? 0,
       createdAt: created is Timestamp ? created.toDate() : null,
     );
   }

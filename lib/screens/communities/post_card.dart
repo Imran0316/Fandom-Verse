@@ -33,6 +33,7 @@ class _PostCardState extends State<PostCard> {
   bool _liked = false;
   bool _reposted = false;
   bool _showComments = false;
+  Stream<List<PostCommentDoc>>? _commentsStream;
   final _commentController = TextEditingController();
   bool _sendingComment = false;
   String? _commentImageUrl;
@@ -53,21 +54,32 @@ class _PostCardState extends State<PostCard> {
   }
 
   @override
+  void didUpdateWidget(covariant PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id) {
+      _showComments = false;
+      _commentsStream = null;
+    }
+  }
+
+  /// Opens/closes the comment thread with a stream cached for the lifetime of
+  /// the open state, so local rebuilds (like/repost taps, parent route
+  /// animations) never resubscribe — and closing frees the subscription.
+  void _toggleComments() {
+    setState(() {
+      _showComments = !_showComments;
+      _commentsStream = _showComments
+          ? PostService.instance.watchComments(widget.post.id)
+          : null;
+    });
+  }
+
+  @override
   void dispose() {
     _likeSub?.cancel();
     _repostSub?.cancel();
     _commentController.dispose();
     super.dispose();
-  }
-
-  String _timeLabel(DateTime? at) {
-    if (at == null) return 'now';
-    final diff = DateTime.now().difference(at);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-    if (diff.inHours < 24) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
-    return '${at.month}/${at.day}/${at.year}';
   }
 
   Future<void> _sendComment() async {
@@ -190,6 +202,7 @@ class _PostCardState extends State<PostCard> {
                         ? Image.network(
                             post.authorAvatarUrl!,
                             fit: BoxFit.cover,
+                            gaplessPlayback: true,
                             errorBuilder: (_, _, _) =>
                                 const Icon(Icons.person_rounded,
                                     color: Colors.white, size: 20),
@@ -313,13 +326,17 @@ class _PostCardState extends State<PostCard> {
           ),
           const SizedBox(height: 12),
           if (post.body.isNotEmpty) ...[
-            ExpandableText(
-              text: post.body,
-              maxLines: 2,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14.5,
-                height: 1.45,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggleComments,
+              child: ExpandableText(
+                text: post.body,
+                maxLines: 2,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14.5,
+                  height: 1.45,
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -335,6 +352,7 @@ class _PostCardState extends State<PostCard> {
                   child: Image.network(
                     post.imageUrl!,
                     fit: BoxFit.cover,
+                    gaplessPlayback: true,
                     loadingBuilder: (context, child, progress) => progress ==
                             null
                         ? child
@@ -382,7 +400,7 @@ class _PostCardState extends State<PostCard> {
               _ActionChip(
                 icon: Icons.mode_comment_outlined,
                 label: '${post.commentCount}',
-                onTap: () => setState(() => _showComments = !_showComments),
+                onTap: _toggleComments,
               ),
               const SizedBox(width: 8),
               _ActionChip(
@@ -415,7 +433,7 @@ class _PostCardState extends State<PostCard> {
             const Divider(color: Colors.white12, height: 1),
             const SizedBox(height: 10),
             StreamBuilder<List<PostCommentDoc>>(
-              stream: PostService.instance.watchComments(post.id),
+              stream: _commentsStream,
               builder: (context, snap) {
                 final comments = snap.data ?? const <PostCommentDoc>[];
                 if (comments.isEmpty) {
@@ -429,7 +447,12 @@ class _PostCardState extends State<PostCard> {
                 }
                 return Column(
                   children: [
-                    for (final c in comments) _CommentTile(comment: c),
+                    for (final c in comments)
+                      _CommentTile(
+                        key: ValueKey(c.id),
+                        postId: widget.post.id,
+                        comment: c,
+                      ),
                   ],
                 );
               },
@@ -451,6 +474,7 @@ class _PostCardState extends State<PostCard> {
                               child: Image.network(
                                 _commentImageUrl!,
                                 fit: BoxFit.cover,
+                                gaplessPlayback: true,
                                 errorBuilder: (_, _, _) => Container(
                                   color: Colors.white.withValues(alpha: 0.08),
                                   child: const Icon(
@@ -623,107 +647,700 @@ class _PostCardState extends State<PostCard> {
   }
 }
 
-class _CommentTile extends StatelessWidget {
-  const _CommentTile({required this.comment});
+String _timeLabel(DateTime? at) {
+  if (at == null) return 'now';
+  final diff = DateTime.now().difference(at);
+  if (diff.inMinutes < 1) return 'now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+  if (diff.inHours < 24) return '${diff.inHours}h';
+  if (diff.inDays < 7) return '${diff.inDays}d';
+  return '${at.month}/${at.day}/${at.year}';
+}
 
+class _CommentTile extends StatefulWidget {
+  const _CommentTile({
+    super.key,
+    required this.postId,
+    required this.comment,
+  });
+
+  final String postId;
   final PostCommentDoc comment;
 
   @override
+  State<_CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends State<_CommentTile> {
+  late bool _liked;
+  late int _likeCount;
+  String? _myReaction;
+  bool _busy = false;
+  bool _showReactionPicker = false;
+  bool _showReplies = false;
+  bool _showReplyComposer = false;
+  Stream<List<PostCommentDoc>>? _repliesStream;
+  final _replyController = TextEditingController();
+  bool _sendingReply = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _liked = false;
+    _likeCount = widget.comment.likeCount;
+    _loadMyState();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CommentTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.comment.id != widget.comment.id) {
+      _showReplies = false;
+      _showReplyComposer = false;
+      _repliesStream = null;
+      _loadMyState();
+    }
+    if (oldWidget.comment.likeCount != widget.comment.likeCount) {
+      _likeCount = widget.comment.likeCount;
+    }
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    super.dispose();
+  }
+
+  /// One-shot reads (no listeners): my like flag and my chosen reaction.
+  Future<void> _loadMyState() async {
+    final c = widget.comment;
+    final liked =
+        await PostService.instance.hasLikedComment(widget.postId, c.id);
+    final reaction =
+        await PostService.instance.getCommentReaction(widget.postId, c.id);
+    if (!mounted || c.id != widget.comment.id) return;
+    setState(() {
+      _liked = liked;
+      _myReaction = reaction;
+    });
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _toggleLike() async {
+    if (_busy) return;
+    final wasLiked = _liked;
+    setState(() {
+      _busy = true;
+      _liked = !wasLiked;
+      _likeCount += wasLiked ? -1 : 1;
+    });
+    try {
+      await PostService.instance.toggleCommentLike(
+        widget.postId,
+        widget.comment.id,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _liked = wasLiked;
+          _likeCount += wasLiked ? 1 : -1;
+        });
+      }
+      _snack('Like failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _react(String emoji) async {
+    if (_busy) return;
+    final previous = _myReaction;
+    final next = previous == emoji ? null : emoji;
+    setState(() {
+      _busy = true;
+      _myReaction = next;
+      _showReactionPicker = false;
+    });
+    try {
+      await PostService.instance.reactToComment(
+        widget.postId,
+        widget.comment.id,
+        next,
+      );
+    } catch (e) {
+      if (mounted) setState(() => _myReaction = previous);
+      _snack('Reaction failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _toggleReplies() {
+    setState(() {
+      _showReplies = !_showReplies;
+      _repliesStream = _showReplies
+          ? PostService.instance.watchReplies(
+              widget.postId,
+              widget.comment.id,
+            )
+          : null;
+      if (!_showReplies) _showReplyComposer = false;
+    });
+  }
+
+  Future<void> _sendReply() async {
+    final text = _replyController.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _sendingReply = true);
+    try {
+      await PostService.instance.addReply(
+        widget.postId,
+        widget.comment.id,
+        text,
+        authorName: AuthService.instance.greetingName,
+        authorAvatarUrl: AuthService.instance.currentUser?.photoURL,
+      );
+      _replyController.clear();
+    } catch (e) {
+      _snack('Reply failed: $e');
+    } finally {
+      if (mounted) setState(() => _sendingReply = false);
+    }
+  }
+
+  void _openProfile(String uid) {
+    if (uid.isEmpty) return;
+    Navigator.pushNamed(context, '/user-profile', arguments: uid);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = comment;
-    final initial = (c.authorName.isNotEmpty
-            ? c.authorName.characters.first
-            : '?')
-        .toUpperCase();
+    final c = widget.comment;
+    final initial =
+        (c.authorName.isNotEmpty ? c.authorName.characters.first : '?')
+            .toUpperCase();
+    final reactions = c.reactions;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 26,
-            height: 26,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: c.authorAvatarUrl?.isNotEmpty == true
-                ? Image.network(
-                    c.authorAvatarUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Center(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () => _openProfile(c.authorUid),
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: c.authorAvatarUrl?.isNotEmpty == true
+                      ? Image.network(
+                          c.authorAvatarUrl!,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          errorBuilder: (_, _, _) => Center(
+                            child: Text(
+                              initial,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            initial,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _openProfile(c.authorUid),
                       child: Text(
-                        initial,
+                        c.authorName.isEmpty ? 'Fan' : c.authorName,
                         style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                  )
-                : Center(
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                    if (c.body.isNotEmpty)
+                      ExpandableText(
+                        text: c.body,
+                        maxLines: 2,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
                       ),
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  c.authorName.isEmpty ? 'Fan' : c.authorName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (c.body.isNotEmpty)
-                  ExpandableText(
-                    text: c.body,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
-                  ),
-                if (c.imageUrl != null && c.imageUrl!.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () => openImageViewer(context, c.imageUrl!),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: SizedBox(
-                        width: 190,
-                        height: 140,
-                        child: Image.network(
-                          c.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            child: const Icon(
-                              Icons.broken_image_outlined,
-                              color: Colors.white30,
-                              size: 26,
+                    if (c.imageUrl != null && c.imageUrl!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      GestureDetector(
+                        onTap: () => openImageViewer(context, c.imageUrl!),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            width: 190,
+                            height: 140,
+                            child: Image.network(
+                              c.imageUrl!,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              errorBuilder: (_, _, _) => Container(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                child: const Icon(
+                                  Icons.broken_image_outlined,
+                                  color: Colors.white30,
+                                  size: 26,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
+                    ],
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _CommentAction(
+                          icon: _liked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          label: '$_likeCount',
+                          active: _liked,
+                          activeColor: AppColors.primary,
+                          onTap: _toggleLike,
+                        ),
+                        const SizedBox(width: 14),
+                        _CommentAction(
+                          icon: Icons.reply_rounded,
+                          label: 'Reply',
+                          onTap: () => setState(
+                            () => _showReplyComposer = !_showReplyComposer,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        _CommentAction(
+                          icon: Icons.sentiment_satisfied_alt_rounded,
+                          label: 'React',
+                          active: _showReactionPicker,
+                          onTap: () => setState(
+                            () => _showReactionPicker = !_showReactionPicker,
+                          ),
+                        ),
+                        if (c.replyCount > 0) ...[
+                          const SizedBox(width: 14),
+                          _CommentAction(
+                            icon: Icons.mode_comment_outlined,
+                            label: '${c.replyCount} '
+                                '${c.replyCount == 1 ? 'reply' : 'replies'}',
+                            active: _showReplies,
+                            onTap: _toggleReplies,
+                          ),
+                        ],
+                      ],
                     ),
-                  ),
-                ],
-              ],
+                    if (reactions.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (final entry in reactions.entries)
+                            if (entry.value > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  color: _myReaction == entry.key
+                                      ? AppColors.primary
+                                          .withValues(alpha: 0.3)
+                                      : Colors.white.withValues(alpha: 0.07),
+                                  border: Border.all(
+                                    color: _myReaction == entry.key
+                                        ? AppColors.primary
+                                            .withValues(alpha: 0.6)
+                                        : Colors.white
+                                            .withValues(alpha: 0.12),
+                                  ),
+                                ),
+                                child: Text(
+                                  '${entry.key} ${entry.value}',
+                                  style: const TextStyle(fontSize: 11.5),
+                                ),
+                              ),
+                        ],
+                      ),
+                    ],
+                    if (_showReactionPicker) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: Colors.black.withValues(alpha: 0.45),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final emoji
+                                in PostService.reactionEmojis)
+                              GestureDetector(
+                                onTap: () => _react(emoji),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  child: Text(
+                                    emoji,
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      decoration: _myReaction == emoji
+                                          ? TextDecoration.underline
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (_myReaction != null)
+                              GestureDetector(
+                                onTap: () => _react(_myReaction!),
+                                child: const Padding(
+                                  padding: EdgeInsets.only(left: 4),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 15,
+                                    color: Colors.white54,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_showReplies) ...[
+                      const SizedBox(height: 8),
+                      StreamBuilder<List<PostCommentDoc>>(
+                        stream: _repliesStream,
+                        builder: (context, snap) {
+                          final replies =
+                              snap.data ?? const <PostCommentDoc>[];
+                          if (replies.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.only(left: 4),
+                              child: Text(
+                                'No replies yet',
+                                style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: [
+                              for (final r in replies)
+                                Padding(
+                                  key: ValueKey(r.id),
+                                  padding: const EdgeInsets.only(
+                                    left: 4,
+                                    bottom: 7,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () =>
+                                            _openProfile(r.authorUid),
+                                        child: Container(
+                                          width: 20,
+                                          height: 20,
+                                          clipBehavior: Clip.antiAlias,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: r.authorAvatarUrl
+                                                      ?.isNotEmpty ==
+                                                  true
+                                              ? Image.network(
+                                                  r.authorAvatarUrl!,
+                                                  fit: BoxFit.cover,
+                                                  gaplessPlayback: true,
+                                                  errorBuilder:
+                                                      (_, _, _) =>
+                                                          const Icon(
+                                                    Icons.person_rounded,
+                                                    size: 12,
+                                                    color: Colors.white54,
+                                                  ),
+                                                )
+                                              : const Icon(
+                                                  Icons.person_rounded,
+                                                  size: 12,
+                                                  color: Colors.white54,
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 7),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Flexible(
+                                                  child: GestureDetector(
+                                                    onTap: () => _openProfile(
+                                                        r.authorUid),
+                                                    child: Text(
+                                                      r.authorName.isEmpty
+                                                          ? 'Fan'
+                                                          : r.authorName,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 11.5,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  _timeLabel(r.createdAt),
+                                                  style: const TextStyle(
+                                                    color: Colors.white38,
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            if (r.body.isNotEmpty)
+                                              Text(
+                                                r.body,
+                                                style: const TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 12,
+                                                  height: 1.3,
+                                                ),
+                                              ),
+                                            if (r.imageUrl != null &&
+                                                r.imageUrl!.isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              GestureDetector(
+                                                onTap: () => openImageViewer(
+                                                    context, r.imageUrl!),
+                                                child: ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  child: SizedBox(
+                                                    width: 150,
+                                                    height: 110,
+                                                    child: Image.network(
+                                                      r.imageUrl!,
+                                                      fit: BoxFit.cover,
+                                                      gaplessPlayback: true,
+                                                      errorBuilder:
+                                                          (_, _, _) =>
+                                                              Container(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                                alpha: 0.06),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                    if (_showReplyComposer) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _replyController,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.5,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Write a reply…',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 12.5,
+                                ),
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.14),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.14),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                              ),
+                              onSubmitted: (_) => _sendReply(),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: _sendingReply ? null : _sendReply,
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFFF5C4D),
+                                    Color(0xFFC1121F),
+                                  ],
+                                ),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.28),
+                                ),
+                              ),
+                              child: Center(
+                                child: _sendingReply
+                                    ? const SizedBox(
+                                        width: 13,
+                                        height: 13,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.arrow_upward_rounded,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    Text(
+                      _timeLabel(c.createdAt),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommentAction extends StatelessWidget {
+  const _CommentAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+    this.activeColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool active;
+  final Color? activeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        active ? (activeColor ?? AppColors.primary) : Colors.white54;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

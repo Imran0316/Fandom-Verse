@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/animations/app_transitions.dart';
+import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/community_docs.dart';
 import '../../models/post_docs.dart';
@@ -8,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../services/community_service.dart';
 import '../../services/image_upload_service.dart';
 import '../../services/post_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/expandable_text.dart';
 import '../../widgets/liquid_glass.dart';
 import 'post_card.dart';
@@ -26,6 +28,15 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
   bool _posting = false;
   String? _postImageUrl;
   bool _uploadingImage = false;
+  late final _community = StreamCache<CommunityDoc?>(
+    () => CommunityService.instance.watch(widget.communityId),
+  );
+  late final _membership = StreamCache<CommunityMemberDoc?>(
+    () => CommunityService.instance.watchMembership(widget.communityId),
+  );
+  late final _posts = StreamCache<List<PostDoc>>(
+    () => PostService.instance.watchCommunityFeed(widget.communityId),
+  );
 
   @override
   void dispose() {
@@ -129,7 +140,7 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: StreamBuilder<CommunityDoc?>(
-            stream: CommunityService.instance.watch(widget.communityId),
+            stream: _community(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting &&
                   snap.data == null) {
@@ -139,8 +150,7 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
               if (community == null) return _notFound(context);
 
               return StreamBuilder<CommunityMemberDoc?>(
-                stream:
-                    CommunityService.instance.watchMembership(community.id),
+                stream: _membership(),
                 builder: (context, memberSnap) {
                   final membership = memberSnap.data;
                   final isMember = membership != null;
@@ -248,6 +258,8 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
                   if (isOwner) ...[
                     const SizedBox(width: 8),
                     const _OwnerBadge(),
+                    const SizedBox(width: 6),
+                    _EditButton(community: community),
                   ],
                 ],
               ),
@@ -640,9 +652,10 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
 
   Widget _postsSliver(CommunityDoc community, bool isMember) {
     return StreamBuilder<List<PostDoc>>(
-      stream: PostService.instance.watchCommunityFeed(community.id),
+      stream: _posts(),
       builder: (context, postSnap) {
-        if (postSnap.connectionState == ConnectionState.waiting) {
+        if (postSnap.connectionState == ConnectionState.waiting &&
+            postSnap.data == null) {
           return const SliverFillRemaining(
             child: Center(child: CircularProgressIndicator()),
           );
@@ -659,6 +672,7 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
             (context, i) {
               final p = posts[i];
               return Padding(
+                key: ValueKey(p.id),
                 padding: EdgeInsets.fromLTRB(16, i == 0 ? 4 : 0, 16, 12),
                 child: FadeSlideIn(
                   delay: Duration(milliseconds: 35 * i.clamp(0, 8)),
@@ -738,6 +752,36 @@ class _OwnerBadge extends StatelessWidget {
           color: Colors.amber,
           fontSize: 11.5,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _EditButton extends StatelessWidget {
+  const _EditButton({required this.community});
+
+  final CommunityDoc community;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        AppRoutes.editCommunity,
+        arguments: community,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.08),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: const Icon(
+          Icons.edit_rounded,
+          size: 16,
+          color: Colors.white,
         ),
       ),
     );

@@ -199,7 +199,12 @@ class _PrimaryButtonContent extends StatelessWidget {
                         Icon(icon, size: 20, color: Colors.white),
                         const SizedBox(width: 10),
                       ],
-                      label,
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: label,
+                        ),
+                      ),
                     ],
                   ),
           ),

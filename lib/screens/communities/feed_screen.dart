@@ -4,6 +4,7 @@ import '../../core/animations/app_transitions.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/post_docs.dart';
 import '../../services/post_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/liquid_glass.dart';
 import 'post_card.dart';
 
@@ -18,6 +19,9 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   final _controller = TextEditingController();
   bool _posting = false;
+  final _posts = StreamCache<List<PostDoc>>(
+    () => PostService.instance.watchFeed(),
+  );
 
   @override
   void dispose() {
@@ -150,10 +154,13 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
                 Expanded(
                   child: StreamBuilder<List<PostDoc>>(
-                    stream: PostService.instance.watchFeed(),
+                    stream: _posts(),
                     builder: (context, snap) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
+                      if (snap.connectionState == ConnectionState.waiting &&
+                          snap.data == null) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
                       }
                       final posts = snap.data ?? const <PostDoc>[];
                       if (posts.isEmpty) {
@@ -210,6 +217,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         itemBuilder: (context, i) {
                           final p = posts[i];
                           return FadeSlideIn(
+                            key: ValueKey(p.id),
                             delay: Duration(
                               milliseconds: 35 * i.clamp(0, 8),
                             ),

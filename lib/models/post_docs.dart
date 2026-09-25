@@ -73,6 +73,9 @@ class PostCommentDoc {
     this.authorAvatarUrl,
     this.body = '',
     this.imageUrl,
+    this.likeCount = 0,
+    this.replyCount = 0,
+    this.reactions = const {},
     this.createdAt,
   });
 
@@ -82,6 +85,14 @@ class PostCommentDoc {
   final String? authorAvatarUrl;
   final String body;
   final String? imageUrl;
+  final int likeCount;
+
+  /// Nested replies (posts/{postId}/comments/{commentId}/replies).
+  final int replyCount;
+
+  /// Emoji → tally, e.g. {'\u{1F525}': 2}. Stored on the comment doc so the
+  /// counts ride along with the existing comments stream (no extra listeners).
+  final Map<String, int> reactions;
   final DateTime? createdAt;
 
   factory PostCommentDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -94,6 +105,9 @@ class PostCommentDoc {
       authorAvatarUrl: data['authorAvatarUrl'] as String?,
       body: (data['body'] as String?) ?? '',
       imageUrl: data['imageUrl'] as String?,
+      likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
+      replyCount: (data['replyCount'] as num?)?.toInt() ?? 0,
+      reactions: _intMap(data['reactions']),
       createdAt: created is Timestamp ? created.toDate() : null,
     );
   }
@@ -104,6 +118,18 @@ class PostCommentDoc {
         'authorAvatarUrl': authorAvatarUrl,
         'body': body,
         'imageUrl': imageUrl,
+        'likeCount': likeCount,
+        'replyCount': replyCount,
+        'reactions': reactions,
         'createdAt': FieldValue.serverTimestamp(),
       };
+}
+
+Map<String, int> _intMap(Object? raw) {
+  if (raw is! Map) return const {};
+  return {
+    for (final e in raw.entries)
+      if (e.key is String && e.value is num)
+        e.key as String: (e.value as num).toInt(),
+  };
 }
