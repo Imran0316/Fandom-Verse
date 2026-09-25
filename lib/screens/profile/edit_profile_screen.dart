@@ -167,7 +167,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       LottieView(
                         width: 40,
                         height: 40,
-                        asset: 'assets/lottie/sparkle.json',
+                        asset: 'lib/assets/lottie/sparkle.json',
                         fallback: const PulseDot(size: 36),
                       ),
                     ],

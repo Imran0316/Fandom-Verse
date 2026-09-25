@@ -5,7 +5,11 @@ import 'package:fandom_verse/app.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
   await tester.pumpWidget(const FandomVerseApp());
-  await tester.pump(const Duration(milliseconds: 400));
+  // Splash timeline (fake time): asset wait 1.5s + reveal/nav timer 2.75s
+  // + bounded Firebase poll (3s, never ready in tests) = ~7.3s, then the
+  // replacement route transition.
+  await tester.pump(const Duration(milliseconds: 9000));
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 void main() {

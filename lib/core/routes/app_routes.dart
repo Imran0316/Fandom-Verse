@@ -1,6 +1,7 @@
 class AppRoutes {
   AppRoutes._();
 
+  static const String splash = '/splash';
   static const String getStarted = '/';
   static const String signIn = '/sign-in';
   static const String interests = '/interests';

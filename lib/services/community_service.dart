@@ -50,6 +50,8 @@ class CommunityService {
     required String ownerUid,
     required String iconName,
     required String colorName,
+    String? profileImageUrl,
+    String? coverImageUrl,
   }) async {
     if (!_ready) throw StateError('Firebase is not configured yet.');
     final ref = await _col.add({
@@ -59,6 +61,9 @@ class CommunityService {
       'iconName': iconName,
       'colorName': colorName,
       'memberCount': 1,
+      'postCount': 0,
+      'profileImageUrl': profileImageUrl,
+      'coverImageUrl': coverImageUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
     await _members(ref.id).doc(ownerUid).set({

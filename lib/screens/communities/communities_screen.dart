@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/community_docs.dart';
 import '../../services/auth_service.dart';
 import '../../services/community_service.dart';
+import '../../services/image_upload_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
@@ -215,6 +216,7 @@ class _CommunityTile extends StatelessWidget {
               Container(
                 width: 52,
                 height: 52,
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -225,7 +227,14 @@ class _CommunityTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                 ),
-                child: Icon(community.icon, color: Colors.white, size: 26),
+                child: community.profileImageUrl?.isNotEmpty == true
+                    ? Image.network(
+                        community.profileImageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            Icon(community.icon, color: Colors.white, size: 26),
+                      )
+                    : Icon(community.icon, color: Colors.white, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -381,6 +390,10 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   String _iconName = 'anime';
   String _colorName = 'rose';
   bool _saving = false;
+  String? _coverUrl;
+  String? _profileUrl;
+  bool _uploadingCover = false;
+  bool _uploadingProfile = false;
 
   static const _iconChoices = [
     ('anime', Icons.theaters_rounded),
@@ -409,6 +422,44 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     super.dispose();
   }
 
+  Future<void> _pickCover() async {
+    if (_uploadingCover) return;
+    setState(() => _uploadingCover = true);
+    try {
+      final url = await ImageUploadService.instance.pickAndUpload(
+        name: 'community-cover',
+      );
+      if (url != null) setState(() => _coverUrl = url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ImageUploadService.friendlyMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingCover = false);
+    }
+  }
+
+  Future<void> _pickProfile() async {
+    if (_uploadingProfile) return;
+    setState(() => _uploadingProfile = true);
+    try {
+      final url = await ImageUploadService.instance.pickAndUpload(
+        name: 'community-profile',
+      );
+      if (url != null) setState(() => _profileUrl = url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ImageUploadService.friendlyMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingProfile = false);
+    }
+  }
+
   Future<void> _submit() async {
     final name = _name.text.trim();
     if (name.length < 3) {
@@ -427,6 +478,8 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
         ownerUid: uid,
         iconName: _iconName,
         colorName: _colorName,
+        profileImageUrl: _profileUrl,
+        coverImageUrl: _coverUrl,
       );
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -484,6 +537,176 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                   controller: _description,
                   label: 'Description (optional)',
                   prefixIcon: Icons.notes_rounded,
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Cover image',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Shown at the top of your community page',
+                  style: TextStyle(color: Colors.white38, fontSize: 11.5),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _uploadingCover ? null : _pickCover,
+                  child: Container(
+                    height: 120,
+                    width: double.infinity,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF23233A), Color(0xFF14141C)],
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.16),
+                      ),
+                    ),
+                    child: _uploadingCover
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: AppColors.accent,
+                            ),
+                          )
+                        : _coverUrl != null
+                            ? Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(
+                                    _coverUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Center(
+                                      child: Icon(Icons.broken_image_outlined,
+                                          color: Colors.white38),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                        color: Colors.black.withValues(
+                                            alpha: 0.6),
+                                      ),
+                                      child: const Text(
+                                        'Change',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      color: Colors.white.withValues(alpha: 0.5),
+                                      size: 30,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Tap to add a cover',
+                                      style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.55),
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Profile image',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'The icon shown for your community',
+                  style: TextStyle(color: Colors.white38, fontSize: 11.5),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _uploadingProfile ? null : _pickProfile,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 84,
+                        height: 84,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF23233A), Color(0xFF14141C)],
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            width: 2,
+                          ),
+                        ),
+                        child: _uploadingProfile
+                            ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(22),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.4,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              )
+                            : _profileUrl != null
+                                ? Image.network(
+                                    _profileUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Center(
+                                      child: Icon(Icons.broken_image_outlined,
+                                          color: Colors.white38),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.add_a_photo_outlined,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.5),
+                                    size: 24,
+                                  ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          _profileUrl != null
+                              ? 'Looks good! Tap to change.'
+                              : 'Tap to upload a profile picture',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Text(

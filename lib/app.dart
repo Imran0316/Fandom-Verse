@@ -26,7 +26,7 @@ import 'screens/seller/seller_dashboard.dart';
 import 'screens/shop/cart_screen.dart';
 import 'screens/shop/orders_screen.dart';
 import 'screens/shop/product_detail_screen.dart';
-import 'services/auth_service.dart';
+import 'screens/splash/splash_screen.dart';
 
 class FandomVerseApp extends StatelessWidget {
   const FandomVerseApp({super.key});
@@ -42,6 +42,9 @@ class FandomVerseApp extends StatelessWidget {
 
         Widget page;
         switch (name) {
+          case AppRoutes.splash:
+            page = const SplashScreen();
+            break;
           case AppRoutes.getStarted:
             page = const GetStartedScreen();
             break;
@@ -61,9 +64,7 @@ class FandomVerseApp extends StatelessWidget {
             page = const SellerDashboardScreen();
             break;
           case AppRoutes.editProfile:
-            page = EditProfileScreen(
-              profile: settings.arguments as dynamic,
-            );
+            page = EditProfileScreen(profile: settings.arguments as dynamic);
             break;
           case AppRoutes.interestsEditor:
             page = InterestsEditorScreen(
@@ -153,8 +154,10 @@ class FandomVerseApp extends StatelessWidget {
             page = const GetStartedScreen();
         }
 
-        // Dashboard / get-started keep default fade; secondary screens animate.
-        if (name == AppRoutes.dashboard || name == AppRoutes.getStarted) {
+        // Dashboard / splash / get-started keep default fade; secondary screens animate.
+        if (name == AppRoutes.dashboard ||
+            name == AppRoutes.splash ||
+            name == AppRoutes.getStarted) {
           return MaterialPageRoute(builder: (_) => page, settings: settings);
         }
         if (name == AppRoutes.admin ||
@@ -183,9 +186,7 @@ class FandomVerseApp extends StatelessWidget {
         }
         return AppTransitions.fadeSlide(page, settings: settings);
       },
-      initialRoute: AuthService.instance.isSignedIn
-          ? AppRoutes.dashboard
-          : AppRoutes.getStarted,
+      initialRoute: AppRoutes.splash,
     );
   }
 }

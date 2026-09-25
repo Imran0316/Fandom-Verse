@@ -1,9 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/post_docs.dart';
 import '../../services/auth_service.dart';
+import '../../services/image_upload_service.dart';
 import '../../services/post_service.dart';
+import '../../widgets/expandable_text.dart';
+import '../../widgets/gif_picker.dart';
+import '../../widgets/image_viewer.dart';
 import '../../widgets/liquid_glass.dart';
 
 class PostCard extends StatefulWidget {
@@ -28,21 +35,27 @@ class _PostCardState extends State<PostCard> {
   bool _showComments = false;
   final _commentController = TextEditingController();
   bool _sendingComment = false;
+  String? _commentImageUrl;
+  bool _uploadingCommentMedia = false;
+  StreamSubscription<bool>? _likeSub;
+  StreamSubscription<bool>? _repostSub;
 
   @override
   void initState() {
     super.initState();
     final pid = widget.post.id;
-    PostService.instance.watchLiked(pid).listen((v) {
+    _likeSub = PostService.instance.watchLiked(pid).listen((v) {
       if (mounted && _liked != v) setState(() => _liked = v);
     });
-    PostService.instance.watchReposted(pid).listen((v) {
+    _repostSub = PostService.instance.watchReposted(pid).listen((v) {
       if (mounted && _reposted != v) setState(() => _reposted = v);
     });
   }
 
   @override
   void dispose() {
+    _likeSub?.cancel();
+    _repostSub?.cancel();
     _commentController.dispose();
     super.dispose();
   }
@@ -59,16 +72,18 @@ class _PostCardState extends State<PostCard> {
 
   Future<void> _sendComment() async {
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _commentImageUrl == null) return;
     setState(() => _sendingComment = true);
     try {
       await PostService.instance.addComment(
         widget.post.id,
         text,
+        imageUrl: _commentImageUrl,
         authorName: AuthService.instance.greetingName,
         authorAvatarUrl: AuthService.instance.currentUser?.photoURL,
       );
       _commentController.clear();
+      _commentImageUrl = null;
       widget.onChanged?.call();
     } catch (e) {
       if (mounted) {
@@ -78,6 +93,50 @@ class _PostCardState extends State<PostCard> {
       }
     } finally {
       if (mounted) setState(() => _sendingComment = false);
+    }
+  }
+
+  Future<void> _pickCommentImage() async {
+    if (_uploadingCommentMedia) return;
+    setState(() => _uploadingCommentMedia = true);
+    try {
+      final url = await ImageUploadService.instance.pickAndUpload(
+        name: 'comment',
+      );
+      if (url != null && mounted) setState(() => _commentImageUrl = url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ImageUploadService.friendlyMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingCommentMedia = false);
+    }
+  }
+
+  Future<void> _pickCommentGif() async {
+    if (_uploadingCommentMedia) return;
+    setState(() => _uploadingCommentMedia = true);
+    try {
+      final url = await GifPicker.show(context);
+      if (url != null && mounted) setState(() => _commentImageUrl = url);
+    } finally {
+      if (mounted) setState(() => _uploadingCommentMedia = false);
+    }
+  }
+
+  void _share() {
+    final post = widget.post;
+    final text = post.body.trim().isNotEmpty
+        ? post.body.trim()
+        : (post.imageUrl ?? '');
+    if (text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post copied to clipboard')),
+      );
     }
   }
 
@@ -253,15 +312,51 @@ class _PostCardState extends State<PostCard> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            post.body,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14.5,
-              height: 1.45,
+          if (post.body.isNotEmpty) ...[
+            ExpandableText(
+              text: post.body,
+              maxLines: 2,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14.5,
+                height: 1.45,
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
+          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+            GestureDetector(
+              onTap: () => openImageViewer(context, post.imageUrl!),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 260,
+                  child: Image.network(
+                    post.imageUrl!,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) => progress ==
+                            null
+                        ? child
+                        : Container(
+                            color: Colors.white.withValues(alpha: 0.05),
+                          ),
+                    errorBuilder: (_, _, _) => Container(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      child: const Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white30,
+                          size: 34,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           Row(
             children: [
               _ActionChip(
@@ -307,6 +402,12 @@ class _PostCardState extends State<PostCard> {
                   }
                 },
               ),
+              const SizedBox(width: 8),
+              _ActionChip(
+                icon: Icons.share_rounded,
+                label: 'Share',
+                onTap: _share,
+              ),
             ],
           ),
           if (_showComments) ...[
@@ -328,123 +429,303 @@ class _PostCardState extends State<PostCard> {
                 }
                 return Column(
                   children: [
-                    for (final c in comments)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 26,
-                              height: 26,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  (c.authorName.isNotEmpty
-                                          ? c.authorName.characters.first
-                                          : '?')
-                                      .toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    c.authorName.isEmpty ? 'Fan' : c.authorName,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Text(
-                                    c.body,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    for (final c in comments) _CommentTile(comment: c),
                   ],
                 );
               },
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Add a comment…',
-                      hintStyle: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 13,
-                      ),
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.14),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.14),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.accent),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Column(
+                children: [
+                  if (_commentImageUrl != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Image.network(
+                                _commentImageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  child: const Icon(
+                                    Icons.broken_image_outlined,
+                                    color: Colors.white38,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Attachment ready',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _commentImageUrl = null),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: Colors.white.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    onSubmitted: (_) => _sendComment(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _sendingComment ? null : _sendComment,
-                  style: IconButton.styleFrom(
-                    backgroundColor:
-                        AppColors.primary.withValues(alpha: 0.35),
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: _sendingComment
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _commentController,
+                          style: const TextStyle(
                             color: Colors.white,
+                            fontSize: 13,
                           ),
-                        )
-                      : const Icon(Icons.arrow_upward_rounded, size: 18),
-                ),
-              ],
+                          decoration: InputDecoration(
+                            hintText: 'Add a comment…',
+                            hintStyle: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 13,
+                            ),
+                            isDense: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.14),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.14),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: AppColors.accent),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                          ),
+                          onSubmitted: (_) => _sendComment(),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap:
+                            _uploadingCommentMedia ? null : _pickCommentGif,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            color: const Color(0xFF10B981)
+                                .withValues(alpha: 0.14),
+                            border: Border.all(
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: const Text(
+                            'GIF',
+                            style: TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: _uploadingCommentMedia
+                            ? null
+                            : _pickCommentImage,
+                        child: LiquidGlassPill(
+                          radius: 999,
+                          blur: 12,
+                          padding: const EdgeInsets.all(8),
+                          child: _uploadingCommentMedia
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.accent,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.image_outlined,
+                                  size: 17,
+                                  color: Colors.white,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: _sendingComment ? null : _sendComment,
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF5C4D), Color(0xFFC1121F)],
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.28),
+                            ),
+                          ),
+                          child: Center(
+                            child: _sendingComment
+                                ? const SizedBox(
+                                    width: 15,
+                                    height: 15,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.arrow_upward_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CommentTile extends StatelessWidget {
+  const _CommentTile({required this.comment});
+
+  final PostCommentDoc comment;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = comment;
+    final initial = (c.authorName.isNotEmpty
+            ? c.authorName.characters.first
+            : '?')
+        .toUpperCase();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: c.authorAvatarUrl?.isNotEmpty == true
+                ? Image.network(
+                    c.authorAvatarUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Center(
+                      child: Text(
+                        initial,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  c.authorName.isEmpty ? 'Fan' : c.authorName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (c.body.isNotEmpty)
+                  ExpandableText(
+                    text: c.body,
+                    maxLines: 2,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                if (c.imageUrl != null && c.imageUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => openImageViewer(context, c.imageUrl!),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        width: 190,
+                        height: 140,
+                        child: Image.network(
+                          c.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white30,
+                              size: 26,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

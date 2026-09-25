@@ -72,6 +72,7 @@ class PostCommentDoc {
     this.authorName = '',
     this.authorAvatarUrl,
     this.body = '',
+    this.imageUrl,
     this.createdAt,
   });
 
@@ -80,6 +81,7 @@ class PostCommentDoc {
   final String authorName;
   final String? authorAvatarUrl;
   final String body;
+  final String? imageUrl;
   final DateTime? createdAt;
 
   factory PostCommentDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -91,6 +93,7 @@ class PostCommentDoc {
       authorName: (data['authorName'] as String?) ?? '',
       authorAvatarUrl: data['authorAvatarUrl'] as String?,
       body: (data['body'] as String?) ?? '',
+      imageUrl: data['imageUrl'] as String?,
       createdAt: created is Timestamp ? created.toDate() : null,
     );
   }
@@ -100,6 +103,7 @@ class PostCommentDoc {
         'authorName': authorName,
         'authorAvatarUrl': authorAvatarUrl,
         'body': body,
+        'imageUrl': imageUrl,
         'createdAt': FieldValue.serverTimestamp(),
       };
 }

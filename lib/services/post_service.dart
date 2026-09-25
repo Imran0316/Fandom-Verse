@@ -24,6 +24,9 @@ class PostService {
   CollectionReference<Map<String, dynamic>> _reposts(String postId) =>
       _doc(postId).collection('reposts');
 
+  DocumentReference<Map<String, dynamic>> _community(String communityId) =>
+      FirebaseFirestore.instance.collection('communities').doc(communityId);
+
   /* --------------------------------- Feed --------------------------------- */
 
   Stream<List<PostDoc>> watchFeed({int limit = 40}) {
@@ -50,12 +53,17 @@ class PostService {
     String? communityName,
     String? authorName,
     String? authorAvatarUrl,
+    String? imageUrl,
   }) async {
     final uid = _uid;
     if (!_ready || uid == null) throw StateError('Sign in required.');
     final text = body.trim();
-    if (text.isEmpty) throw ArgumentError('Post cannot be empty.');
-    await _col.add({
+    if (text.isEmpty && imageUrl == null) {
+      throw ArgumentError('Post cannot be empty.');
+    }
+    final ref = _col.doc();
+    final batch = FirebaseFirestore.instance.batch();
+    batch.set(ref, {
       'authorUid': uid,
       'authorName': authorName ?? AuthService.instance.greetingName,
       'authorAvatarUrl': authorAvatarUrl,
@@ -65,14 +73,33 @@ class PostService {
       'likeCount': 0,
       'commentCount': 0,
       'repostCount': 0,
-      'imageUrl': null,
+      'imageUrl': imageUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    if (communityId != null && communityId.isNotEmpty) {
+      batch.update(_community(communityId), {
+        'postCount': FieldValue.increment(1),
+      });
+    }
+    await batch.commit();
   }
 
-  Future<void> deletePost(String postId) => _doc(postId).delete();
+  Future<void> deletePost(String postId) async {
+    final snap = await _doc(postId).get();
+    final communityId = snap.data()?['communityId'] as String?;
+    if (communityId == null || communityId.isEmpty) {
+      await _doc(postId).delete();
+      return;
+    }
+    final batch = FirebaseFirestore.instance.batch();
+    batch.delete(_doc(postId));
+    batch.update(_community(communityId), {
+      'postCount': FieldValue.increment(-1),
+    });
+    await batch.commit();
+  }
 
-  Future<void> adminDeletePost(String postId) => _doc(postId).delete();
+  Future<void> adminDeletePost(String postId) => deletePost(postId);
 
   /* -------------------------------- Actions ------------------------------- */
 
@@ -133,13 +160,14 @@ class PostService {
   Future<void> addComment(
     String postId,
     String body, {
+    String? imageUrl,
     String? authorName,
     String? authorAvatarUrl,
   }) async {
     final uid = _uid;
     if (!_ready || uid == null) throw StateError('Sign in required.');
     final text = body.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && imageUrl == null) return;
     final batch = FirebaseFirestore.instance.batch();
     final ref = _comments(postId).doc();
     batch.set(ref, {
@@ -147,6 +175,7 @@ class PostService {
       'authorName': authorName ?? AuthService.instance.greetingName,
       'authorAvatarUrl': authorAvatarUrl,
       'body': text,
+      'imageUrl': imageUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
     batch.update(_doc(postId), {'commentCount': FieldValue.increment(1)});

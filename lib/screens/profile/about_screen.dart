@@ -54,7 +54,7 @@ class AboutScreen extends StatelessWidget {
                       child: LottieView(
                         width: 96,
                         height: 96,
-                        asset: 'assets/lottie/sparkle.json',
+                        asset: 'lib/assets/lottie/sparkle.json',
                         fallback: const PulseDot(size: 80),
                       ),
                     ),

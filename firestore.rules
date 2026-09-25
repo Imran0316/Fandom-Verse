@@ -102,11 +102,12 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid;
       allow update: if isAdmin()
         || resource.data.ownerUid == request.auth.uid
-        // Join/leave only bumps the counter — any signed-in member may do that.
+        // Join/leave bumps memberCount; posting bumps postCount — any
+        // signed-in member may do exactly those counter writes.
         || (signedIn()
             && request.resource.data.diff(resource.data)
                  .affectedKeys()
-                 .hasOnly(['memberCount']));
+                 .hasOnly(['memberCount', 'postCount']));
       allow delete: if isAdmin()
         || resource.data.ownerUid == request.auth.uid;
 
