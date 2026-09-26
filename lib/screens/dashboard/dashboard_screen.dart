@@ -17,7 +17,9 @@ import '../../services/community_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/post_service.dart';
 import '../../services/stream_cache.dart';
+import '../../services/taxonomy_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_floating_nav.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/content_widgets.dart';
@@ -174,8 +176,11 @@ class _HomeTabState extends State<_HomeTab> {
   final _published = StreamCache<List<ContentDoc>>(
     () => ContentService.instance.watchPublished(limit: 18),
   );
+  final _fandoms = StreamCache<List<FandomDoc>>(
+    () => TaxonomyService.instance.watchFandoms(),
+  );
   final _feed = StreamCache<List<PostDoc>>(
-    () => PostService.instance.watchFeed(limit: 5),
+    () => PostService.instance.watchFeed(limit: 3),
   );
   final _notifications = StreamCache<List<NotificationDoc>>(
     () => NotificationService.instance.watch(),
@@ -201,8 +206,50 @@ class _HomeTabState extends State<_HomeTab> {
         const SizedBox(height: 10),
         _topBar(),
         const SizedBox(height: 20),
-        const DiscoveryHome(),
+        DiscoveryFeatureSection(stream: _published()),
+        TrendingFandomsSection(stream: _published(), fandomStream: _fandoms()),
+        _SectionHeader(
+          title: 'Communities',
+          subtitle: 'Find your people across the fandoms',
+          onSeeAll: () => Navigator.pushNamed(context, AppRoutes.communities),
+        ),
+        StreamBuilder<List<CommunityDoc>>(
+          stream: _communities(),
+          builder: (context, snap) {
+            final communities = snap.data ?? const <CommunityDoc>[];
+            if (communities.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _CommunityPromoCard(
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.communities),
+                ),
+              );
+            }
+            final preview = communities.take(10).toList();
+            return SizedBox(
+              height: 122,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                physics: const BouncingScrollPhysics(),
+                itemCount: preview.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, i) => _CompactCommunityCard(
+                  community: preview[i],
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.communityDetail,
+                    arguments: preview[i].id,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         const SizedBox(height: 34),
+        TrendingNewsSection(stream: _published()),
+        const SizedBox(height: 14),
         StreamBuilder<UserProfile?>(
           stream: _profile(),
           builder: (context, profileSnap) {
@@ -258,48 +305,6 @@ class _HomeTabState extends State<_HomeTab> {
         ),
         const SizedBox(height: 34),
         _SectionHeader(
-          title: 'Communities',
-          subtitle: 'Find your people across the fandoms',
-          onSeeAll: () => Navigator.pushNamed(context, AppRoutes.communities),
-        ),
-        StreamBuilder<List<CommunityDoc>>(
-          stream: _communities(),
-          builder: (context, snap) {
-            final communities = snap.data ?? const <CommunityDoc>[];
-            if (communities.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _CommunityPromoCard(
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.communities),
-                ),
-              );
-            }
-            final preview = communities.take(3).toList();
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  for (final c in preview)
-                    Padding(
-                      key: ValueKey(c.id),
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _CommunityRow(
-                        community: c,
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.communityDetail,
-                          arguments: c.id,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 34),
-        _SectionHeader(
           title: 'Fan Feed',
           subtitle: 'Fresh posts from fans and communities',
           onSeeAll: () => Navigator.pushNamed(context, AppRoutes.feed),
@@ -326,11 +331,21 @@ class _HomeTabState extends State<_HomeTab> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: PostCard(post: posts[i]),
                     ),
+                  GlassButton(
+                    label: 'Discover more posts',
+                    variant: GlassButtonVariant.outline,
+                    height: 50,
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.feed),
+                  ),
                 ],
               ),
             );
           },
         ),
+        const SizedBox(height: 34),
+        LatestDiscoveriesSection(stream: _published()),
         const SizedBox(height: 34),
         StreamBuilder<List<FandomEventDoc>>(
           stream: CatalogService.instance.watchEvents(),
@@ -381,7 +396,7 @@ class _HomeTabState extends State<_HomeTab> {
                       Navigator.pushNamed(context, AppRoutes.merchExplore),
                 ),
                 SizedBox(
-                  height: 186,
+                  height: 238,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -658,87 +673,191 @@ class _MerchCardDoc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasRating = item.reviewCount > 0;
+    final stock = item.stock;
+    final lowStock = stock != null && stock > 0 && stock <= 10;
+    final out = stock != null && stock <= 0;
+
     return GestureDetector(
       onTap: () =>
           Navigator.pushNamed(context, AppRoutes.product, arguments: item),
-      child: LiquidGlass(
-        radius: 20,
-        blur: 24,
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.12),
-            Colors.white.withValues(alpha: 0.05),
+      child: SizedBox(
+        width: 162,
+        child: LiquidGlass(
+          radius: 24,
+          blur: 26,
+          padding: const EdgeInsets.all(7),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.13),
+              Colors.white.withValues(alpha: 0.05),
+            ],
+          ),
+          borderColor: Colors.white.withValues(alpha: 0.16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
           ],
-        ),
-        borderColor: Colors.white.withValues(alpha: 0.16),
-        child: SizedBox(
-          width: 144,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: Colors.white.withValues(alpha: 0.06),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.10),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: SizedBox(
+              height: 224,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    child: const Center(
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        color: Colors.white24,
+                        size: 34,
+                      ),
                     ),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: item.imageUrl?.isNotEmpty == true
-                      ? Image.network(
-                          item.imageUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorBuilder: (_, _, _) => const Center(
-                            child: Icon(
-                              Icons.inventory_2_outlined,
-                              color: Colors.white24,
-                              size: 36,
-                            ),
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(
-                            Icons.inventory_2_outlined,
-                            color: Colors.white24,
-                            size: 36,
+                  if (item.imageUrl?.isNotEmpty == true)
+                    Image.network(
+                      item.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.3),
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.84),
+                          ],
+                          stops: const [0, 0.32, 0.5, 1],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (hasRating)
+                    Positioned(
+                      top: 9,
+                      right: 9,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(9),
+                          color: Colors.black.withValues(alpha: 0.55),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
                           ),
                         ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              color: Color(0xFFFFD166),
+                              size: 11,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              item.rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.priceLabel,
-                      style: const TextStyle(
-                        color: AppColors.accent,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                  if (out || lowStock)
+                    Positioned(
+                      top: 9,
+                      left: 9,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(9),
+                          color: Colors.black.withValues(alpha: 0.55),
+                          border: Border.all(
+                            color:
+                                (out
+                                        ? const Color(0xFFFF6B6B)
+                                        : const Color(0xFFFFD166))
+                                    .withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: Text(
+                          out ? 'Sold out' : 'Only $stock left',
+                          style: TextStyle(
+                            color: out
+                                ? const Color(0xFFFF6B6B)
+                                : const Color(0xFFFFD166),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(color: Colors.black54, blurRadius: 6),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: AppColors.accent.withValues(alpha: 0.2),
+                            border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Text(
+                            item.priceLabel,
+                            style: const TextStyle(
+                              color: AppColors.accent,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1165,8 +1284,8 @@ class _SearchTabState extends State<_SearchTab> {
   }
 }
 
-class _CommunityRow extends StatelessWidget {
-  const _CommunityRow({required this.community, required this.onTap});
+class _CompactCommunityCard extends StatelessWidget {
+  const _CompactCommunityCard({required this.community, required this.onTap});
 
   final CommunityDoc community;
   final VoidCallback onTap;
@@ -1175,115 +1294,80 @@ class _CommunityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+      child: SizedBox(
+        width: 112,
+        child: LiquidGlass(
+          radius: 20,
+          blur: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
             colors: [
-              community.color.withValues(alpha: 0.34),
-              community.color.withValues(alpha: 0.12),
+              community.color.withValues(alpha: 0.16),
               Colors.white.withValues(alpha: 0.05),
             ],
           ),
-          border: Border.all(color: community.color.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    community.color,
-                    community.color.withValues(alpha: 0.55),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: community.color.withValues(alpha: 0.45),
-                    blurRadius: 12,
-                  ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child:
-                  community.profileImageUrl?.isNotEmpty == true ||
-                      community.coverImageUrl?.isNotEmpty == true
-                  ? Image.network(
-                      community.profileImageUrl?.isNotEmpty == true
-                          ? community.profileImageUrl!
-                          : community.coverImageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          Icon(community.icon, color: Colors.white, size: 22),
-                    )
-                  : Icon(community.icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    community.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.people_alt_rounded,
-                        size: 13,
-                        color: community.color,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${community.memberCount} '
-                        '${community.memberCount == 1 ? 'member' : 'members'}',
-                        style: TextStyle(
-                          color: community.color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Icon(
-                        Icons.article_outlined,
-                        size: 13,
-                        color: Colors.white.withValues(alpha: 0.45),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${community.postCount} '
-                        '${community.postCount == 1 ? 'post' : 'posts'}',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+          borderColor: community.color.withValues(alpha: 0.35),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      community.color,
+                      community.color.withValues(alpha: 0.55),
                     ],
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: community.color.withValues(alpha: 0.45),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child:
+                    community.profileImageUrl?.isNotEmpty == true ||
+                        community.coverImageUrl?.isNotEmpty == true
+                    ? Image.network(
+                        community.profileImageUrl?.isNotEmpty == true
+                            ? community.profileImageUrl!
+                            : community.coverImageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            Icon(community.icon, color: Colors.white, size: 22),
+                      )
+                    : Icon(community.icon, color: Colors.white, size: 22),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white.withValues(alpha: 0.4),
-            ),
-          ],
+              const SizedBox(height: 9),
+              Text(
+                community.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '${community.memberCount} '
+                '${community.memberCount == 1 ? 'member' : 'members'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

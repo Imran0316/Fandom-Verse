@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
+import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
 enum MerchExploreSort {
@@ -99,7 +100,9 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                           IconButton(
                             onPressed: () => Navigator.pop(context),
                             style: IconButton.styleFrom(
-                              backgroundColor: Colors.white.withValues(alpha: 0.08),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.08,
+                              ),
                               foregroundColor: Colors.white,
                             ),
                             icon: const Icon(Icons.arrow_back_rounded),
@@ -126,15 +129,17 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                                   AppRoutes.cart,
                                 ),
                                 style: IconButton.styleFrom(
-                                  backgroundColor:
-                                      Colors.white.withValues(alpha: 0.02),
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.02,
+                                  ),
                                   foregroundColor: Colors.white,
                                 ),
                                 icon: Badge(
                                   isLabelVisible: count > 0,
                                   label: Text('$count'),
-                                  child:
-                                      const Icon(Icons.shopping_cart_outlined),
+                                  child: const Icon(
+                                    Icons.shopping_cart_outlined,
+                                  ),
                                 ),
                               );
                             },
@@ -163,7 +168,10 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                           child: TextField(
                             controller: _searchController,
                             onChanged: (_) => setState(() {}),
-                            style: const TextStyle(color: Colors.white, fontSize: 15),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                            ),
                             cursorColor: AppColors.accent,
                             decoration: InputDecoration(
                               border: InputBorder.none,
@@ -211,7 +219,9 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                               onTap: () => setState(() => _sort = option),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 180),
-                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: selected
@@ -220,15 +230,21 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: selected
-                                        ? AppColors.accent.withValues(alpha: 0.6)
+                                        ? AppColors.accent.withValues(
+                                            alpha: 0.6,
+                                          )
                                         : Colors.white.withValues(alpha: 0.12),
                                   ),
                                 ),
                                 child: Text(
                                   option.label,
                                   style: TextStyle(
-                                    color: selected ? Colors.white : Colors.white70,
-                                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                                    color: selected
+                                        ? Colors.white
+                                        : Colors.white70,
+                                    fontWeight: selected
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
                                     fontSize: 12.5,
                                   ),
                                 ),
@@ -274,11 +290,11 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                                 itemCount: items.length,
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 14,
-                                  mainAxisSpacing: 16,
-                                  childAspectRatio: 0.74,
-                                ),
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 14,
+                                      mainAxisSpacing: 16,
+                                      childAspectRatio: 0.74,
+                                    ),
                                 itemBuilder: (context, index) {
                                   final item = items[index];
                                   return MerchExploreCard(item: item);
@@ -307,6 +323,18 @@ class MerchExploreCard extends StatefulWidget {
 }
 
 class _MerchExploreCardState extends State<MerchExploreCard> {
+  Future<void> _addToCart() async {
+    try {
+      await CartService.instance.addToCart(widget.item);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.item.name} added to cart')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +342,7 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
         ? widget.item.sellerName
         : 'FandomVerse seller';
     final stock = widget.item.stock;
-    final hasReviews = widget.item.reviewCount > 0;
+    final hasRating = widget.item.reviewCount > 0;
 
     return GestureDetector(
       onTap: () => Navigator.pushNamed(
@@ -335,52 +363,136 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
         ),
         borderColor: Colors.white.withValues(alpha: 0.14),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 8),
             Expanded(
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: Colors.white.withValues(alpha: 0.06),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.10),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    child: const Center(
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        color: Colors.white24,
+                        size: 40,
+                      ),
+                    ),
                   ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: widget.item.imageUrl?.isNotEmpty == true
-                    ? Image.network(
-                        widget.item.imageUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (_, _, _) => const Center(
-                          child: Icon(
-                            Icons.inventory_2_outlined,
-                            color: Colors.white24,
-                            size: 40,
-                          ),
-                        ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.inventory_2_outlined,
-                          color: Colors.white24,
-                          size: 40,
+                  if (widget.item.imageUrl?.isNotEmpty == true)
+                    Image.network(
+                      widget.item.imageUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 64,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.45),
+                          ],
                         ),
                       ),
+                    ),
+                  ),
+                  if (hasRating)
+                    Positioned(
+                      top: 9,
+                      right: 9,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(9),
+                          color: Colors.black.withValues(alpha: 0.55),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              color: Color(0xFFFFD166),
+                              size: 11,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              widget.item.rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (stock != null)
+                    Positioned(
+                      top: 9,
+                      left: 9,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(9),
+                          color: Colors.black.withValues(alpha: 0.55),
+                          border: Border.all(
+                            color:
+                                (stock <= 0
+                                        ? const Color(0xFFFF6B6B)
+                                        : stock <= 10
+                                        ? const Color(0xFFFFD166)
+                                        : const Color(0xFF10B981))
+                                    .withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: Text(
+                          stock <= 0
+                              ? 'Out of stock'
+                              : stock <= 10
+                              ? 'Only $stock left'
+                              : 'In stock',
+                          style: TextStyle(
+                            color: stock <= 0
+                                ? const Color(0xFFFF6B6B)
+                                : stock <= 10
+                                ? const Color(0xFFFFD166)
+                                : const Color(0xFF34D399),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     widget.item.name,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
@@ -388,7 +500,7 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
                     'Sold by $seller',
                     maxLines: 1,
@@ -398,24 +510,6 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
                       fontSize: 11.5,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  if (stock != null)
-                    Text(
-                      stock <= 0
-                          ? 'Out of stock'
-                          : stock <= 10
-                              ? 'Only $stock left'
-                              : 'In stock',
-                      style: TextStyle(
-                        color: stock <= 0
-                            ? const Color(0xFFFF6B6B)
-                            : stock <= 10
-                                ? const Color(0xFFFFD166)
-                                : AppColors.accent,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -428,47 +522,29 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
                         ),
                       ),
                       const Spacer(),
-                      if (hasReviews)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                color: Color(0xFFFFD166),
-                                size: 13,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                widget.item.rating.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                      if (hasRating)
+                        Text(
+                          '${widget.item.reviewCount} '
+                          '${widget.item.reviewCount == 1 ? 'review' : 'reviews'}',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
                           ),
                         ),
                     ],
                   ),
-                  if (hasReviews) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      '${widget.item.reviewCount} '
-                      '${widget.item.reviewCount == 1 ? 'review' : 'reviews'}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: GlassButton(
+                label: 'Add to cart',
+                variant: GlassButtonVariant.outline,
+                height: 40,
+                onPressed: widget.item.stock == null || widget.item.stock! > 0
+                    ? _addToCart
+                    : null,
               ),
             ),
           ],
