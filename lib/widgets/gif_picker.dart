@@ -9,16 +9,53 @@ import '../services/image_upload_service.dart';
 
 /// GIF picker for comment composers.
 ///
-/// Searches Giphy when a key is provided at build time:
+/// Searches Giphy using the API key below. The key can be overridden at build
+/// time (preferred, keeps it out of source control):
 /// `flutter run --dart-define=GIPHY_API_KEY=your_key`
 /// Without a key the sheet still works — it falls back to picking a GIF
 /// from the device gallery (uploaded through [ImageUploadService]).
 class GifPicker {
   GifPicker._();
 
-  static const String _apiKey = String.fromEnvironment('GIPHY_API_KEY');
+  /// Giphy API key. Override with `--dart-define=GIPHY_API_KEY=...`.
+  static const String _apiKey = String.fromEnvironment(
+    'GIPHY_API_KEY',
+    defaultValue: '1N5oU5fFBo5LK3M81sI3Bhxgu3bgj40r',
+  );
 
   static bool get hasApiKey => _apiKey.isNotEmpty;
+
+  /// Extracts GIF image URLs from a raw Giphy API response body.
+  ///
+  /// Prefers the `downsized` rendition and falls back to `original`. Throws
+  /// a [FormatException] if [body] is not a JSON object.
+  static List<String> parseGifUrls(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Unexpected Giphy response');
+    }
+    final data = decoded['data'];
+    if (data is! List) return const [];
+
+    final urls = <String>[];
+    for (final item in data) {
+      if (item is! Map<String, dynamic>) continue;
+      final images = item['images'];
+      if (images is! Map<String, dynamic>) continue;
+      final url = _renditionUrl(images, 'downsized') ??
+          _renditionUrl(images, 'original');
+      if (url != null) urls.add(url);
+    }
+    return urls;
+  }
+
+  static String? _renditionUrl(Map<String, dynamic> images, String key) {
+    final rendition = images[key];
+    if (rendition is! Map<String, dynamic>) return null;
+    final url = rendition['url'];
+    if (url is! String || url.isEmpty) return null;
+    return url;
+  }
 
   /// Opens the picker sheet and returns a GIF image URL, or null on cancel.
   static Future<String?> show(BuildContext context) {
@@ -87,21 +124,7 @@ class _GifPickerSheetState extends State<_GifPickerSheet> {
       if (res.statusCode != 200) {
         throw Exception('Giphy returned ${res.statusCode}');
       }
-      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-      final data = decoded['data'] as List<dynamic>? ?? const [];
-      final urls = <String>[];
-      for (final item in data) {
-        final images = (item as Map<String, dynamic>)['images'];
-        if (images is! Map<String, dynamic>) continue;
-        final downsized = images['downsized'];
-        final original = images['original'];
-        final url = downsized is Map<String, dynamic>
-            ? downsized['url'] as String?
-            : original is Map<String, dynamic>
-                ? original['url'] as String?
-                : null;
-        if (url != null && url.isNotEmpty) urls.add(url);
-      }
+      final urls = GifPicker.parseGifUrls(res.body);
       if (!mounted) return;
       setState(() {
         _urls

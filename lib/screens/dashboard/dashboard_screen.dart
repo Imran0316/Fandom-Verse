@@ -446,6 +446,11 @@ class _HomeTabState extends State<_HomeTab> {
           Row(
             children: [
               _TopBarAction(
+                icon: Icons.auto_awesome_rounded,
+                onTap: () => Navigator.pushNamed(context, AppRoutes.fanHelper),
+              ),
+              const SizedBox(width: 8),
+              _TopBarAction(
                 icon: Icons.travel_explore_rounded,
                 onTap: () => Navigator.pushNamed(context, AppRoutes.explore),
               ),
@@ -1754,6 +1759,15 @@ class _ProfileTab extends StatelessWidget {
                   AppRoutes.interestsEditor,
                   arguments: profile?.selectedFandoms ?? const <String>[],
                 ),
+              ),
+            ),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 132),
+              child: _ProfileTile(
+                icon: Icons.auto_awesome_rounded,
+                label: 'Fan Helper AI',
+                trailing: const _MiniBadge(text: 'AI'),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.fanHelper),
               ),
             ),
             FadeSlideIn(

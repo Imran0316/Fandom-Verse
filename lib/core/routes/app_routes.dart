@@ -26,6 +26,9 @@ class AppRoutes {
   static const String product = '/product';
   static const String merchExplore = '/merch-explore';
 
+  // ---- AI ----
+  static const String fanHelper = '/fan-helper';
+
   // ---- V1: content management + exploration ----
   static const String contentDetail = '/content';
   static const String explore = '/explore';

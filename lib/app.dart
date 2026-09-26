@@ -7,6 +7,7 @@ import 'models/catalog_docs.dart';
 import 'models/community_docs.dart';
 import 'models/content_docs.dart';
 import 'screens/admin/admin_shell.dart';
+import 'screens/ai/fan_helper_screen.dart';
 import 'screens/admin/content_editor_screen.dart';
 import 'screens/content/content_detail_screen.dart';
 import 'screens/content/explore_screen.dart';
@@ -109,6 +110,9 @@ class FandomVerseApp extends StatelessWidget {
           case AppRoutes.feed:
             page = const FeedScreen();
             break;
+          case AppRoutes.fanHelper:
+            page = const FanHelperScreen();
+            break;
           case AppRoutes.cart:
             page = const CartScreen();
             break;
@@ -187,7 +191,8 @@ class FandomVerseApp extends StatelessWidget {
             name == AppRoutes.merchExplore) {
           return AppTransitions.rightToLeft(page, settings: settings);
         }
-        if (name == AppRoutes.editProfile ||
+        if (name == AppRoutes.fanHelper ||
+            name == AppRoutes.editProfile ||
             name == AppRoutes.interestsEditor ||
             name == AppRoutes.createCommunity ||
             name == AppRoutes.editCommunity ||
