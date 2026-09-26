@@ -16,7 +16,11 @@ import 'screens/communities/community_detail_screen.dart';
 import 'screens/communities/edit_community_screen.dart';
 import 'screens/communities/feed_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/events/event_calendar_screen.dart';
+import 'screens/events/event_map_screen.dart';
 import 'screens/get_started/get_started_screen.dart';
+import 'screens/hub/fan_hub_screen.dart';
+import 'screens/hub/glossary_screen.dart';
 import 'screens/interests/interests_screen.dart';
 import 'screens/profile/about_screen.dart';
 import 'screens/profile/ai_helper_screen.dart';
@@ -31,6 +35,7 @@ import 'screens/shop/checkout_screen.dart';
 import 'screens/shop/merch_explore_screen.dart';
 import 'screens/shop/orders_screen.dart';
 import 'screens/shop/product_detail_screen.dart';
+import 'screens/shop/wishlist_screen.dart';
 import 'screens/splash/splash_screen.dart';
 
 class FandomVerseApp extends StatelessWidget {
@@ -132,6 +137,21 @@ class FandomVerseApp extends StatelessWidget {
             break;
           case AppRoutes.merchExplore:
             page = const MerchExploreScreen();
+            break;
+          case AppRoutes.eventCalendar:
+            page = const EventCalendarScreen();
+            break;
+          case AppRoutes.eventMap:
+            page = const EventMapScreen();
+            break;
+          case AppRoutes.fanHub:
+            page = const FanHubScreen();
+            break;
+          case AppRoutes.glossary:
+            page = const GlossaryScreen();
+            break;
+          case AppRoutes.wishlist:
+            page = const WishlistScreen();
             break;
           case AppRoutes.contentDetail:
             final detailArgs = settings.arguments;

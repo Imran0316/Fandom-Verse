@@ -26,10 +26,17 @@ class AppRoutes {
   static const String orders = '/orders';
   static const String product = '/product';
   static const String merchExplore = '/merch-explore';
+  static const String eventCalendar = '/events';
+  static const String eventMap = '/events/map';
 
   // ---- V1: content management + exploration ----
   static const String contentDetail = '/content';
   static const String explore = '/explore';
   static const String saved = '/saved';
   static const String contentEditor = '/admin/content/edit';
+
+  // ---- V1.1: hub, glossary, wishlist ----
+  static const String fanHub = '/fan-hub';
+  static const String glossary = '/glossary';
+  static const String wishlist = '/wishlist';
 }

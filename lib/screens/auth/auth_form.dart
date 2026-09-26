@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
@@ -42,6 +43,7 @@ class _AuthFormState extends State<AuthForm>
   bool _obscurePassword = true;
   bool _loading = false;
   bool _googleLoading = false;
+  bool _appleLoading = false;
 
   bool get _isSignIn => _mode == AuthFormMode.signIn;
 
@@ -126,6 +128,29 @@ class _AuthFormState extends State<AuthForm>
       _showMessage(_messageOf(e));
     } finally {
       if (mounted) setState(() => _googleLoading = false);
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    final supported = kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    if (!supported) {
+      _showMessage(
+        'Apple Sign-In is available on iPhone, Mac and the web app.',
+      );
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => _appleLoading = true);
+    try {
+      await AuthService.instance.signInWithApple();
+      if (!mounted) return;
+      widget.onSuccess(false);
+    } catch (e) {
+      _showMessage(_messageOf(e));
+    } finally {
+      if (mounted) setState(() => _appleLoading = false);
     }
   }
 
@@ -398,6 +423,44 @@ class _AuthFormState extends State<AuthForm>
                         : const Icon(Icons.g_mobiledata_rounded, size: 30),
                     label: const Text(
                       'Google',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    onPressed: (_loading || _appleLoading)
+                        ? null
+                        : _signInWithApple,
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.10),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.28),
+                        width: 1.2,
+                      ),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: _appleLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.textSecondary,
+                            ),
+                          )
+                        : const Icon(Icons.apple_rounded, size: 24),
+                    label: const Text(
+                      'Apple',
                       style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w800,

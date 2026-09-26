@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/animations/app_transitions.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_catalog.dart';
 import '../../models/catalog_docs.dart';
 import '../../models/content_docs.dart';
 import '../../models/community_docs.dart';
@@ -186,17 +185,6 @@ class _HomeTabState extends State<_HomeTab> {
     () => NotificationService.instance.watch(),
   );
 
-  void _toast(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: const Color(0xE616161F),
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -360,7 +348,8 @@ class _HomeTabState extends State<_HomeTab> {
                 _SectionHeader(
                   title: 'Upcoming Events',
                   subtitle: 'Gatherings and moments from the fandom community',
-                  onSeeAll: () => _toast('Full event calendar'),
+                  onSeeAll: () =>
+                      Navigator.pushNamed(context, AppRoutes.eventCalendar),
                 ),
                 SizedBox(
                   height: 150,
@@ -920,19 +909,33 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _PosterCard extends StatelessWidget {
-  const _PosterCard({
-    required this.item,
-    required this.width,
-    required this.onTap,
-  });
+/* -------------------------------- TRENDING -------------------------------- */
 
-  final MediaTitle item;
-  final double width;
+({List<Color> colors, String emoji}) _posterStyleFor(ContentType type) {
+  switch (type) {
+    case ContentType.article:
+      return (colors: const [Color(0xFF3E5C76), Color(0xFF1B263B)], emoji: '📖');
+    case ContentType.news:
+      return (colors: const [Color(0xFF9E2A2B), Color(0x8C3B0A0B)], emoji: '📰');
+    case ContentType.trivia:
+      return (colors: const [Color(0xFF6D597A), Color(0x8C352449)], emoji: '✨');
+    case ContentType.lore:
+      return (colors: const [Color(0xFF2A9D8F), Color(0x8C1D3A3A)], emoji: '📜');
+  }
+}
+
+class _TrendPosterCard extends StatelessWidget {
+  const _TrendPosterCard({required this.content, required this.onTap});
+
+  final ContentDoc content;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final style = _posterStyleFor(content.type);
+    final tag = content.fandomName.isNotEmpty
+        ? content.fandomName
+        : content.categoryName;
     return GestureDetector(
       onTap: onTap,
       child: LiquidGlass(
@@ -941,7 +944,7 @@ class _PosterCard extends StatelessWidget {
         borderColor: Colors.white.withValues(alpha: 0.16),
         boxShadow: [
           BoxShadow(
-            color: item.colors.first.withValues(alpha: 0.4),
+            color: style.colors.first.withValues(alpha: 0.4),
             blurRadius: 22,
             offset: const Offset(0, 10),
           ),
@@ -951,90 +954,92 @@ class _PosterCard extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
         ],
-        child: SizedBox(
-          width: width,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: style.colors,
+                ),
+              ),
+              child: Center(
+                child: Text(style.emoji, style: const TextStyle(fontSize: 40)),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(10, 28, 10, 10),
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: item.colors,
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xE6000000)],
                   ),
                 ),
-                child: Center(
-                  child: Text(item.emoji, style: const TextStyle(fontSize: 40)),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(10, 28, 10, 10),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xE6000000)],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      content.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          height: 1.2,
-                        ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.tag,
-                        style: const TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/* -------------------------------- TRENDING -------------------------------- */
-
-class _TrendingTab extends StatelessWidget {
+class _TrendingTab extends StatefulWidget {
   const _TrendingTab();
 
   @override
-  Widget build(BuildContext context) {
-    final items = [
-      ...MockCatalog.recommended,
-      ...MockCatalog.trending.map(
-        (t) => MediaTitle(
-          title: t.title,
-          tag: t.category,
-          colors: t.colors,
-          emoji: t.emoji,
-        ),
-      ),
-    ];
+  State<_TrendingTab> createState() => _TrendingTabState();
+}
 
+class _TrendingTabState extends State<_TrendingTab> {
+  final _published = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchPublished(limit: 40),
+  );
+
+  void _open(ContentDoc content) {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.contentDetail,
+      arguments: ContentDetailArgs(contentId: content.id),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1057,26 +1062,44 @@ class _TrendingTab extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final cols = constraints.maxWidth > 360 ? 2 : 2;
-              return GridView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
-                physics: const BouncingScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: cols,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 0.7,
-                ),
-                itemCount: items.length,
-                itemBuilder: (context, i) => _PosterCard(
-                  item: items[i],
-                  width: double.infinity,
-                  onTap: () => ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(items[i].title))),
-                ),
+          child: StreamBuilder<List<ContentDoc>>(
+            stream: _published(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting &&
+                  snap.data == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final all = snap.data ?? const <ContentDoc>[];
+              if (all.isEmpty) {
+                return const _EmptyState(
+                  icon: Icons.trending_up_rounded,
+                  title: 'Nothing trending yet',
+                  subtitle: 'When the verse starts buzzing, hot drops land here.',
+                );
+              }
+              final items = [
+                ...all.where((c) => c.isTrending),
+                ...all.where((c) => !c.isTrending),
+              ].take(20).toList();
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  return GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
+                    physics: const BouncingScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 0.7,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (context, i) => _TrendPosterCard(
+                      content: items[i],
+                      onTap: () => _open(items[i]),
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -1099,17 +1122,17 @@ class _SearchTabState extends State<_SearchTab> {
   final _controller = TextEditingController();
   String _query = '';
 
-  static const _filters = [
-    'All',
-    'Anime',
-    'Gaming',
-    'Movies',
-    'Comics',
-    'K-Pop',
-    'Sci-Fi',
-    'Events',
-    'Merch',
-  ];
+  final _content = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchPublished(limit: 200),
+  );
+  final _merch = StreamCache<List<MerchProductDoc>>(
+    () => CatalogService.instance.watchMerch(),
+  );
+  final _events = StreamCache<List<FandomEventDoc>>(
+    () => CatalogService.instance.watchEvents(),
+  );
+
+  static const _filters = ['All', 'Discoveries', 'Merch', 'Events'];
   int _filter = 0;
 
   @override
@@ -1118,26 +1141,192 @@ class _SearchTabState extends State<_SearchTab> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final all = [
-      ...MockCatalog.recommended,
-      ...MockCatalog.trending.map(
-        (t) => MediaTitle(
-          title: t.title,
-          tag: t.category,
-          colors: t.colors,
-          emoji: t.emoji,
+  bool _matches(String haystack) =>
+      _query.isEmpty || haystack.toLowerCase().contains(_query.toLowerCase());
+
+  void _openContent(ContentDoc c) {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.contentDetail,
+      arguments: ContentDetailArgs(contentId: c.id),
+    );
+  }
+
+  Widget _sectionLabel(String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 10),
+      child: Text(
+        '$label · $count',
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
         ),
       ),
-    ];
-    final results = all.where((m) {
-      if (_query.isEmpty) return true;
-      final q = _query.toLowerCase();
-      return m.title.toLowerCase().contains(q) ||
-          m.tag.toLowerCase().contains(q);
-    }).toList();
+    );
+  }
 
+  Widget _resultTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: onTap,
+        child: LiquidGlass(
+          radius: 16,
+          blur: 16,
+          borderColor: Colors.white.withValues(alpha: 0.12),
+          padding: const EdgeInsets.all(13),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: AppColors.accent, size: 21),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResults(
+    List<ContentDoc> contents,
+    List<MerchProductDoc> merch,
+    List<FandomEventDoc> events,
+  ) {
+    final showContent = _filter == 0 || _filter == 1;
+    final showMerch = _filter == 0 || _filter == 2;
+    final showEvents = _filter == 0 || _filter == 3;
+
+    final contentResults = showContent
+        ? contents
+            .where((c) => _matches(
+                  '${c.title} ${c.summary} ${c.fandomName} '
+                  '${c.categoryName} ${c.tags.join(' ')}',
+                ))
+            .toList()
+        : const <ContentDoc>[];
+    final merchResults = showMerch
+        ? merch
+            .where((m) => _matches(
+                  '${m.name} ${m.sellerName} ${m.description}',
+                ))
+            .toList()
+        : const <MerchProductDoc>[];
+    final eventResults = showEvents
+        ? events
+            .where((e) => _matches('${e.title} ${e.city} ${e.dateLabel}'))
+            .toList()
+        : const <FandomEventDoc>[];
+
+    if (_query.isEmpty && _filter == 0) {
+      return const _EmptyState(
+        icon: Icons.search_rounded,
+        title: 'Search the verse',
+        subtitle: 'Find discoveries, merch and events by name, city or fandom.',
+      );
+    }
+    if (contentResults.isEmpty &&
+        merchResults.isEmpty &&
+        eventResults.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'No matches',
+        subtitle: 'Try another fandom keyword.',
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
+      physics: const BouncingScrollPhysics(),
+      children: [
+        if (contentResults.isNotEmpty) ...[
+          _sectionLabel('Discoveries', contentResults.length),
+          for (final c in contentResults)
+            _resultTile(
+              icon: Icons.auto_awesome_outlined,
+              title: c.title,
+              subtitle: c.fandomName.isNotEmpty
+                  ? c.fandomName
+                  : c.categoryName,
+              onTap: () => _openContent(c),
+            ),
+        ],
+        if (merchResults.isNotEmpty) ...[
+          _sectionLabel('Merch', merchResults.length),
+          for (final m in merchResults)
+            _resultTile(
+              icon: Icons.shopping_bag_outlined,
+              title: m.name,
+              subtitle: 'Sold by ${m.sellerName} · ${m.priceLabel}',
+              onTap: () => Navigator.pushNamed(
+                context,
+                AppRoutes.product,
+                arguments: m,
+              ),
+            ),
+        ],
+        if (eventResults.isNotEmpty) ...[
+          _sectionLabel('Events', eventResults.length),
+          for (final e in eventResults)
+            _resultTile(
+              icon: Icons.event_rounded,
+              title: e.title,
+              subtitle: '${e.city} · ${e.dateLabel}',
+              onTap: () =>
+                  Navigator.pushNamed(context, AppRoutes.eventCalendar),
+            ),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1169,7 +1358,7 @@ class _SearchTabState extends State<_SearchTab> {
                 errorBorder: InputBorder.none,
                 focusedErrorBorder: InputBorder.none,
                 filled: false,
-                hintText: 'Idols, lore, events, merch...',
+                hintText: 'Search discoveries, merch, events...',
                 hintStyle: const TextStyle(color: AppColors.textMuted),
                 prefixIcon: const Icon(
                   Icons.search_rounded,
@@ -1239,30 +1428,33 @@ class _SearchTabState extends State<_SearchTab> {
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: results.isEmpty
-              ? const _EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'No matches',
-                  subtitle: 'Try another fandom keyword.',
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 0.7,
-                  ),
-                  itemCount: results.length,
-                  itemBuilder: (context, i) => _PosterCard(
-                    item: results[i],
-                    width: double.infinity,
-                    onTap: () => ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(SnackBar(content: Text(results[i].title))),
-                  ),
-                ),
+          child: StreamBuilder<List<ContentDoc>>(
+            stream: _content(),
+            builder: (context, contentSnap) {
+              return StreamBuilder<List<MerchProductDoc>>(
+                stream: _merch(),
+                builder: (context, merchSnap) {
+                  return StreamBuilder<List<FandomEventDoc>>(
+                    stream: _events(),
+                    builder: (context, eventSnap) {
+                      if (contentSnap.connectionState ==
+                              ConnectionState.waiting &&
+                          contentSnap.data == null) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      return _buildResults(
+                        contentSnap.data ?? const <ContentDoc>[],
+                        merchSnap.data ?? const <MerchProductDoc>[],
+                        eventSnap.data ?? const <FandomEventDoc>[],
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1758,11 +1950,27 @@ class _ProfileTab extends StatelessWidget {
               ),
             ),
             FadeSlideIn(
+              delay: const Duration(milliseconds: 147),
+              child: _ProfileTile(
+                icon: Icons.school_outlined,
+                label: 'Fan Hub',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.fanHub),
+              ),
+            ),
+            FadeSlideIn(
               delay: const Duration(milliseconds: 150),
               child: _ProfileTile(
                 icon: Icons.shopping_cart_outlined,
                 label: 'Cart',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.cart),
+              ),
+            ),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 152),
+              child: _ProfileTile(
+                icon: Icons.favorite_outline_rounded,
+                label: 'Wishlist',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.wishlist),
               ),
             ),
             FadeSlideIn(

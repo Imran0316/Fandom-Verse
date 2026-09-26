@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'user_service.dart';
 
@@ -96,6 +100,55 @@ class AuthService {
     await UserService.instance.ensureProfile(result.user!);
     return result;
   }
+
+  /// Apple sign-in.
+  ///
+  /// Web uses Firebase's popup (provider config lives in the Firebase
+  /// console); iOS/macOS use the native sheet with a hashed nonce.
+  /// The Apple provider must be enabled in Firebase authentication settings.
+  Future<UserCredential> signInWithApple() async {
+    if (!firebaseReady) _notConfigured();
+
+    if (kIsWeb) {
+      final result = await FirebaseAuth.instance.signInWithPopup(
+        OAuthProvider('apple.com'),
+      );
+      if (result.user != null) {
+        await UserService.instance.ensureProfile(result.user!);
+      }
+      return result;
+    }
+
+    final rawNonce = _generateNonce();
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: const [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: _sha256ofString(rawNonce),
+    );
+    final credential = OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      accessToken: appleCredential.authorizationCode,
+      rawNonce: rawNonce,
+    );
+    final result = await FirebaseAuth.instance.signInWithCredential(credential);
+    await UserService.instance.ensureProfile(result.user!);
+    return result;
+  }
+
+  static String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
+  }
+
+  static String _sha256ofString(String input) =>
+      sha256.convert(utf8.encode(input)).toString();
 
   Future<void> sendPasswordResetEmail(String email) async {
     if (!firebaseReady) _notConfigured();

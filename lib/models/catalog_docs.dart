@@ -108,6 +108,7 @@ class FandomEventDoc {
     this.colorName = 'red',
     this.coverImageUrl,
     this.startAt,
+    this.ticketUrl,
   });
 
   final String id;
@@ -118,6 +119,7 @@ class FandomEventDoc {
   final String colorName;
   final String? coverImageUrl;
   final DateTime? startAt;
+  final String? ticketUrl;
 
   IconData get icon => CatalogIcons.fromName(iconName);
   Color get color => CatalogIcons.colorFromName(colorName);
@@ -134,6 +136,7 @@ class FandomEventDoc {
       colorName: (data['colorName'] as String?) ?? 'red',
       coverImageUrl: data['coverImageUrl'] as String?,
       startAt: start is Timestamp ? start.toDate() : null,
+      ticketUrl: data['ticketUrl'] as String?,
     );
   }
 
@@ -145,6 +148,7 @@ class FandomEventDoc {
     'colorName': colorName,
     'coverImageUrl': coverImageUrl,
     'startAt': startAt != null ? Timestamp.fromDate(startAt!) : null,
+    'ticketUrl': ticketUrl,
   };
 }
 

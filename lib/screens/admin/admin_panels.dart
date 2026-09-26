@@ -90,6 +90,55 @@ class AdminEmptyBox extends StatelessWidget {
   }
 }
 
+Future<bool> _confirmSheetDiscard(BuildContext context) async {
+  final discard = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: const Color(0xFF16161F),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text(
+        'Discard changes?',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      content: const Text(
+        'Your edits in this form will be lost.',
+        style: TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 13.5,
+          height: 1.45,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text(
+            'Keep editing',
+            style: TextStyle(
+              color: AppColors.accent,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text(
+            'Discard',
+            style: TextStyle(
+              color: Color(0xFFEF4444),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+  return discard ?? false;
+}
+
 Future<void> showAdminSheet(
   BuildContext context, {
   required String title,
@@ -103,14 +152,23 @@ Future<void> showAdminSheet(
   final formKey = GlobalKey<FormState>();
   var loading = false;
 
-  await showModalBottomSheet<void>(
+  await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
+    isDismissible: false,
     builder: (sheetContext) {
       return StatefulBuilder(
         builder: (sheetContext, setSheetState) {
-          return Padding(
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) async {
+              if (didPop) return;
+              if (await _confirmSheetDiscard(context) && context.mounted) {
+                Navigator.of(sheetContext).pop(false);
+              }
+            },
+            child: Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
             ),
@@ -160,32 +218,55 @@ Future<void> showAdminSheet(
                       ),
                     ),
                     const SizedBox(height: 20),
-                    GlassButton(
-                      label: loading ? 'Saving…' : 'Save',
-                      isLoading: loading,
-                      onPressed: () async {
-                        if (!(formKey.currentState?.validate() ?? false)) {
-                          return;
-                        }
-                        setSheetState(() => loading = true);
-                        try {
-                          await onSubmit();
-                          if (sheetContext.mounted) {
-                            Navigator.of(sheetContext).pop();
-                          }
-                        } catch (e) {
-                          setSheetState(() => loading = false);
-                          if (sheetContext.mounted) {
-                            ScaffoldMessenger.of(
-                              sheetContext,
-                            ).showSnackBar(SnackBar(content: Text('$e')));
-                          }
-                        }
-                      },
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GlassButton(
+                            label: 'Cancel',
+                            variant: GlassButtonVariant.outline,
+                            onPressed: loading
+                                ? null
+                                : () async {
+                                    if (await _confirmSheetDiscard(context) &&
+                                        context.mounted) {
+                                      Navigator.of(sheetContext).pop(false);
+                                    }
+                                  },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GlassButton(
+                            label: loading ? 'Saving…' : 'Save',
+                            isLoading: loading,
+                            onPressed: () async {
+                              if (!(formKey.currentState?.validate() ??
+                                  false)) {
+                                return;
+                              }
+                              setSheetState(() => loading = true);
+                              try {
+                                await onSubmit();
+                                if (sheetContext.mounted) {
+                                  Navigator.of(sheetContext).pop(true);
+                                }
+                              } catch (e) {
+                                setSheetState(() => loading = false);
+                                if (sheetContext.mounted) {
+                                  ScaffoldMessenger.of(
+                                    sheetContext,
+                                  ).showSnackBar(SnackBar(content: Text('$e')));
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+            ),
             ),
           );
         },
@@ -558,10 +639,20 @@ class EventsPanel extends StatelessWidget {
     final title = TextEditingController(text: existing?.title ?? '');
     final city = TextEditingController(text: existing?.city ?? '');
     final date = TextEditingController(text: existing?.dateLabel ?? '');
+    final ticketUrl = TextEditingController(text: existing?.ticketUrl ?? '');
+    var startAt = existing?.startAt ?? DateTime.now();
     var icon = existing?.iconName ?? 'event';
     var color = existing?.colorName ?? 'red';
     var coverUrl = existing?.coverImageUrl;
     var uploading = false;
+
+    String fmtDate(DateTime d) {
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      return '${months[d.month - 1]} ${d.day}';
+    }
 
     showAdminSheet(
       context,
@@ -591,6 +682,48 @@ class EventsPanel extends StatelessWidget {
               prefixIcon: Icons.calendar_today_outlined,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Date required' : null,
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: sheetContext,
+                  initialDate: startAt,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) {
+                  setSheetState(() {
+                    startAt = DateTime(
+                      picked.year,
+                      picked.month,
+                      picked.day,
+                      startAt.hour,
+                      startAt.minute,
+                    );
+                    date.text = fmtDate(picked);
+                  });
+                }
+              },
+              icon: const Icon(Icons.calendar_month_outlined),
+              label: Text('Calendar date: ${fmtDate(startAt)}'),
+            ),
+            const SizedBox(height: 14),
+            AppTextField(
+              controller: ticketUrl,
+              label: 'Ticket link (optional, https://…)',
+              prefixIcon: Icons.confirmation_number_outlined,
+              keyboardType: TextInputType.url,
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return null;
+                final u = Uri.tryParse(t);
+                if (u == null ||
+                    !(u.isScheme('http') || u.isScheme('https'))) {
+                  return 'Enter a valid URL (https://…)';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 14),
             if (coverUrl != null && coverUrl!.isNotEmpty)
@@ -684,7 +817,8 @@ class EventsPanel extends StatelessWidget {
         iconName: icon,
         colorName: color,
         coverImageUrl: coverUrl,
-        startAt: existing?.startAt ?? DateTime.now(),
+        startAt: startAt,
+        ticketUrl: ticketUrl.text,
       ),
     );
   }

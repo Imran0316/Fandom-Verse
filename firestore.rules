@@ -135,6 +135,10 @@ service cloud.firestore {
         allow read, write: if isSelf(uid);
       }
 
+      match /wishlist/{productId} {
+        allow read, write: if isSelf(uid);
+      }
+
       // ---- Follow graph ----
       // followers/{followerUid}: the target maintains their own follower
       // list on accept (only they may write into it, so requests cannot be

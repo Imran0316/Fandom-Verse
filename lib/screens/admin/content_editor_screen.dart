@@ -65,6 +65,140 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
     _question = TextEditingController(text: e?.question ?? '');
     _answer = TextEditingController(text: e?.answer ?? '');
     _explanation = TextEditingController(text: e?.explanation ?? '');
+
+    _initialSnapshot = _snapshot();
+  }
+
+  late final String _initialSnapshot;
+
+  String _snapshot() => [
+        _title.text,
+        _summary.text,
+        _body.text,
+        _question.text,
+        _answer.text,
+        _explanation.text,
+        _type.name,
+        _status.name,
+        _isFeatured.toString(),
+        _isTrending.toString(),
+        _fandomId,
+        _categoryId,
+        _tags.toString(),
+        _coverUrl,
+      ].toString();
+
+  bool get _hasUnsavedChanges => _snapshot() != _initialSnapshot;
+
+  Future<bool> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF16161F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Discard changes?',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: const Text(
+          'Your edits to this discovery will be lost. Save a draft first if '
+          'you want to keep them.',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13.5,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Keep editing',
+              style: TextStyle(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Discard',
+              style: TextStyle(
+                color: Color(0xFFEF4444),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return discard ?? false;
+  }
+
+  Future<void> _tryExit() async {
+    if (!_hasUnsavedChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await _confirmDiscard();
+    if (!discard || !mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _confirmSaveDraft() async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF16161F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Save as draft?',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: const Text(
+          'This discovery stays private until you publish it. You can find '
+          'it under Drafts in the content list.',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13.5,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Save Draft',
+              style: TextStyle(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true || !mounted) return;
+    await _save(forcePublish: false);
   }
 
   @override
@@ -202,7 +336,18 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (!_hasUnsavedChanges) {
+          if (mounted) Navigator.of(context).pop();
+          return;
+        }
+        final discard = await _confirmDiscard();
+        if (discard && context.mounted) Navigator.of(context).pop();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.backgroundDeep,
       body: Center(
         child: ConstrainedBox(
@@ -277,6 +422,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -286,7 +432,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: _tryExit,
             icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           ),
           Expanded(
@@ -356,7 +502,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
                     variant: GlassButtonVariant.outline,
                     onPressed: _saving
                         ? null
-                        : () => Navigator.of(context).maybePop(),
+                        : () => _tryExit(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -375,7 +521,8 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
                   child: GlassButton(
                     label: 'Save Draft',
                     variant: GlassButtonVariant.outline,
-                    onPressed: _saving ? null : () => _save(forcePublish: false),
+                    onPressed:
+                        _saving ? null : () => _confirmSaveDraft(),
                   ),
                 ),
                 const SizedBox(width: 12),

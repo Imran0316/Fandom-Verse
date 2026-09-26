@@ -92,7 +92,9 @@ class CatalogService {
     required String colorName,
     String? coverImageUrl,
     DateTime? startAt,
+    String? ticketUrl,
   }) async {
+    final ticket = (ticketUrl ?? '').trim();
     final data = {
       'title': title.trim(),
       'city': city.trim(),
@@ -101,6 +103,7 @@ class CatalogService {
       'colorName': colorName,
       'coverImageUrl': coverImageUrl,
       'startAt': startAt != null ? Timestamp.fromDate(startAt) : null,
+      'ticketUrl': ticket.isEmpty ? null : ticket,
     };
     if (id == null || id.isEmpty) {
       await _events.add(data);

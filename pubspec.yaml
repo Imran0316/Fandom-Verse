@@ -44,6 +44,11 @@ dependencies:
   page_transition: ^2.2.2
   http: ^1.6.0
   image_picker: ^1.2.3
+  url_launcher: ^6.3.1
+  google_maps_flutter: ^2.12.1
+  shared_preferences: ^2.3.3
+  sign_in_with_apple: ^6.1.2
+  crypto: ^3.0.3
   # google_fonts removed per request
 
 dev_dependencies:

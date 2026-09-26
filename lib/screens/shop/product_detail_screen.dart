@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/wishlist_service.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -20,6 +21,39 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _qty = 1;
   bool _busy = false;
+
+  Future<void> _toggleWishlist() async {
+    try {
+      final nowSaved = await WishlistService.instance.toggle(widget.product);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              nowSaved
+                  ? 'Saved to your wishlist.'
+                  : 'Removed from your wishlist.',
+            ),
+            backgroundColor: const Color(0xE616161F),
+          ),
+        );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              e is StateError
+                  ? e.message.toString()
+                  : 'Could not update your wishlist.',
+            ),
+            backgroundColor: const Color(0xE616161F),
+          ),
+        );
+    }
+  }
 
   Future<void> _addToCart({bool goCheckout = false}) async {
     if (_busy) return;
@@ -72,67 +106,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: SafeArea(
             child: Stack(
               children: [
-                Positioned(
-                  top: 4,
-                  left: 8,
-                  right: 16,
-                  height: 54,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.55),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(
-                              alpha: 0.4,
-                            ),
-                            foregroundColor: Colors.white,
-                          ),
-                          icon: const Icon(Icons.arrow_back_rounded),
-                        ),
-                        const Spacer(),
-                        StreamBuilder<int>(
-                          stream: CartService.instance.watchCartCount(),
-                          builder: (context, countSnap) {
-                            final n = countSnap.data ?? 0;
-                            return IconButton(
-                              onPressed: () =>
-                                  Navigator.pushNamed(context, AppRoutes.cart),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.black.withValues(
-                                  alpha: 0.4,
-                                ),
-                                foregroundColor: Colors.white,
-                              ),
-                              icon: Badge(
-                                isLabelVisible: n > 0,
-                                label: Text(
-                                  '$n',
-                                  style: const TextStyle(
-                                    fontSize: 9.5,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                child: const Icon(Icons.shopping_bag_outlined),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 Column(
                   children: [
                     Expanded(
@@ -617,6 +590,55 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ],
                 ),
+                Positioned(
+                  top: 4,
+                  left: 8,
+                  right: 16,
+                  height: 54,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _GlassIconButton(
+                        onTap: () => Navigator.pop(context),
+                        icon: Icons.arrow_back_rounded,
+                      ),
+                      const Spacer(),
+                      StreamBuilder<Set<String>>(
+                        stream: WishlistService.instance
+                            .watchMyProductIds()
+                            .map((ids) => ids.toSet()),
+                        builder: (context, snap) {
+                          final saved =
+                              snap.data?.contains(widget.product.id) ?? false;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: _GlassIconButton(
+                              onTap: _toggleWishlist,
+                              icon: saved
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_outline_rounded,
+                              color: saved
+                                  ? const Color(0xFFEF4444)
+                                  : Colors.white,
+                            ),
+                          );
+                        },
+                      ),
+                      StreamBuilder<int>(
+                        stream: CartService.instance.watchCartCount(),
+                        builder: (context, countSnap) {
+                          final n = countSnap.data ?? 0;
+                          return _GlassIconButton(
+                            onTap: () =>
+                                Navigator.pushNamed(context, AppRoutes.cart),
+                            icon: Icons.shopping_bag_outlined,
+                            badge: n,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -799,4 +821,55 @@ String _initials(String name) {
   if (words.length == 1) return first.toUpperCase();
   final second = words.last.isNotEmpty ? words.last[0] : '';
   return (first + second).toUpperCase();
+}
+
+class _GlassIconButton extends StatelessWidget {
+  const _GlassIconButton({
+    required this.onTap,
+    required this.icon,
+    this.badge = 0,
+    this.color = Colors.white,
+  });
+
+  final VoidCallback onTap;
+  final IconData icon;
+  final int badge;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidGlass(
+      radius: 999,
+      blur: 18,
+      padding: const EdgeInsets.all(4),
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.black.withValues(alpha: 0.45),
+          Colors.black.withValues(alpha: 0.25),
+        ],
+      ),
+      child: IconButton(
+        onPressed: onTap,
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: color,
+          padding: const EdgeInsets.all(8),
+        ),
+        icon: Badge(
+          isLabelVisible: badge > 0,
+          label: Text(
+            '$badge',
+            style: const TextStyle(
+              fontSize: 9.5,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: Icon(icon),
+        ),
+      ),
+    );
+  }
 }
