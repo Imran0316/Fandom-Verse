@@ -12,7 +12,6 @@ class AppRoutes {
   static const String editProfile = '/edit-profile';
   static const String interestsEditor = '/interests-editor';
   static const String notifications = '/notifications';
-  static const String aiHelper = '/ai-helper';
   static const String contact = '/contact';
   static const String about = '/about';
   static const String communities = '/communities';

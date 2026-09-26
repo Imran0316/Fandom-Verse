@@ -1714,15 +1714,6 @@ class _ProfileTab extends StatelessWidget {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 210),
-              child: _ProfileTile(
-                icon: Icons.smart_toy_outlined,
-                label: 'AI Fan Helper',
-                trailing: const _MiniBadge(text: 'AI'),
-                onTap: () => Navigator.pushNamed(context, AppRoutes.aiHelper),
-              ),
-            ),
-            FadeSlideIn(
               delay: const Duration(milliseconds: 240),
               child: _ProfileTile(
                 icon: Icons.mail_outline_rounded,

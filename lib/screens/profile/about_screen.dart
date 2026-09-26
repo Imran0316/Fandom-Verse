@@ -27,8 +27,7 @@ class AboutScreen extends StatelessWidget {
                       IconButton(
                         onPressed: () => Navigator.pop(context),
                         style: IconButton.styleFrom(
-                          backgroundColor:
-                              Colors.white.withValues(alpha: 0.08),
+                          backgroundColor: Colors.white.withValues(alpha: 0.08),
                           foregroundColor: Colors.white,
                         ),
                         icon: const Icon(Icons.arrow_back_rounded),
@@ -94,8 +93,7 @@ class AboutScreen extends StatelessWidget {
                         body:
                             '• Build a profile & pick interests\n'
                             '• Upgrade to seller and list merch\n'
-                            '• Browse events and fandom categories\n'
-                            '• Get help from the AI Fan Helper',
+                            '• Browse events and fandom categories',
                       ),
                     ),
                     const SizedBox(height: 14),

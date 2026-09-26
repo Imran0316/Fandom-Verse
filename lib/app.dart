@@ -19,7 +19,6 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/get_started/get_started_screen.dart';
 import 'screens/interests/interests_screen.dart';
 import 'screens/profile/about_screen.dart';
-import 'screens/profile/ai_helper_screen.dart';
 import 'screens/profile/contact_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/follow_requests_screen.dart';
@@ -78,9 +77,6 @@ class FandomVerseApp extends StatelessWidget {
             break;
           case AppRoutes.notifications:
             page = const NotificationsScreen();
-            break;
-          case AppRoutes.aiHelper:
-            page = const AiHelperScreen();
             break;
           case AppRoutes.contact:
             page = const ContactScreen();
@@ -206,9 +202,6 @@ class FandomVerseApp extends StatelessWidget {
             name == AppRoutes.explore ||
             name == AppRoutes.saved) {
           return AppTransitions.rightToLeft(page, settings: settings);
-        }
-        if (name == AppRoutes.aiHelper) {
-          return AppTransitions.scaleFade(page, settings: settings);
         }
         return AppTransitions.fadeSlide(page, settings: settings);
       },
