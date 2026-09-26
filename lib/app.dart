@@ -27,6 +27,7 @@ import 'screens/profile/notifications_screen.dart';
 import 'screens/profile/user_profile_screen.dart';
 import 'screens/seller/seller_dashboard.dart';
 import 'screens/shop/cart_screen.dart';
+import 'screens/shop/checkout_screen.dart';
 import 'screens/shop/merch_explore_screen.dart';
 import 'screens/shop/orders_screen.dart';
 import 'screens/shop/product_detail_screen.dart';
@@ -115,6 +116,9 @@ class FandomVerseApp extends StatelessWidget {
           case AppRoutes.cart:
             page = const CartScreen();
             break;
+          case AppRoutes.checkout:
+            page = const CheckoutScreen();
+            break;
           case AppRoutes.orders:
             page = const OrdersScreen();
             break;
@@ -193,6 +197,7 @@ class FandomVerseApp extends StatelessWidget {
             name == AppRoutes.editCommunity ||
             name == AppRoutes.followRequests ||
             name == AppRoutes.cart ||
+            name == AppRoutes.checkout ||
             name == AppRoutes.orders ||
             name == AppRoutes.contentEditor) {
           return AppTransitions.bottomUp(page, settings: settings);

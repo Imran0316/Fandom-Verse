@@ -52,7 +52,7 @@ class SellerDashboardScreen extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        onPressed: () => _showCreateSheet(context, uid),
+                        onPressed: () => _showProductSheet(context, uid),
                         style: IconButton.styleFrom(
                           backgroundColor:
                               AppColors.primary.withValues(alpha: 0.35),
@@ -117,78 +117,120 @@ class SellerDashboardScreen extends StatelessWidget {
                           final m = items[i];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: LiquidGlass(
-                              radius: 18,
-                              blur: 20,
-                              gradient: LinearGradient(
-                                colors: [
-                                  m.color.withValues(alpha: 0.3),
-                                  Colors.white.withValues(alpha: 0.05),
-                                ],
-                              ),
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(14),
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          m.color.withValues(alpha: 0.55),
-                                          m.color.withValues(alpha: 0.2),
+                            child: GestureDetector(
+                              onTap: () =>
+                                  _showProductSheet(context, uid, existing: m),
+                              child: LiquidGlass(
+                                radius: 18,
+                                blur: 20,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.12),
+                                    Colors.white.withValues(alpha: 0.05),
+                                  ],
+                                ),
+                                borderColor:
+                                    Colors.white.withValues(alpha: 0.14),
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        borderRadius:
+                                            BorderRadius.circular(14),
+                                        color: Colors.white
+                                            .withValues(alpha: 0.06),
+                                        border: Border.all(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.10),
+                                        ),
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child:
+                                          m.imageUrl?.isNotEmpty == true
+                                              ? Image.network(
+                                                  m.imageUrl!,
+                                                  width: 52,
+                                                  height: 52,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (_, _, _) => const Center(
+                                                        child: Icon(
+                                                          Icons
+                                                              .inventory_2_outlined,
+                                                          color:
+                                                              Colors.white24,
+                                                          size: 24,
+                                                        ),
+                                                      ),
+                                                )
+                                              : const Center(
+                                                  child: Icon(
+                                                    Icons
+                                                        .inventory_2_outlined,
+                                                    color: Colors.white24,
+                                                    size: 24,
+                                                  ),
+                                                ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            m.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            m.soldCount > 0
+                                                ? '${m.priceLabel} · ${m.active ? 'Active' : 'Paused'} · ${m.soldCount} sold'
+                                                : '${m.priceLabel} · ${m.active ? 'Active' : 'Paused'}',
+                                            style: TextStyle(
+                                              color: m.active
+                                                  ? AppColors.accent
+                                                  : Colors.white54,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        m.emoji,
-                                        style: const TextStyle(fontSize: 26),
+                                    IconButton(
+                                      onPressed: () => _showProductSheet(
+                                        context,
+                                        uid,
+                                        existing: m,
+                                      ),
+                                      tooltip: 'Edit listing',
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        color: Colors.white54,
+                                        size: 20,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          m.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          '${m.priceLabel} · ${m.active ? 'Active' : 'Paused'}',
-                                          style: TextStyle(
-                                            color: m.active
-                                                ? AppColors.accent
-                                                : Colors.white54,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
+                                    IconButton(
+                                      onPressed: () => CatalogService.instance
+                                          .setMerchActive(m.id, !m.active),
+                                      icon: Icon(
+                                        m.active
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: Colors.white70,
+                                        size: 22,
+                                      ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () => CatalogService.instance
-                                        .setMerchActive(m.id, !m.active),
-                                    icon: Icon(
-                                      m.active
-                                          ? Icons.pause_rounded
-                                          : Icons.play_arrow_rounded,
-                                      color: Colors.white70,
-                                      size: 22,
-                                    ),
-                                  ),
                                   IconButton(
                                     onPressed: () async {
                                       final ok = await showDialog<bool>(
@@ -235,6 +277,7 @@ class SellerDashboardScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
+                              ),
                           );
                         },
                       );
@@ -248,14 +291,22 @@ class SellerDashboardScreen extends StatelessWidget {
     );
   }
 
-  static Future<void> _showCreateSheet(BuildContext context, String? uid) async {
+  static Future<void> _showProductSheet(
+    BuildContext context,
+    String? uid, {
+    MerchProductDoc? existing,
+  }) async {
     if (uid == null) return;
 
-    final name = TextEditingController();
-    final price = TextEditingController();
-    final emoji = TextEditingController(text: '✨');
-    final description = TextEditingController();
-    var color = 'red';
+    final editing = existing != null;
+    final name = TextEditingController(text: existing?.name ?? '');
+    final price = TextEditingController(text: existing?.priceLabel ?? '');
+    final description = TextEditingController(
+      text: existing?.description ?? '',
+    );
+    final stock = TextEditingController(
+      text: existing?.stock?.toString() ?? '',
+    );
     UserProfile? profile;
     try {
       profile = await UserService.instance.fetch(uid);
@@ -285,7 +336,7 @@ class SellerDashboardScreen extends StatelessWidget {
         final formKey = GlobalKey<FormState>();
         var loading = false;
         var uploadingImage = false;
-        String? imageUrl;
+        String? imageUrl = existing?.imageUrl;
 
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
@@ -320,10 +371,10 @@ class SellerDashboardScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'New listing',
+                      Text(
+                        editing ? 'Edit listing' : 'New listing',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -339,35 +390,61 @@ class SellerDashboardScreen extends StatelessWidget {
                             : null,
                       ),
                       const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: AppTextField(
-                              controller: price,
-                              label: 'Price (e.g. \$29)',
-                              prefixIcon: Icons.attach_money_rounded,
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty)
-                                      ? 'Price required'
-                                      : null,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: AppTextField(
-                              controller: emoji,
-                              label: 'Emoji',
-                              prefixIcon: Icons.emoji_emotions_outlined,
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty)
-                                      ? 'Required'
-                                      : null,
-                            ),
-                          ),
-                        ],
+                      AppTextField(
+                        controller: price,
+                        label: 'Price (e.g. \$29)',
+                        prefixIcon: Icons.attach_money_rounded,
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Price required'
+                                : null,
                       ),
                       const SizedBox(height: 14),
+                      if (imageUrl != null) ...[
+                        Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                imageUrl!,
+                                width: 64,
+                                height: 64,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  width: 64,
+                                  height: 64,
+                                  color:
+                                      Colors.white.withValues(alpha: 0.06),
+                                  child: const Icon(
+                                    Icons.image_outlined,
+                                    color: Colors.white24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Image attached',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () =>
+                                  setSheetState(() => imageUrl = null),
+                              child: const Text(
+                                'Remove',
+                                style: TextStyle(color: Color(0xFFFF6B6B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       OutlinedButton.icon(
                         onPressed: uploadingImage
                             ? null
@@ -417,7 +494,7 @@ class SellerDashboardScreen extends StatelessWidget {
                               ? 'Uploading…'
                               : imageUrl == null
                                   ? 'Upload product image'
-                                  : 'Image attached',
+                                  : 'Replace image',
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
@@ -437,47 +514,26 @@ class SellerDashboardScreen extends StatelessWidget {
                         prefixIcon: Icons.notes_rounded,
                       ),
                       const SizedBox(height: 14),
-                      DropdownButtonFormField<String>(
-                        initialValue: CatalogIcons.colors.containsKey(color)
-                            ? color
-                            : 'red',
-                        dropdownColor: const Color(0xF2101018),
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Card color',
-                          filled: true,
-                          fillColor: const Color(0x59000000),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.14),
-                            ),
-                          ),
-                          focusedBorder: const OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(16)),
-                            borderSide: BorderSide(
-                              color: AppColors.accent,
-                              width: 1.6,
-                            ),
-                          ),
-                        ),
-                        items: CatalogIcons.colors.entries
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e.key,
-                                child: Text(
-                                  e.key,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) =>
-                            setSheetState(() => color = v ?? color),
+                      AppTextField(
+                        controller: stock,
+                        label: 'Stock units (optional)',
+                        prefixIcon: Icons.inventory_2_outlined,
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          final t = (v ?? '').trim();
+                          if (t.isEmpty) return null;
+                          final n = int.tryParse(t);
+                          if (n == null || n < 0) {
+                            return 'Enter a whole number 0 or more';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 20),
                       GlassButton(
-                        label: loading ? 'Creating…' : 'Create listing',
+                        label: loading
+                            ? (editing ? 'Saving…' : 'Creating…')
+                            : (editing ? 'Save changes' : 'Create listing'),
                         isLoading: loading,
                         onPressed: () async {
                           if (!(formKey.currentState?.validate() ?? false)) {
@@ -485,16 +541,30 @@ class SellerDashboardScreen extends StatelessWidget {
                           }
                           setSheetState(() => loading = true);
                           try {
-                            await CatalogService.instance.createMerch(
-                              name: name.text,
-                              priceLabel: price.text.trim(),
-                              sellerUid: uid,
-                              sellerName: sellerName,
-                              emoji: emoji.text.trim(),
-                              colorName: color,
-                              description: description.text,
-                              imageUrl: imageUrl,
-                            );
+                            final parsedStock =
+                                int.tryParse(stock.text.trim());
+                            if (editing) {
+                              await CatalogService.instance.updateMerch(
+                                existing.id,
+                                {
+                                  'name': name.text.trim(),
+                                  'priceLabel': price.text.trim(),
+                                  'description': description.text.trim(),
+                                  'stock': parsedStock,
+                                  'imageUrl': imageUrl,
+                                },
+                              );
+                            } else {
+                              await CatalogService.instance.createMerch(
+                                name: name.text,
+                                priceLabel: price.text.trim(),
+                                sellerUid: uid,
+                                sellerName: sellerName,
+                                description: description.text,
+                                imageUrl: imageUrl,
+                                stock: parsedStock,
+                              );
+                            }
                             if (sheetContext.mounted) {
                               Navigator.of(sheetContext).pop();
                             }

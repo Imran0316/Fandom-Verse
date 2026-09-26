@@ -137,6 +137,15 @@ class CatalogService {
     });
   }
 
+  /// Live single product (rating / stock / sold counts update in place).
+  /// Emits null when signed out or the product no longer exists.
+  Stream<MerchProductDoc?> watchMerchProduct(String productId) {
+    if (!_ready) return Stream<MerchProductDoc?>.value(null);
+    return _merch.doc(productId).snapshots().map(
+          (d) => d.exists ? MerchProductDoc.fromDoc(d) : null,
+        );
+  }
+
   Future<void> createMerch({
     required String name,
     required String priceLabel,
@@ -146,6 +155,7 @@ class CatalogService {
     String colorName = 'red',
     String description = '',
     String? imageUrl,
+    int? stock,
   }) async {
     await _merch.add({
       'name': name.trim(),
@@ -157,6 +167,10 @@ class CatalogService {
       'description': description.trim(),
       'imageUrl': imageUrl,
       'active': true,
+      'stock': stock,
+      'soldCount': 0,
+      'rating': 0.0,
+      'reviewCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -168,4 +182,60 @@ class CatalogService {
       _merch.doc(id).update({'active': active});
 
   Future<void> deleteMerch(String id) => _merch.doc(id).delete();
+
+  /* -------------------------------- Reviews -------------------------------- */
+
+  /// Reviews for a product, newest first (subcollection — no index needed).
+  Stream<List<ProductReviewDoc>> watchReviews(String productId) {
+    if (!_ready) return Stream.value(const []);
+    return _merch
+        .doc(productId)
+        .collection('reviews')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map(ProductReviewDoc.fromDoc).toList());
+  }
+
+  /// One review per user per product (doc id = author uid). After writing,
+  /// re-reads the review set and rewrites the product's aggregate
+  /// `rating` / `reviewCount` — the only fields non-owners may update.
+  Future<void> addReview({
+    required String productId,
+    required int rating,
+    required String text,
+  }) async {
+    if (!_ready) throw StateError('Sign in required.');
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) throw StateError('Sign in required.');
+    final stars = rating.clamp(1, 5).toInt();
+    final authorName = AuthService.instance.greetingName;
+
+    final reviewRef = _merch.doc(productId).collection('reviews').doc(uid);
+    await reviewRef.set(
+      ProductReviewDoc(
+        id: uid,
+        productId: productId,
+        authorUid: uid,
+        authorName: authorName.isEmpty ? 'Fan' : authorName,
+        rating: stars,
+        text: text.trim(),
+      ).toMap(),
+    );
+
+    final snap =
+        await _merch.doc(productId).collection('reviews').get();
+    var sum = 0;
+    var count = 0;
+    for (final d in snap.docs) {
+      final r = (d.data()['rating'] as num?)?.toInt() ?? 0;
+      if (r >= 1 && r <= 5) {
+        sum += r;
+        count++;
+      }
+    }
+    await _merch.doc(productId).update({
+      'rating': count == 0 ? 0.0 : sum / count,
+      'reviewCount': count,
+    });
+  }
 }

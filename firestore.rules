@@ -61,6 +61,44 @@ service cloud.firestore {
         && counterOnly('followingCount');
     }
 
+    // Merch stats that non-owners may update: review aggregates
+    // (rating/reviewCount — rewritten whenever a buyer reviews) and sales
+    // stats (soldCount/stock — bumped at checkout). Everything else on a
+    // merch doc stays owner/admin-only.
+    function validMerchStats() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      let touchesRating = changed.hasAny(['rating', 'reviewCount']);
+      let touchesSales = changed.hasAny(['soldCount', 'stock']);
+      let newCount = request.resource.data.get('reviewCount', 0);
+      let oldCount = resource.data.get('reviewCount', 0);
+      let newSold = request.resource.data.get('soldCount', 0);
+      let oldSold = resource.data.get('soldCount', 0);
+      // Untracked stock (field absent) may never be introduced by a buyer.
+      let stockOk = !('stock' in resource.data)
+        ? !('stock' in request.resource.data)
+        : ('stock' in request.resource.data
+            && request.resource.data.stock <= resource.data.stock
+            && request.resource.data.stock >= 0);
+      let ratingOk = !touchesRating || touchesSales
+        ? false
+        : (changed.hasAll(['rating', 'reviewCount'])
+            && request.resource.data.rating >= 0
+            && request.resource.data.rating <= 5
+            && newCount >= 0
+            && (newCount == oldCount + 1
+              || newCount == oldCount
+              || newCount == oldCount - 1));
+      let salesOk = !touchesSales || touchesRating
+        ? false
+        : ('soldCount' in request.resource.data
+            && newSold >= oldSold
+            && newSold - oldSold <= 100
+            && stockOk);
+      return changed.hasOnly(['rating', 'reviewCount', 'soldCount', 'stock'])
+        && (touchesRating || touchesSales)
+        && (ratingOk || salesOk);
+    }
+
     // ---- Users ----
     match /users/{uid} {
       allow read: if signedIn();
@@ -285,8 +323,29 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.sellerUid == request.auth.uid
         && (myRole() == 'seller' || isAdmin());
-      allow update, delete: if isAdmin()
+      allow update: if isAdmin()
+        || resource.data.sellerUid == request.auth.uid
+        // Buyers may only touch the stat fields (see validMerchStats).
+        || (signedIn() && validMerchStats());
+      allow delete: if isAdmin()
         || resource.data.sellerUid == request.auth.uid;
+
+      // Product reviews: one doc per buyer (id = author uid), newest
+      // activity first via the client's createdAt sort.
+      match /reviews/{reviewId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.productId == productId
+          && request.resource.data.rating is int
+          && request.resource.data.rating >= 1
+          && request.resource.data.rating <= 5
+          && request.resource.data.text is string;
+        allow update: if isAdmin()
+          || resource.data.authorUid == request.auth.uid;
+        allow delete: if isAdmin()
+          || resource.data.authorUid == request.auth.uid;
+      }
     }
 
     match /events/{eventId} {

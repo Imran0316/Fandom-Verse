@@ -848,7 +848,7 @@ class MerchAdminPanel extends StatelessWidget {
                       blur: 18,
                       gradient: LinearGradient(
                         colors: [
-                          m.color.withValues(alpha: m.active ? 0.28 : 0.1),
+                          Colors.white.withValues(alpha: m.active ? 0.12 : 0.06),
                           Colors.white.withValues(alpha: 0.05),
                         ],
                       ),
@@ -858,7 +858,39 @@ class MerchAdminPanel extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Text(m.emoji, style: const TextStyle(fontSize: 26)),
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white.withValues(alpha: 0.06),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.10),
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: m.imageUrl?.isNotEmpty == true
+                                ? Image.network(
+                                    m.imageUrl!,
+                                    fit: BoxFit.cover,
+                                    width: 44,
+                                    height: 44,
+                                    errorBuilder: (_, _, _) => const Center(
+                                      child: Icon(
+                                        Icons.inventory_2_outlined,
+                                        color: Colors.white24,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  )
+                                : const Center(
+                                    child: Icon(
+                                      Icons.inventory_2_outlined,
+                                      color: Colors.white24,
+                                      size: 20,
+                                    ),
+                                  ),
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
