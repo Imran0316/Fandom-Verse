@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fandom_verse/models/content_docs.dart';
+import 'package:fandom_verse/models/user_profile.dart';
 import 'package:fandom_verse/screens/dashboard/dashboard_screen.dart';
 
 /// Drains all pending exceptions from [tester].
@@ -26,6 +28,114 @@ List<Object> _unexpected(List<Object> errors) {
 }
 
 void main() {
+  test(
+    'selected fandoms drive dynamic recommendations before unrelated content',
+    () {
+      final now = DateTime.now();
+      final published = <ContentDoc>[
+        ContentDoc(
+          id: '1',
+          type: ContentType.article,
+          title: 'Anime deep dive',
+          summary: '',
+          body: '',
+          question: '',
+          answer: '',
+          explanation: '',
+          fandomId: 'anime-id',
+          fandomName: 'Anime',
+          status: ContentStatus.published,
+          publishedAt: now,
+        ),
+        ContentDoc(
+          id: '2',
+          type: ContentType.news,
+          title: 'Gaming update',
+          summary: '',
+          body: '',
+          question: '',
+          answer: '',
+          explanation: '',
+          fandomId: 'gaming-id',
+          fandomName: 'Gaming',
+          status: ContentStatus.published,
+          publishedAt: now.add(const Duration(hours: -1)),
+        ),
+        ContentDoc(
+          id: '3',
+          type: ContentType.article,
+          title: 'Movies weekly recap',
+          summary: '',
+          body: '',
+          question: '',
+          answer: '',
+          explanation: '',
+          fandomId: 'movies-id',
+          fandomName: 'Movies & TV',
+          status: ContentStatus.published,
+          publishedAt: now.add(const Duration(hours: -2)),
+        ),
+      ];
+
+      final recommended = buildRecommendedContentForUser(
+        const UserProfile(
+          uid: 'u1',
+          name: 'Fan',
+          email: 'fan@example.com',
+          selectedFandoms: ['Anime', 'Gaming'],
+        ),
+        published,
+      );
+
+      expect(recommended.map((item) => item.title).take(2).toList(), [
+        'Anime deep dive',
+        'Gaming update',
+      ]);
+    },
+  );
+
+  test(
+    'fall back to published content when no fandom interests are selected',
+    () {
+      final published = <ContentDoc>[
+        ContentDoc(
+          id: '1',
+          type: ContentType.article,
+          title: 'Latest feature',
+          summary: '',
+          body: '',
+          question: '',
+          answer: '',
+          explanation: '',
+          fandomId: 'anime-id',
+          fandomName: 'Anime',
+          status: ContentStatus.published,
+          isFeatured: true,
+          publishedAt: DateTime.now(),
+        ),
+        ContentDoc(
+          id: '2',
+          type: ContentType.news,
+          title: 'Another story',
+          summary: '',
+          body: '',
+          question: '',
+          answer: '',
+          explanation: '',
+          fandomId: 'gaming-id',
+          fandomName: 'Gaming',
+          status: ContentStatus.published,
+          publishedAt: DateTime.now().add(const Duration(hours: -1)),
+        ),
+      ];
+
+      final recommended = buildRecommendedContentForUser(null, published);
+
+      expect(recommended.first.title, 'Latest feature');
+      expect(recommended.length, 2);
+    },
+  );
+
   testWidgets('Dashboard renders with fallback streams and no exceptions', (
     WidgetTester tester,
   ) async {

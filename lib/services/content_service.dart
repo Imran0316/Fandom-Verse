@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/content_docs.dart';
 import 'auth_service.dart';
+import 'notification_service.dart';
 import 'taxonomy_service.dart';
 
 /// Firestore repository for the unified `contents` collection.
@@ -42,10 +43,10 @@ class ContentService {
         .limit(limit)
         .snapshots()
         .map((s) {
-      final items = s.docs.map(ContentDoc.fromDoc).toList();
-      items.sort(_byPublishedDesc);
-      return items;
-    });
+          final items = s.docs.map(ContentDoc.fromDoc).toList();
+          items.sort(_byPublishedDesc);
+          return items;
+        });
   }
 
   Stream<ContentDoc?> watchById(String id) {
@@ -107,6 +108,16 @@ class ContentService {
       publishedAt: status.isPublished ? DateTime.now() : null,
     );
     final ref = await _col.add(doc.toMap());
+    if (status.isPublished) {
+      await NotificationService.instance.notifyPublishedContent(
+        contentId: ref.id,
+        title: title,
+        body: summary.isNotEmpty ? summary : title,
+        fandomId: fandomId,
+        imageUrl: coverImageUrl,
+        fandomName: fandomName,
+      );
+    }
     return ref.id;
   }
 
@@ -156,9 +167,20 @@ class ContentService {
       data['publishedAt'] = FieldValue.serverTimestamp();
     }
     await _col.doc(id).update(data);
+    if (status.isPublished && existingPublishedAt == null) {
+      await NotificationService.instance.notifyPublishedContent(
+        contentId: id,
+        title: title,
+        body: summary.isNotEmpty ? summary : title,
+        fandomId: fandomId,
+        imageUrl: coverImageUrl,
+        fandomName: fandomName,
+      );
+    }
   }
 
   Future<void> setStatus(String id, ContentStatus status) async {
+    final current = await fetchById(id);
     final data = <String, dynamic>{
       'status': status.value,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -167,13 +189,45 @@ class ContentService {
       data['publishedAt'] = FieldValue.serverTimestamp();
     }
     await _col.doc(id).update(data);
+    if (status.isPublished && (current == null || !current.isPublished)) {
+      final payload =
+          current ??
+          const ContentDoc(
+            id: '',
+            type: ContentType.article,
+            title: '',
+            summary: '',
+            body: '',
+            question: '',
+            answer: '',
+            explanation: '',
+            fandomId: '',
+            fandomName: '',
+            categoryId: '',
+            categoryName: '',
+          );
+      await NotificationService.instance.notifyPublishedContent(
+        contentId: id,
+        title: payload.title.isNotEmpty ? payload.title : 'New publication',
+        body: payload.summary.isNotEmpty
+            ? payload.summary
+            : 'A new update is live.',
+        fandomId: payload.fandomId,
+        imageUrl: payload.coverImageUrl,
+        fandomName: payload.fandomName,
+      );
+    }
   }
 
-  Future<void> setFeatured(String id, bool value) =>
-      _col.doc(id).update({'isFeatured': value, 'updatedAt': FieldValue.serverTimestamp()});
+  Future<void> setFeatured(String id, bool value) => _col.doc(id).update({
+    'isFeatured': value,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
 
-  Future<void> setTrending(String id, bool value) =>
-      _col.doc(id).update({'isTrending': value, 'updatedAt': FieldValue.serverTimestamp()});
+  Future<void> setTrending(String id, bool value) => _col.doc(id).update({
+    'isTrending': value,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
 
   Future<void> deleteContent(String id) => _col.doc(id).delete();
 
@@ -225,8 +279,8 @@ class ContentService {
         'answer': 'The Going Merry.',
         'explanation':
             'Given to the Straw Hats by Kaya, the Going Merry carried them '
-                'through the East Blue and into the Grand Line before its '
-                'farewell at Water 7.',
+            'through the East Blue and into the Grand Line before its '
+            'farewell at Water 7.',
         'fandomId': fandomId('Anime'),
         'fandomName': fandomName('Anime'),
         'categoryId': catId('Trivia'),
@@ -235,7 +289,9 @@ class ContentService {
         'status': ContentStatus.published.value,
         'isFeatured': true,
         'isTrending': true,
-        'publishedAt': Timestamp.fromDate(now.subtract(const Duration(days: 2))),
+        'publishedAt': Timestamp.fromDate(
+          now.subtract(const Duration(days: 2)),
+        ),
       },
       {
         'type': ContentType.lore.value,
@@ -243,10 +299,10 @@ class ContentService {
         'summary': 'Navigating the seas, islands and legends of One Piece.',
         'body':
             'The Grand Line is a stretch of ocean that runs around the world, '
-                'bordered by the Calm Belt on both sides. Its unpredictable '
-                'weather, magnetic currents and legendary islands make it the '
-                'most dangerous route a pirate can sail — and the only one that '
-                'leads to the One Piece.',
+            'bordered by the Calm Belt on both sides. Its unpredictable '
+            'weather, magnetic currents and legendary islands make it the '
+            'most dangerous route a pirate can sail — and the only one that '
+            'leads to the One Piece.',
         'fandomId': fandomId('Anime'),
         'fandomName': fandomName('Anime'),
         'categoryId': catId('World Building'),
@@ -255,7 +311,9 @@ class ContentService {
         'status': ContentStatus.published.value,
         'isFeatured': false,
         'isTrending': true,
-        'publishedAt': Timestamp.fromDate(now.subtract(const Duration(days: 5))),
+        'publishedAt': Timestamp.fromDate(
+          now.subtract(const Duration(days: 5)),
+        ),
       },
       {
         'type': ContentType.news.value,
@@ -263,8 +321,8 @@ class ContentService {
         'summary': 'A quick round-up of what the anime world is buzzing about.',
         'body':
             'Studios have announced a new slate of adaptations for the coming '
-                'season, alongside re-releases of beloved classics. Fans can '
-                'expect fresh simulcasts and a returning fan-favourite franchise.',
+            'season, alongside re-releases of beloved classics. Fans can '
+            'expect fresh simulcasts and a returning fan-favourite franchise.',
         'fandomId': fandomId('Anime'),
         'fandomName': fandomName('Anime'),
         'categoryId': catId('News'),
@@ -273,17 +331,20 @@ class ContentService {
         'status': ContentStatus.published.value,
         'isFeatured': true,
         'isTrending': false,
-        'publishedAt': Timestamp.fromDate(now.subtract(const Duration(hours: 20))),
+        'publishedAt': Timestamp.fromDate(
+          now.subtract(const Duration(hours: 20)),
+        ),
       },
       {
         'type': ContentType.article.value,
         'title': 'Understanding the World of Fandom',
-        'summary': 'Why fans build universes of knowledge around what they love.',
+        'summary':
+            'Why fans build universes of knowledge around what they love.',
         'body':
             'Fandom is more than a hobby — it is a shared language. Communities '
-                'document lore, debate theories and celebrate creators together. '
-                'This piece explores how that culture shapes the way we read and '
-                'share stories.',
+            'document lore, debate theories and celebrate creators together. '
+            'This piece explores how that culture shapes the way we read and '
+            'share stories.',
         'fandomId': fandomId('Gaming'),
         'fandomName': fandomName('Gaming'),
         'categoryId': catId('Guides'),
@@ -292,7 +353,9 @@ class ContentService {
         'status': ContentStatus.published.value,
         'isFeatured': false,
         'isTrending': true,
-        'publishedAt': Timestamp.fromDate(now.subtract(const Duration(days: 8))),
+        'publishedAt': Timestamp.fromDate(
+          now.subtract(const Duration(days: 8)),
+        ),
       },
       {
         'type': ContentType.article.value,
@@ -300,7 +363,7 @@ class ContentService {
         'summary': 'A draft deep dive into the history of shonen storytelling.',
         'body':
             'From post-war magazine serials to global streaming hits, shonen has '
-                'grown into one of the most influential genres in entertainment.',
+            'grown into one of the most influential genres in entertainment.',
         'fandomId': fandomId('Manga'),
         'fandomName': fandomName('Manga'),
         'categoryId': catId('World Building'),

@@ -131,10 +131,21 @@ service cloud.firestore {
         allow read: if isSelf(uid);
         allow create: if signedIn()
           && request.resource.data.recipientUid == uid
-          && request.resource.data.actorUid == request.auth.uid;
+          && (
+            request.resource.data.actorUid == request.auth.uid
+            || request.resource.data.actorUid == 'system'
+          );
         allow update: if isSelf(uid);
         allow delete: if isSelf(uid)
-          || resource.data.actorUid == request.auth.uid;
+          || resource.data.actorUid == request.auth.uid
+          || resource.data.actorUid == 'system';
+      }
+
+      match /devices/{deviceId} {
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid)
+          && request.resource.data.platform in ['android', 'ios'];
+        allow delete: if isSelf(uid);
       }
     }
 

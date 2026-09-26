@@ -29,6 +29,13 @@ class UserProfile {
     this.bio,
     this.shopName,
     this.selectedFandoms = const [],
+    this.notificationPreferences = const {
+      'pushEnabled': true,
+      'contentEnabled': true,
+      'fandomEnabled': true,
+      'communityEnabled': true,
+      'announcementEnabled': true,
+    },
     this.followerCount = 0,
     this.followingCount = 0,
     this.createdAt,
@@ -44,6 +51,7 @@ class UserProfile {
   /// Set when the user has upgraded to a seller (Fiverr-style self-serve).
   final String? shopName;
   final List<String> selectedFandoms;
+  final Map<String, bool> notificationPreferences;
   final int followerCount;
   final int followingCount;
   final DateTime? createdAt;
@@ -71,6 +79,7 @@ class UserProfile {
     String? bio,
     String? shopName,
     List<String>? selectedFandoms,
+    Map<String, bool>? notificationPreferences,
     int? followerCount,
     int? followingCount,
   }) {
@@ -83,6 +92,8 @@ class UserProfile {
       bio: bio ?? this.bio,
       shopName: shopName ?? this.shopName,
       selectedFandoms: selectedFandoms ?? this.selectedFandoms,
+      notificationPreferences:
+          notificationPreferences ?? this.notificationPreferences,
       followerCount: followerCount ?? this.followerCount,
       followingCount: followingCount ?? this.followingCount,
       createdAt: createdAt,
@@ -99,16 +110,19 @@ class UserProfile {
       'bio': bio,
       'shopName': shopName,
       'selectedFandoms': selectedFandoms,
+      'notificationPreferences': notificationPreferences,
       'followerCount': followerCount,
       'followingCount': followingCount,
-      'createdAt':
-          createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
     };
   }
 
   factory UserProfile.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const {};
     final created = data['createdAt'];
+    final prefs = (data['notificationPreferences'] as Map?) ?? const {};
     return UserProfile(
       uid: doc.id,
       name: (data['name'] as String?) ?? '',
@@ -117,8 +131,16 @@ class UserProfile {
       avatarUrl: data['avatarUrl'] as String?,
       bio: data['bio'] as String?,
       shopName: data['shopName'] as String?,
-      selectedFandoms:
-          List<String>.from((data['selectedFandoms'] as List?) ?? const []),
+      selectedFandoms: List<String>.from(
+        (data['selectedFandoms'] as List?) ?? const [],
+      ),
+      notificationPreferences: {
+        'pushEnabled': (prefs['pushEnabled'] as bool?) ?? true,
+        'contentEnabled': (prefs['contentEnabled'] as bool?) ?? true,
+        'fandomEnabled': (prefs['fandomEnabled'] as bool?) ?? true,
+        'communityEnabled': (prefs['communityEnabled'] as bool?) ?? true,
+        'announcementEnabled': (prefs['announcementEnabled'] as bool?) ?? true,
+      },
       followerCount: (data['followerCount'] as num?)?.toInt() ?? 0,
       followingCount: (data['followingCount'] as num?)?.toInt() ?? 0,
       createdAt: created is Timestamp ? created.toDate() : null,

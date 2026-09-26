@@ -6,6 +6,7 @@ import '../../models/notification_docs.dart';
 import '../../services/notification_service.dart';
 import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
+import '../content/content_detail_screen.dart';
 
 /// Real activity feed: likes, comments and replies on your posts, plus
 /// follow requests (accept / decline inline). Rows are live; tapping a
@@ -34,18 +35,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   String _actionText(NotificationDoc n) {
-    final name = n.actorName.isEmpty ? 'Someone' : n.actorName;
-    switch (n.kind) {
-      case NotificationKind.postLiked:
+    if (n.title != null && n.title!.isNotEmpty) return n.title!;
+    final name = n.actorName.isEmpty ? 'Fandom Verse' : n.actorName;
+    switch (n.notificationType) {
+      case NotificationType.contentPublished:
+      case NotificationType.fandomContent:
+        return 'New $name update';
+      case NotificationType.communityAnnouncement:
+        return 'Community update';
+      case NotificationType.adminAnnouncement:
+        return 'Platform update';
+      case NotificationType.system:
+        return 'Fandom Verse';
+      case NotificationType.postLiked:
         return '$name liked your post';
-      case NotificationKind.postCommented:
+      case NotificationType.postCommented:
         return '$name commented on your post';
-      case NotificationKind.commentReplied:
+      case NotificationType.commentReplied:
         return '$name replied to your comment';
-      case NotificationKind.followRequested:
+      case NotificationType.followRequested:
         return '$name requested to follow you';
-      case NotificationKind.unknown:
-        return '$name interacted with your content';
+      case NotificationType.unknown:
+        return 'Activity update';
     }
   }
 
@@ -81,15 +92,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       Navigator.pushNamed(context, AppRoutes.followRequests);
       return;
     }
+    if ((n.targetType ?? NotificationTargetType.system) ==
+            NotificationTargetType.content ||
+        n.contentId != null && n.contentId!.isNotEmpty) {
+      final contentId = n.contentId ?? n.targetId;
+      if (contentId != null && contentId.isNotEmpty) {
+        Navigator.pushNamed(
+          context,
+          AppRoutes.contentDetail,
+          arguments: ContentDetailArgs(contentId: contentId),
+        );
+        return;
+      }
+    }
     if (n.communityId != null && n.communityId!.isNotEmpty) {
       Navigator.pushNamed(
         context,
         AppRoutes.communityDetail,
         arguments: n.communityId,
       );
-    } else {
-      Navigator.pushNamed(context, AppRoutes.feed);
+      return;
     }
+    if (n.targetType == NotificationTargetType.announcement ||
+        n.notificationType == NotificationType.adminAnnouncement) {
+      Navigator.pushNamed(context, AppRoutes.dashboard);
+      return;
+    }
+    Navigator.pushNamed(context, AppRoutes.dashboard);
   }
 
   @override
@@ -115,8 +144,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           IconButton(
                             onPressed: () => Navigator.pop(context),
                             style: IconButton.styleFrom(
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: 0.08),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.08,
+                              ),
                               foregroundColor: Colors.white,
                             ),
                             icon: const Icon(Icons.arrow_back_rounded),
@@ -153,8 +183,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ? _empty()
                           : ListView.separated(
                               physics: const BouncingScrollPhysics(),
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 6, 16, 24),
+                              padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
                               itemCount: items.length,
                               separatorBuilder: (_, _) =>
                                   const SizedBox(height: 10),
@@ -179,8 +208,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.notifications_none_rounded,
-                color: Colors.white24, size: 46),
+            Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.white24,
+              size: 46,
+            ),
             SizedBox(height: 14),
             Text(
               "You're all caught up",
@@ -192,7 +224,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             SizedBox(height: 6),
             Text(
-              'Likes, comments, replies and follow requests land here.',
+              'New fandom discoveries and community updates land here.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white54, fontSize: 13),
             ),
@@ -238,11 +270,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       height: 1.35,
                     ),
                   ),
-                  if (n.preview != null && n.preview!.isNotEmpty &&
+                  if ((n.preview ?? n.effectiveBody).isNotEmpty &&
                       !isFollow) ...[
                     const SizedBox(height: 3),
                     Text(
-                      '“${n.preview}”',
+                      n.effectiveBody,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -255,10 +287,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     _timeLabel(n.createdAt),
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
-                    ),
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
                   ),
                 ],
               ),
@@ -279,10 +308,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     )
                   : Column(
                       children: [
-                        _miniButton(
-                          label: 'Accept',
-                          onTap: () => _accept(n),
-                        ),
+                        _miniButton(label: 'Accept', onTap: () => _accept(n)),
                         const SizedBox(height: 6),
                         _miniButton(
                           label: 'Decline',
@@ -344,12 +370,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final initial = n.actorName.isNotEmpty
         ? n.actorName.characters.first.toUpperCase()
         : '?';
-    final icon = switch (n.kind) {
-      NotificationKind.postLiked => Icons.favorite_rounded,
-      NotificationKind.postCommented => Icons.mode_comment_rounded,
-      NotificationKind.commentReplied => Icons.reply_rounded,
-      NotificationKind.followRequested => Icons.person_add_alt_1_rounded,
-      NotificationKind.unknown => Icons.notifications_rounded,
+    final icon = switch (n.notificationType) {
+      NotificationType.contentPublished => Icons.new_releases_rounded,
+      NotificationType.fandomContent => Icons.explore_rounded,
+      NotificationType.communityAnnouncement => Icons.groups_rounded,
+      NotificationType.adminAnnouncement => Icons.campaign_rounded,
+      NotificationType.system => Icons.notifications_rounded,
+      NotificationType.postLiked => Icons.favorite_rounded,
+      NotificationType.postCommented => Icons.mode_comment_rounded,
+      NotificationType.commentReplied => Icons.reply_rounded,
+      NotificationType.followRequested => Icons.person_add_alt_1_rounded,
+      NotificationType.unknown => Icons.notifications_rounded,
     };
     return Container(
       width: 42,

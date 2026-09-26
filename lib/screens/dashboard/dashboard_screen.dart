@@ -5,12 +5,14 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/mock_catalog.dart';
 import '../../models/catalog_docs.dart';
+import '../../models/content_docs.dart';
 import '../../models/community_docs.dart';
 import '../../models/notification_docs.dart';
 import '../../models/post_docs.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/content_service.dart';
 import '../../services/community_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/post_service.dart';
@@ -18,9 +20,70 @@ import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
 import '../../widgets/liquid_floating_nav.dart';
 import '../../widgets/liquid_glass.dart';
+import '../../widgets/content_widgets.dart';
 import '../communities/post_card.dart';
+import '../content/content_detail_screen.dart';
 import '../content/discovery_sections.dart';
 import '../reels/reels_tab.dart';
+
+String _normalizeFandomKey(String? value) => (value ?? '').trim().toLowerCase();
+
+List<ContentDoc> buildRecommendedContentForUser(
+  UserProfile? profile,
+  List<ContentDoc> published,
+) {
+  final items = published
+      .where((item) => item.isPublished && item.title.trim().isNotEmpty)
+      .toList();
+
+  if (items.isEmpty) return const <ContentDoc>[];
+
+  final selected = (profile?.selectedFandoms ?? const <String>[])
+      .map(_normalizeFandomKey)
+      .where((value) => value.isNotEmpty)
+      .toSet();
+
+  List<ContentDoc> ranked;
+  if (selected.isNotEmpty) {
+    final matches = items.where((item) {
+      final keys = <String>{
+        _normalizeFandomKey(item.fandomName),
+        _normalizeFandomKey(item.fandomId),
+      };
+      return keys.any(
+        (key) =>
+            key.isNotEmpty &&
+            selected.any(
+              (interest) =>
+                  key == interest ||
+                  key.contains(interest) ||
+                  interest.contains(key),
+            ),
+      );
+    }).toList();
+    ranked = matches.isNotEmpty ? matches : items;
+  } else {
+    ranked = items;
+  }
+
+  ranked.sort((a, b) {
+    final scoreA =
+        (a.isFeatured ? 8 : 0) +
+        (a.isTrending ? 6 : 0) +
+        (a.publishedAt != null ? 4 : 0);
+    final scoreB =
+        (b.isFeatured ? 8 : 0) +
+        (b.isTrending ? 6 : 0) +
+        (b.publishedAt != null ? 4 : 0);
+
+    if (scoreA != scoreB) return scoreB.compareTo(scoreA);
+    final dateA = a.displayDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final dateB = b.displayDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return dateB.compareTo(dateA);
+  });
+
+  return ranked.take(6).toList();
+}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -105,6 +168,12 @@ class _HomeTabState extends State<_HomeTab> {
   final _communities = StreamCache<List<CommunityDoc>>(
     () => CommunityService.instance.watchAll(),
   );
+  final _profile = StreamCache<UserProfile?>(
+    () => UserService.instance.watchCurrent(),
+  );
+  final _published = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchPublished(limit: 18),
+  );
   final _feed = StreamCache<List<PostDoc>>(
     () => PostService.instance.watchFeed(limit: 5),
   );
@@ -134,8 +203,63 @@ class _HomeTabState extends State<_HomeTab> {
         const SizedBox(height: 20),
         const DiscoveryHome(),
         const SizedBox(height: 34),
+        StreamBuilder<UserProfile?>(
+          stream: _profile(),
+          builder: (context, profileSnap) {
+            final profile = profileSnap.data;
+            return StreamBuilder<List<ContentDoc>>(
+              stream: _published(),
+              builder: (context, snap) {
+                final published = snap.data ?? const <ContentDoc>[];
+                final recommendations = buildRecommendedContentForUser(
+                  profile,
+                  published,
+                );
+                if (recommendations.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SectionHeader(
+                      title: 'Recommended For You',
+                      subtitle: 'Stories picked from your fandoms',
+                      onSeeAll: () =>
+                          Navigator.pushNamed(context, AppRoutes.explore),
+                    ),
+                    SizedBox(
+                      height: 214,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: recommendations.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 14),
+                        itemBuilder: (context, i) {
+                          final item = recommendations[i];
+                          return ContentRailCard(
+                            content: item,
+                            width: 200,
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.contentDetail,
+                              arguments: ContentDetailArgs(contentId: item.id),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+        const SizedBox(height: 34),
         _SectionHeader(
           title: 'Communities',
+          subtitle: 'Find your people across the fandoms',
           onSeeAll: () => Navigator.pushNamed(context, AppRoutes.communities),
         ),
         StreamBuilder<List<CommunityDoc>>(
@@ -177,6 +301,7 @@ class _HomeTabState extends State<_HomeTab> {
         const SizedBox(height: 34),
         _SectionHeader(
           title: 'Fan Feed',
+          subtitle: 'Fresh posts from fans and communities',
           onSeeAll: () => Navigator.pushNamed(context, AppRoutes.feed),
         ),
         StreamBuilder<List<PostDoc>>(
@@ -201,114 +326,71 @@ class _HomeTabState extends State<_HomeTab> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: PostCard(post: posts[i]),
                     ),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.feed),
-                    child: const Text(
-                      'Open full feed',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             );
           },
         ),
         const SizedBox(height: 34),
-        _SectionHeader(
-          title: 'Recommended For You',
-          onSeeAll: () => _toast('See all recommendations'),
-        ),
-        SizedBox(
-          height: 214,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            physics: const BouncingScrollPhysics(),
-            itemCount: MockCatalog.recommended.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 14),
-            itemBuilder: (context, i) {
-              final t = MockCatalog.recommended[i];
-              return _PosterCard(
-                item: t,
-                width: 134,
-                onTap: () => _toast(t.title),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 34),
-        _SectionHeader(
-          title: 'Upcoming Events',
-          onSeeAll: () => _toast('Full event calendar'),
-        ),
         StreamBuilder<List<FandomEventDoc>>(
           stream: CatalogService.instance.watchEvents(),
           builder: (context, snap) {
-            final events = snap.data ?? const <FandomEventDoc>[];
-            if (events.isEmpty) {
-              return SizedBox(
-                height: 150,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: MockCatalog.events.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 14),
-                  itemBuilder: (context, i) =>
-                      _EventCard(event: MockCatalog.events[i]),
+            final events = (snap.data ?? const <FandomEventDoc>[])
+                .take(6)
+                .toList();
+            if (events.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionHeader(
+                  title: 'Upcoming Events',
+                  subtitle: 'Gatherings and moments from the fandom community',
+                  onSeeAll: () => _toast('Full event calendar'),
                 ),
-              );
-            }
-            return SizedBox(
-              height: 150,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                physics: const BouncingScrollPhysics(),
-                itemCount: events.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 14),
-                itemBuilder: (context, i) => _EventCardDoc(event: events[i]),
-              ),
+                SizedBox(
+                  height: 150,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: events.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 14),
+                    itemBuilder: (context, i) =>
+                        _EventCardDoc(event: events[i]),
+                  ),
+                ),
+              ],
             );
           },
         ),
         const SizedBox(height: 34),
-        _SectionHeader(
-          title: 'Merch Spotlight',
-          onSeeAll: () => _toast('Official merchandise store'),
-        ),
         StreamBuilder<List<MerchProductDoc>>(
           stream: CatalogService.instance.watchMerch(),
           builder: (context, snap) {
-            final merch = snap.data ?? const <MerchProductDoc>[];
-            if (merch.isEmpty) {
-              return SizedBox(
-                height: 186,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: MockCatalog.merch.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 14),
-                  itemBuilder: (context, i) =>
-                      _MerchCard(item: MockCatalog.merch[i]),
+            final merch = (snap.data ?? const <MerchProductDoc>[])
+                .take(8)
+                .toList();
+            if (merch.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionHeader(
+                  title: 'Merch Spotlight',
+                  subtitle: 'Fan-made finds from community sellers',
+                  onSeeAll: () => _toast('Official merchandise store'),
                 ),
-              );
-            }
-            return SizedBox(
-              height: 186,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                physics: const BouncingScrollPhysics(),
-                itemCount: merch.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 14),
-                itemBuilder: (context, i) => _MerchCardDoc(item: merch[i]),
-              ),
+                SizedBox(
+                  height: 186,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: merch.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 14),
+                    itemBuilder: (context, i) => _MerchCardDoc(item: merch[i]),
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -360,17 +442,14 @@ class _HomeTabState extends State<_HomeTab> {
               StreamBuilder<List<NotificationDoc>>(
                 stream: _notifications(),
                 builder: (context, snap) {
-                  final unread =
-                      (snap.data ?? const <NotificationDoc>[])
-                          .where((n) => !n.read)
-                          .length;
+                  final unread = (snap.data ?? const <NotificationDoc>[])
+                      .where((n) => !n.read)
+                      .length;
                   return _TopBarAction(
                     icon: Icons.notifications_none_rounded,
                     badge: unread,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.notifications,
-                    ),
+                    onTap: () =>
+                        Navigator.pushNamed(context, AppRoutes.notifications),
                   );
                 },
               ),
@@ -877,59 +956,67 @@ class _CategoryTile extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.onSeeAll});
+  const _SectionHeader({
+    required this.title,
+    required this.onSeeAll,
+    this.subtitle,
+  });
 
   final String title;
   final VoidCallback onSeeAll;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 16, 14),
+      padding: const EdgeInsets.fromLTRB(20, 0, 12, 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ),
-          LiquidGlass(
-            radius: 999,
-            blur: 16,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.14),
-                Colors.white.withValues(alpha: 0.06),
-              ],
-            ),
-            child: GestureDetector(
-              onTap: onSeeAll,
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    'See all',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                    subtitle!,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.35,
                     ),
                   ),
-                  SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 16,
-                    color: Colors.white,
-                  ),
                 ],
-              ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: onSeeAll,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.accent,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Explore all',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+                Icon(Icons.arrow_forward_rounded, size: 15),
+              ],
             ),
           ),
         ],
@@ -1028,195 +1115,6 @@ class _PosterCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event});
-
-  final FandomEvent event;
-
-  @override
-  Widget build(BuildContext context) {
-    return LiquidGlass(
-      radius: 20,
-      blur: 26,
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          event.colors.first.withValues(alpha: 0.55),
-          event.colors.last.withValues(alpha: 0.9),
-        ],
-      ),
-      borderColor: Colors.white.withValues(alpha: 0.18),
-      child: SizedBox(
-        width: 224,
-        child: Stack(
-          children: [
-            Positioned(
-              right: -8,
-              top: -8,
-              child: Icon(
-                event.icon,
-                size: 88,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LiquidGlass(
-                    radius: 999,
-                    blur: 12,
-                    tint: Colors.white.withValues(alpha: 0.14),
-                    borderColor: Colors.white.withValues(alpha: 0.25),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    child: Text(
-                      event.date,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    event.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_rounded,
-                        color: Colors.white70,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          event.city,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.confirmation_number_outlined,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MerchCard extends StatelessWidget {
-  const _MerchCard({required this.item});
-
-  final MerchItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return LiquidGlass(
-      radius: 20,
-      blur: 24,
-      gradient: LinearGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.12),
-          Colors.white.withValues(alpha: 0.05),
-        ],
-      ),
-      borderColor: Colors.white.withValues(alpha: 0.16),
-      child: SizedBox(
-        width: 144,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: item.colors,
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                  ),
-                ),
-                child: Center(
-                  child: Text(item.emoji, style: const TextStyle(fontSize: 40)),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        item.price,
-                        style: const TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Spacer(),
-                      const Icon(
-                        Icons.favorite_border_rounded,
-                        size: 18,
-                        color: Colors.white54,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -1521,7 +1419,19 @@ class _CommunityRow extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(community.icon, color: Colors.white, size: 22),
+              clipBehavior: Clip.antiAlias,
+              child:
+                  community.profileImageUrl?.isNotEmpty == true ||
+                      community.coverImageUrl?.isNotEmpty == true
+                  ? Image.network(
+                      community.profileImageUrl?.isNotEmpty == true
+                          ? community.profileImageUrl!
+                          : community.coverImageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          Icon(community.icon, color: Colors.white, size: 22),
+                    )
+                  : Icon(community.icon, color: Colors.white, size: 22),
             ),
             const SizedBox(width: 13),
             Expanded(
