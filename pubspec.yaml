@@ -44,6 +44,7 @@ dependencies:
   page_transition: ^2.2.2
   http: ^1.6.0
   image_picker: ^1.2.3
+  # google_fonts removed per request
 
 dev_dependencies:
   flutter_test:

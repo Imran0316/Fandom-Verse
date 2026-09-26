@@ -377,7 +377,8 @@ class _HomeTabState extends State<_HomeTab> {
                 _SectionHeader(
                   title: 'Merch Spotlight',
                   subtitle: 'Fan-made finds from community sellers',
-                  onSeeAll: () => _toast('Official merchandise store'),
+                  onSeeAll: () =>
+                      Navigator.pushNamed(context, AppRoutes.merchExplore),
                 ),
                 SizedBox(
                   height: 186,
@@ -524,146 +525,11 @@ class _TopBarAction extends StatelessWidget {
   }
 }
 
-class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid({required this.onTap});
+// _CategoryGrid removed (unused). Kept file smaller and warnings clean.
 
-  final ValueChanged<FandomCategory> onTap;
+// _CategoryGridDoc removed (unused). Kept file smaller and warnings clean.
 
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth - 40;
-        final cross = (width / 130).floor().clamp(3, 3);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cross,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.08,
-            ),
-            itemCount: MockCatalog.categories.length,
-            itemBuilder: (context, i) {
-              final cat = MockCatalog.categories[i];
-              return _CategoryTile(category: cat, onTap: () => onTap(cat));
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CategoryGridDoc extends StatelessWidget {
-  const _CategoryGridDoc({required this.categories, required this.onTap});
-
-  final List<FandomCategoryDoc> categories;
-  final ValueChanged<FandomCategoryDoc> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ...categories.take(5),
-      if (categories.length > 5)
-        FandomCategoryDoc(
-          id: '__all__',
-          name: 'See all',
-          iconName: 'grid',
-          colorName: 'gray',
-        ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth - 40;
-        final cross = (width / 130).floor().clamp(3, 3);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cross,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.08,
-            ),
-            itemCount: items.length,
-            itemBuilder: (context, i) {
-              final cat = items[i];
-              return _CategoryDocTile(category: cat, onTap: () => onTap(cat));
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CategoryDocTile extends StatelessWidget {
-  const _CategoryDocTile({required this.category, required this.onTap});
-
-  final FandomCategoryDoc category;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = category.color;
-    return GestureDetector(
-      onTap: onTap,
-      child: LiquidGlass(
-        radius: 20,
-        blur: 24,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.16),
-            Colors.white.withValues(alpha: 0.06),
-          ],
-        ),
-        borderColor: Colors.white.withValues(alpha: 0.14),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    color.withValues(alpha: 0.55),
-                    color.withValues(alpha: 0.25),
-                  ],
-                ),
-              ),
-              child: Icon(category.icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              category.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// _CategoryDocTile removed (unused).
 
 class _EventCardDoc extends StatelessWidget {
   const _EventCardDoc({required this.event});
@@ -878,77 +744,6 @@ class _MerchCardDoc extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.category, required this.onTap});
-
-  final FandomCategory category;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: LiquidGlass(
-        radius: 20,
-        blur: 24,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            category.color.withValues(alpha: 0.16),
-            Colors.white.withValues(alpha: 0.06),
-          ],
-        ),
-        borderColor: Colors.white.withValues(alpha: 0.14),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    category.color.withValues(alpha: 0.55),
-                    category.color.withValues(alpha: 0.25),
-                  ],
-                ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                boxShadow: [
-                  BoxShadow(
-                    color: category.color.withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Icon(category.icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Text(
-                category.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -27,6 +27,7 @@ import 'screens/profile/notifications_screen.dart';
 import 'screens/profile/user_profile_screen.dart';
 import 'screens/seller/seller_dashboard.dart';
 import 'screens/shop/cart_screen.dart';
+import 'screens/shop/merch_explore_screen.dart';
 import 'screens/shop/orders_screen.dart';
 import 'screens/shop/product_detail_screen.dart';
 import 'screens/splash/splash_screen.dart';
@@ -125,6 +126,9 @@ class FandomVerseApp extends StatelessWidget {
               page = const Scaffold(body: SizedBox.shrink());
             }
             break;
+          case AppRoutes.merchExplore:
+            page = const MerchExploreScreen();
+            break;
           case AppRoutes.contentDetail:
             final detailArgs = settings.arguments;
             if (detailArgs is ContentDetailArgs) {
@@ -179,7 +183,8 @@ class FandomVerseApp extends StatelessWidget {
             name == AppRoutes.communities ||
             name == AppRoutes.communityDetail ||
             name == AppRoutes.feed ||
-            name == AppRoutes.product) {
+            name == AppRoutes.product ||
+            name == AppRoutes.merchExplore) {
           return AppTransitions.rightToLeft(page, settings: settings);
         }
         if (name == AppRoutes.editProfile ||
