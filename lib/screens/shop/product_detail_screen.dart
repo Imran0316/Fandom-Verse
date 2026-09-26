@@ -50,9 +50,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -62,6 +62,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final p = widget.product;
+    final soldOut = p.stock != null && p.stock! <= 0;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDeep,
@@ -69,507 +70,552 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: SafeArea(
-            child: Column(
+            child: Stack(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.arrow_back_rounded),
+                Positioned(
+                  top: 4,
+                  left: 8,
+                  right: 16,
+                  height: 54,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.55),
+                          Colors.transparent,
+                        ],
                       ),
-                      const Expanded(
-                        child: Text(
-                          'Product',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black.withValues(
+                              alpha: 0.4,
+                            ),
+                            foregroundColor: Colors.white,
                           ),
+                          icon: const Icon(Icons.arrow_back_rounded),
                         ),
-                      ),
-                      StreamBuilder<int>(
-                        stream: CartService.instance.watchCartCount(),
-                        builder: (context, countSnap) {
-                          final n = countSnap.data ?? 0;
-                          return IconButton(
-                            onPressed: () =>
-                                Navigator.pushNamed(context, AppRoutes.cart),
-                            style: IconButton.styleFrom(
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: 0.08),
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: Badge(
-                              isLabelVisible: n > 0,
-                              label: Text(
-                                '$n',
-                                style: const TextStyle(
-                                  fontSize: 9.5,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
+                        const Spacer(),
+                        StreamBuilder<int>(
+                          stream: CartService.instance.watchCartCount(),
+                          builder: (context, countSnap) {
+                            final n = countSnap.data ?? 0;
+                            return IconButton(
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, AppRoutes.cart),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black.withValues(
+                                  alpha: 0.4,
                                 ),
+                                foregroundColor: Colors.white,
                               ),
-                              child: const Icon(Icons.shopping_bag_outlined),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                              icon: Badge(
+                                isLabelVisible: n > 0,
+                                label: Text(
+                                  '$n',
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                child: const Icon(Icons.shopping_bag_outlined),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                Expanded(
-                  child: StreamBuilder<MerchProductDoc?>(
-                    stream: CatalogService.instance.watchMerchProduct(p.id),
-                    builder: (context, snap) {
-                      final p = snap.data ?? widget.product;
-                      return ListView(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                        children: [
-                          Container(
-                            height: 280,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(24),
-                              color: Colors.white.withValues(alpha: 0.06),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.14),
-                              ),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: p.imageUrl?.isNotEmpty == true
-                                ? Image.network(
-                                    p.imageUrl!,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(
-                                        Icons.inventory_2_outlined,
-                                        color: Colors.white24,
-                                        size: 64,
-                                      ),
-                                    ),
-                                  )
-                                : const Center(
-                                    child: Icon(
-                                      Icons.inventory_2_outlined,
-                                      color: Colors.white24,
-                                      size: 64,
-                                    ),
-                                  ),
-                          ),
-                      const SizedBox(height: 20),
-                      Text(
-                        p.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (p.reviewCount > 0 || p.soldCount > 0) ...[
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            if (p.reviewCount > 0)
-                              _StatChip(
-                                icon: Icons.star_rounded,
-                                iconColor: const Color(0xFFFFD166),
-                                label:
-                                    '${p.rating.toStringAsFixed(1)} (${p.reviewCount} ${p.reviewCount == 1 ? 'review' : 'reviews'})',
-                              ),
-                            if (p.soldCount > 0)
-                              _StatChip(
-                                icon: Icons.trending_up_rounded,
-                                iconColor: AppColors.accent,
-                                label: '${p.soldCount} sold',
-                              ),
-                          ],
-                        ),
-                      ],
-                      if (p.sellerName.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        LiquidGlass(
-                          radius: 14,
-                          blur: 16,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 9,
-                          ),
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withValues(alpha: 0.09),
-                              Colors.white.withValues(alpha: 0.035),
-                            ],
-                          ),
-                          child: Row(
+                Column(
+                  children: [
+                    Expanded(
+                      child: StreamBuilder<MerchProductDoc?>(
+                        stream: CatalogService.instance.watchMerchProduct(p.id),
+                        builder: (context, snap) {
+                          final p = snap.data ?? widget.product;
+                          return ListView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                             children: [
                               Container(
-                                width: 34,
-                                height: 34,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.primary,
-                                      AppColors.accent,
-                                    ],
+                                height: 280,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(24),
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.14),
                                   ),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  _initials(p.sellerName),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12.5,
-                                  ),
+                                clipBehavior: Clip.antiAlias,
+                                child: p.imageUrl?.isNotEmpty == true
+                                    ? Image.network(
+                                        p.imageUrl!,
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        errorBuilder: (_, _, _) => const Center(
+                                          child: Icon(
+                                            Icons.inventory_2_outlined,
+                                            color: Colors.white24,
+                                            size: 64,
+                                          ),
+                                        ),
+                                      )
+                                    : const Center(
+                                        child: Icon(
+                                          Icons.inventory_2_outlined,
+                                          color: Colors.white24,
+                                          size: 64,
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                p.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              if (p.reviewCount > 0 || p.soldCount > 0) ...[
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
                                   children: [
-                                    const Text(
-                                      'Sold by',
-                                      style: TextStyle(
-                                        color: Colors.white38,
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w600,
+                                    if (p.reviewCount > 0)
+                                      _StatChip(
+                                        icon: Icons.star_rounded,
+                                        iconColor: const Color(0xFFFFD166),
+                                        label:
+                                            '${p.rating.toStringAsFixed(1)} (${p.reviewCount} ${p.reviewCount == 1 ? 'review' : 'reviews'})',
                                       ),
-                                    ),
-                                    Text(
-                                      p.sellerName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w700,
+                                    if (p.soldCount > 0)
+                                      _StatChip(
+                                        icon: Icons.trending_up_rounded,
+                                        iconColor: AppColors.accent,
+                                        label: '${p.soldCount} sold',
                                       ),
-                                    ),
                                   ],
                                 ),
-                              ),
-                              const Icon(
-                                Icons.storefront_outlined,
-                                size: 16,
-                                color: Colors.white38,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-                      Text(
-                        p.priceLabel,
-                        style: const TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      if (p.stock != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          p.stock! <= 0
-                              ? 'Out of stock'
-                              : p.stock! <= 10
-                                  ? 'Only ${p.stock} left — order soon'
-                                  : 'In stock',
-                          style: TextStyle(
-                            color: p.stock! <= 0
-                                ? const Color(0xFFFF6B6B)
-                                : p.stock! <= 10
-                                    ? const Color(0xFFFFD166)
-                                    : AppColors.accent,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                      if (p.description.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        LiquidGlass(
-                          radius: 18,
-                          blur: 20,
-                          padding: const EdgeInsets.all(16),
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withValues(alpha: 0.1),
-                              Colors.white.withValues(alpha: 0.04),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Description',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                p.description,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  height: 1.45,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      LiquidGlass(
-                        radius: 18,
-                        blur: 20,
-                        padding: const EdgeInsets.all(16),
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.white.withValues(alpha: 0.1),
-                            Colors.white.withValues(alpha: 0.04),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Reviews',
-                                  key: Key('reviews_heading'),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (p.reviewCount > 0) ...[
-                                  const Icon(
-                                    Icons.star_rounded,
-                                    color: Color(0xFFFFD166),
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    p.rating.toStringAsFixed(1),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '(${p.reviewCount})',
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
                               ],
-                            ),
-                            const SizedBox(height: 12),
-                            StreamBuilder<List<ProductReviewDoc>>(
-                              stream:
-                                  CatalogService.instance.watchReviews(p.id),
-                              builder: (context, reviewSnap) {
-                                if (reviewSnap.hasError) {
-                                  return const Text(
-                                    'Could not load reviews right now.',
-                                    style: TextStyle(
-                                      color: Colors.white60,
-                                      fontSize: 13.5,
-                                      height: 1.4,
-                                    ),
-                                  );
-                                }
-                                final reviews = reviewSnap.data;
-                                if (reviews == null) {
-                                  return const Text(
-                                    'Loading reviews…',
-                                    style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 13.5,
-                                    ),
-                                  );
-                                }
-                                if (reviews.isEmpty) {
-                                  return const Text(
-                                    'No reviews yet — be the first to rate '
-                                    'this product.',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13.5,
-                                      height: 1.4,
-                                    ),
-                                  );
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    for (final r in reviews)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 12),
+                              if (p.sellerName.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                LiquidGlass(
+                                  radius: 14,
+                                  blur: 16,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 9,
+                                  ),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0.09),
+                                      Colors.white.withValues(alpha: 0.035),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 34,
+                                        height: 34,
+                                        decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              AppColors.primary,
+                                              AppColors.accent,
+                                            ],
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          _initials(p.sellerName),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Row(
-                                              children: [
-                                                for (var i = 1; i <= 5; i++)
-                                                  Icon(
-                                                    Icons.star_rounded,
-                                                    color: i <= r.rating
-                                                        ? const Color(
-                                                            0xFFFFD166)
-                                                        : Colors.white24,
-                                                    size: 14,
-                                                  ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    r.authorName,
-                                                    style: const TextStyle(
-                                                      color: Colors.white54,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
+                                            const Text(
+                                              'Sold by',
+                                              style: TextStyle(
+                                                color: Colors.white38,
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
-                                            const SizedBox(height: 6),
                                             Text(
-                                              r.text,
+                                              p.sellerName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 13,
-                                                height: 1.5,
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            SizedBox(
-                              width: double.infinity,
-                              child: GlassButton(
-                                  label: 'Write a review',
-                                  variant: GlassButtonVariant.outline,
-                                  onPressed: _showReviewDialog,
+                                      const Icon(
+                                        Icons.storefront_outlined,
+                                        size: 16,
+                                        color: Colors.white38,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                            ),
-                          ],
-                        ),
+                              ],
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Text(
+                                    p.priceLabel,
+                                    style: const TextStyle(
+                                      color: AppColors.accent,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const _StatChip(
+                                    icon: Icons.delivery_dining_rounded,
+                                    iconColor: AppColors.accent,
+                                    label: 'Free delivery',
+                                  ),
+                                ],
+                              ),
+                              if (p.stock != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  p.stock! <= 0
+                                      ? 'Out of stock'
+                                      : p.stock! <= 10
+                                      ? 'Only ${p.stock} left — order soon'
+                                      : 'In stock',
+                                  style: TextStyle(
+                                    color: p.stock! <= 0
+                                        ? const Color(0xFFFF6B6B)
+                                        : p.stock! <= 10
+                                        ? const Color(0xFFFFD166)
+                                        : AppColors.accent,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                              if (p.description.isNotEmpty) ...[
+                                const SizedBox(height: 18),
+                                LiquidGlass(
+                                  radius: 18,
+                                  blur: 20,
+                                  padding: const EdgeInsets.all(16),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0.1),
+                                      Colors.white.withValues(alpha: 0.04),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Description',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        p.description,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          height: 1.45,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 18),
+                              LiquidGlass(
+                                radius: 18,
+                                blur: 20,
+                                padding: const EdgeInsets.all(16),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.1),
+                                    Colors.white.withValues(alpha: 0.04),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Text(
+                                          'Reviews',
+                                          key: Key('reviews_heading'),
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        if (p.reviewCount > 0) ...[
+                                          const Icon(
+                                            Icons.star_rounded,
+                                            color: Color(0xFFFFD166),
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            p.rating.toStringAsFixed(1),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '(${p.reviewCount})',
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    StreamBuilder<List<ProductReviewDoc>>(
+                                      stream: CatalogService.instance
+                                          .watchReviews(p.id),
+                                      builder: (context, reviewSnap) {
+                                        if (reviewSnap.hasError) {
+                                          return const Text(
+                                            'Could not load reviews right now.',
+                                            style: TextStyle(
+                                              color: Colors.white60,
+                                              fontSize: 13.5,
+                                              height: 1.4,
+                                            ),
+                                          );
+                                        }
+                                        final reviews = reviewSnap.data;
+                                        if (reviews == null) {
+                                          return const Text(
+                                            'Loading reviews…',
+                                            style: TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 13.5,
+                                            ),
+                                          );
+                                        }
+                                        if (reviews.isEmpty) {
+                                          return const Text(
+                                            'No reviews yet — be the first to rate '
+                                            'this product.',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 13.5,
+                                              height: 1.4,
+                                            ),
+                                          );
+                                        }
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            for (final r in reviews)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  bottom: 12,
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        for (
+                                                          var i = 1;
+                                                          i <= 5;
+                                                          i++
+                                                        )
+                                                          Icon(
+                                                            Icons.star_rounded,
+                                                            color: i <= r.rating
+                                                                ? const Color(
+                                                                    0xFFFFD166,
+                                                                  )
+                                                                : Colors
+                                                                      .white24,
+                                                            size: 14,
+                                                          ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        Expanded(
+                                                          child: Text(
+                                                            r.authorName,
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white54,
+                                                                  fontSize: 12,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Text(
+                                                      r.text,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 13,
+                                                        height: 1.5,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 14),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: GlassButton(
+                                        label: 'Write a review',
+                                        variant: GlassButtonVariant.outline,
+                                        onPressed: _showReviewDialog,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                      const SizedBox(height: 18),
-                      LiquidGlass(
-                        radius: 16,
-                        blur: 18,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                      child: LiquidGlass(
+                        radius: 22,
+                        blur: 24,
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                         gradient: LinearGradient(
                           colors: [
-                            Colors.white.withValues(alpha: 0.09),
-                            Colors.white.withValues(alpha: 0.035),
+                            Colors.white.withValues(alpha: 0.12),
+                            Colors.white.withValues(alpha: 0.05),
                           ],
                         ),
-                        child: Row(
-                          children: [
-                            const Text(
-                              'Quantity',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const Spacer(),
-                            _QtyButton(
-                              icon: Icons.remove_rounded,
-                              onTap: _qty > 1
-                                  ? () => setState(() => _qty--)
-                                  : null,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: Text(
-                                '$_qty',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            _QtyButton(
-                              icon: Icons.add_rounded,
-                              onTap: p.stock == null || _qty < p.stock!
-                                  ? () => setState(() => _qty++)
-                                  : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                      );
-                    },
-                  ),
-                ),
-                Builder(
-                  builder: (context) {
-                    final stock = widget.product.stock;
-                    final soldOut = stock != null && stock <= 0;
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GlassButton(
-                              label: soldOut ? 'Out of stock' : 'Add to cart',
-                              isLoading: _busy,
-                              onPressed: (_busy || soldOut)
-                                  ? null
-                                  : () => _addToCart(),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: GlassButton(
-                              label: 'Buy now',
-                              variant: GlassButtonVariant.outline,
-                              onPressed: (_busy || soldOut)
-                                  ? null
-                                  : () => _addToCart(goCheckout: true),
-                            ),
+                        borderColor: Colors.white.withValues(alpha: 0.16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                            offset: const Offset(0, -6),
                           ),
                         ],
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Quantity',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const Spacer(),
+                                _QtyButton(
+                                  icon: Icons.remove_rounded,
+                                  onTap: _qty > 1
+                                      ? () => setState(() => _qty--)
+                                      : null,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Text(
+                                    '$_qty',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                _QtyButton(
+                                  icon: Icons.add_rounded,
+                                  onTap:
+                                      widget.product.stock == null ||
+                                          _qty < widget.product.stock!
+                                      ? () => setState(() => _qty++)
+                                      : null,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GlassButton(
+                                    label: soldOut
+                                        ? 'Out of stock'
+                                        : 'Add to cart',
+                                    isLoading: _busy,
+                                    onPressed: (_busy || soldOut)
+                                        ? null
+                                        : () => _addToCart(),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GlassButton(
+                                    label: 'Buy now',
+                                    variant: GlassButtonVariant.outline,
+                                    onPressed: (_busy || soldOut)
+                                        ? null
+                                        : () => _addToCart(goCheckout: true),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -587,7 +633,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.backgroundDeep,
-        title: const Text('Write a review', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Write a review',
+          style: TextStyle(color: Colors.white),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -601,7 +650,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     onPressed: () => rating.value = idx,
                     icon: Icon(
                       Icons.star_rounded,
-                      color: idx <= value ? const Color(0xFFFFD166) : Colors.white24,
+                      color: idx <= value
+                          ? const Color(0xFFFFD166)
+                          : Colors.white24,
                     ),
                   );
                 }),
@@ -620,7 +671,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white70),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -660,7 +714,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 );
               }
             },
-            child: const Text('Submit', style: TextStyle(color: AppColors.accent)),
+            child: const Text(
+              'Submit',
+              style: TextStyle(color: AppColors.accent),
+            ),
           ),
         ],
       ),

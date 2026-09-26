@@ -7,6 +7,7 @@ import '../../services/bookmark_service.dart';
 import '../../services/content_service.dart';
 import '../../widgets/content_widgets.dart';
 import '../../widgets/glass_button.dart';
+import 'content_deep_dive.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/skeletons.dart';
 
@@ -206,6 +207,8 @@ class _DetailBody extends StatelessWidget {
                 if (!preview) ...[
                   const SizedBox(height: 30),
                   _BookmarkButton(contentId: content.id),
+                  const SizedBox(height: 34),
+                  ContentDeepDive(content: content),
                 ],
                 const SizedBox(height: 34),
                 _RelatedSection(
