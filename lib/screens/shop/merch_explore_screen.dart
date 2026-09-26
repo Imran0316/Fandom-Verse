@@ -45,7 +45,6 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
         product.name,
         product.description,
         product.sellerName,
-        product.emoji,
       ].join(' ').toLowerCase();
       return haystack.contains(query);
     }).toList();
@@ -53,8 +52,8 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
     switch (_sort) {
       case MerchExploreSort.topSales:
         items.sort((a, b) {
-          final priceCompare = _parsedPrice(b).compareTo(_parsedPrice(a));
-          if (priceCompare != 0) return priceCompare;
+          final soldCompare = b.soldCount.compareTo(a.soldCount);
+          if (soldCompare != 0) return soldCompare;
           return _createdAt(b).compareTo(_createdAt(a));
         });
         break;
@@ -116,30 +115,29 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                               ),
                             ),
                           ),
-                          // Header actions: Save and Add to cart
-                          IconButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Save action')),
+                          // Header action: open the cart (live item count).
+                          StreamBuilder<int>(
+                            stream: CartService.instance.watchCartCount(),
+                            builder: (context, snap) {
+                              final count = snap.data ?? 0;
+                              return IconButton(
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.cart,
+                                ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      Colors.white.withValues(alpha: 0.02),
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: Badge(
+                                  isLabelVisible: count > 0,
+                                  label: Text('$count'),
+                                  child:
+                                      const Icon(Icons.shopping_cart_outlined),
+                                ),
                               );
                             },
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white.withValues(alpha: 0.02),
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: const Icon(Icons.bookmark_border_rounded),
-                          ),
-                          IconButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Add to cart action')),
-                              );
-                            },
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white.withValues(alpha: 0.02),
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: const Icon(Icons.shopping_cart_outlined),
                           ),
                         ],
                       ),
@@ -310,38 +308,13 @@ class MerchExploreCard extends StatefulWidget {
 
 class _MerchExploreCardState extends State<MerchExploreCard> {
 
-  int get _stockLeft {
-    final seed = widget.item.id.hashCode + widget.item.name.length;
-    return 2 + (seed.abs() % 12);
-  }
-
-  int get _reviewCount {
-    final seed = widget.item.sellerName.length + widget.item.name.length;
-    return 18 + (seed % 120);
-  }
-
-  // addToCart handled via header action; keep implementation for manual calls.
-  Future<void> _addToCart() async {
-    try {
-      await CartService.instance.addToCart(widget.item);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.item.name} added to cart')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not add to cart: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = widget.item.color;
     final seller = widget.item.sellerName.isNotEmpty
         ? widget.item.sellerName
-        : 'Qasim Studio';
+        : 'FandomVerse seller';
+    final stock = widget.item.stock;
+    final hasReviews = widget.item.reviewCount > 0;
 
     return GestureDetector(
       onTap: () => Navigator.pushNamed(
@@ -371,38 +344,33 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
                 margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      color.withValues(alpha: 0.7),
-                      color.withValues(alpha: 0.25),
-                    ],
-                  ),
+                  color: Colors.white.withValues(alpha: 0.06),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: Colors.white.withValues(alpha: 0.10),
                   ),
                 ),
-                child: Center(
-                  child: widget.item.imageUrl?.isNotEmpty == true
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.network(
-                            widget.item.imageUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (_, _, _) => Text(
-                              widget.item.emoji,
-                              style: const TextStyle(fontSize: 42),
-                            ),
+                clipBehavior: Clip.antiAlias,
+                child: widget.item.imageUrl?.isNotEmpty == true
+                    ? Image.network(
+                        widget.item.imageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Icon(
+                            Icons.inventory_2_outlined,
+                            color: Colors.white24,
+                            size: 40,
                           ),
-                        )
-                      : Text(
-                          widget.item.emoji,
-                          style: const TextStyle(fontSize: 42),
                         ),
-                ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.inventory_2_outlined,
+                          color: Colors.white24,
+                          size: 40,
+                        ),
+                      ),
               ),
             ),
             Padding(
@@ -431,14 +399,23 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Only $_stockLeft left',
-                    style: const TextStyle(
-                      color: Color(0xFFFFD166),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
+                  if (stock != null)
+                    Text(
+                      stock <= 0
+                          ? 'Out of stock'
+                          : stock <= 10
+                              ? 'Only $stock left'
+                              : 'In stock',
+                      style: TextStyle(
+                        color: stock <= 0
+                            ? const Color(0xFFFF6B6B)
+                            : stock <= 10
+                                ? const Color(0xFFFFD166)
+                                : AppColors.accent,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -451,44 +428,46 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
                         ),
                       ),
                       const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star_rounded,
-                              color: Color(0xFFFFD166),
-                              size: 13,
-                            ),
-                            const SizedBox(width: 3),
-                            const Text(
-                              '4.8',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                      if (hasReviews)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                color: Color(0xFFFFD166),
+                                size: 13,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 3),
+                              Text(
+                                widget.item.rating.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  const SizedBox.shrink(),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$_reviewCount reviews',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11.5,
+                  if (hasReviews) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '${widget.item.reviewCount} '
+                      '${widget.item.reviewCount == 1 ? 'review' : 'reviews'}',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11.5,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

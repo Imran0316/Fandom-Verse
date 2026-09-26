@@ -74,6 +74,7 @@ class OrderDoc {
     this.totalCents = 0,
     this.status = OrderStatus.pending,
     this.shipTo = '',
+    this.paymentMethod = 'cod',
     this.createdAt,
     this.paidAt,
   });
@@ -85,10 +86,37 @@ class OrderDoc {
   final int totalCents;
   final OrderStatus status;
   final String shipTo;
+
+  /// 'cod' (Cash on Delivery) or 'card'.
+  final String paymentMethod;
   final DateTime? createdAt;
   final DateTime? paidAt;
 
   String get totalLabel => _formatCents(totalCents);
+
+  String get paymentMethodLabel {
+    switch (paymentMethod) {
+      case 'card':
+        return 'Card payment';
+      case 'cod':
+        return 'Cash on Delivery';
+      default:
+        return '—';
+    }
+  }
+
+  String get paymentNote {
+    switch (paymentMethod) {
+      case 'cod':
+        return status == OrderStatus.delivered || status == OrderStatus.paid
+            ? 'Paid in cash'
+            : 'Pay in cash when your order arrives';
+      case 'card':
+        return 'Paid online';
+      default:
+        return '';
+    }
+  }
 
   String get statusLabel {
     switch (status) {
@@ -134,6 +162,7 @@ class OrderDoc {
       totalCents: (data['totalCents'] as num?)?.toInt() ?? 0,
       status: _statusFrom(data['status'] as String?),
       shipTo: (data['shipTo'] as String?) ?? '',
+      paymentMethod: (data['paymentMethod'] as String?) ?? 'cod',
       createdAt: created is Timestamp ? created.toDate() : null,
       paidAt: paid is Timestamp ? paid.toDate() : null,
     );
@@ -158,10 +187,11 @@ class OrderDoc {
               },
             )
             .toList(),
-        'totalCents': totalCents,
-        'status': status.name,
-        'shipTo': shipTo,
-        'createdAt': FieldValue.serverTimestamp(),
+      'totalCents': totalCents,
+      'status': status.name,
+      'shipTo': shipTo,
+      'paymentMethod': paymentMethod,
+      'createdAt': FieldValue.serverTimestamp(),
         'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
       };
 

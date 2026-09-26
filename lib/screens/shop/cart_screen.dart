@@ -1,29 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
-import '../../models/catalog_docs.dart';
 import '../../services/cart_service.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key});
+  const CartScreen({super.key, this.cartStream});
+
+  /// Test seam — defaults to the live Firestore cart.
+  final Stream<List<CartItemDoc>>? cartStream;
 
   @override
   State<CartScreen> createState() => _CartScreenState();
 }
 
 class _CartScreenState extends State<CartScreen> {
-  final _address = TextEditingController();
-  bool _checkingOut = false;
-
-  @override
-  void dispose() {
-    _address.dispose();
-    super.dispose();
-  }
-
   int _total(List<CartItemDoc> items) {
     var t = 0;
     for (final i in items) {
@@ -38,60 +32,6 @@ class _CartScreenState extends State<CartScreen> {
     return r == 0 ? '$d' : '$d.${r.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _checkout(List<CartItemDoc> items) async {
-    if (_checkingOut || items.isEmpty) return;
-    setState(() => _checkingOut = true);
-    try {
-      final id = await CartService.instance.checkout(shipTo: _address.text);
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xF2101018),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Order placed 🎉',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-          ),
-          content: Text(
-            'Order ${id.substring(0, 6).toUpperCase()} is confirmed.\n'
-            'Track it under My Orders.',
-            style: const TextStyle(color: Colors.white70, height: 1.4),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.pushReplacementNamed(context, '/orders');
-              },
-              child: const Text(
-                'View orders',
-                style: TextStyle(color: AppColors.accent),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text(
-                'Done',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _checkingOut = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,10 +40,14 @@ class _CartScreenState extends State<CartScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: StreamBuilder<List<CartItemDoc>>(
-            stream: CartService.instance.watchCart(),
+            stream: widget.cartStream ?? CartService.instance.watchCart(),
             builder: (context, snap) {
               final items = snap.data ?? const <CartItemDoc>[];
               final total = _total(items);
+              var count = 0;
+              for (final i in items) {
+                count += i.quantity;
+              }
 
               return SafeArea(
                 child: Column(
@@ -122,14 +66,27 @@ class _CartScreenState extends State<CartScreen> {
                             ),
                             icon: const Icon(Icons.arrow_back_rounded),
                           ),
-                          const Expanded(
-                            child: Text(
-                              'Your cart',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                              ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Your cart',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                if (items.isNotEmpty)
+                                  Text(
+                                    '$count ${count == 1 ? 'item' : 'items'}',
+                                    style: const TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           if (items.isNotEmpty)
@@ -189,12 +146,16 @@ class _CartScreenState extends State<CartScreen> {
                                 ),
                                 const SizedBox(height: 20),
                                 SizedBox(
-                                  width: 180,
+                                  width: 200,
                                   child: GlassButton(
-                                    label: 'Back',
+                                    label: 'Browse merch',
                                     variant: GlassButtonVariant.outline,
                                     height: 48,
-                                    onPressed: () => Navigator.pop(context),
+                                    onPressed: () =>
+                                        Navigator.pushReplacementNamed(
+                                      context,
+                                      AppRoutes.merchExplore,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -245,14 +206,31 @@ class _CartScreenState extends State<CartScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              _SummaryLine(
+                                label: 'Subtotal',
+                                value: '\$${_format(total)}',
+                              ),
+                              const SizedBox(height: 6),
+                              const _SummaryLine(
+                                label: 'Delivery',
+                                value: 'Free',
+                                valueColor: Color(0xFF10B981),
+                              ),
+                              const SizedBox(height: 10),
+                              const Divider(
+                                color: Colors.white12,
+                                height: 14,
+                              ),
+                              const SizedBox(height: 8),
                               Row(
                                 children: [
                                   const Expanded(
                                     child: Text(
                                       'Total',
                                       style: TextStyle(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
                                       ),
                                     ),
                                   ),
@@ -260,61 +238,35 @@ class _CartScreenState extends State<CartScreen> {
                                     '\$${_format(total)}',
                                     style: const TextStyle(
                                       color: AppColors.accent,
-                                      fontSize: 22,
+                                      fontSize: 21,
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 14),
-                              TextField(
-                                controller: _address,
-                                minLines: 2,
-                                maxLines: 3,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Shipping address…',
-                                  hintStyle: const TextStyle(
-                                    color: Colors.white38,
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.black.withValues(
-                                    alpha: 0.35,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.14),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.14),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: AppColors.accent,
-                                    ),
-                                  ),
+                              GlassButton(
+                                label: 'Proceed to checkout',
+                                icon: Icons.arrow_forward_rounded,
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.checkout,
                                 ),
                               ),
-                              const SizedBox(height: 14),
-                              GlassButton(
-                                label: _checkingOut
-                                    ? 'Placing order…'
-                                    : 'Checkout · \$${_format(total)}',
-                                isLoading: _checkingOut,
-                                onPressed: _checkingOut
-                                    ? null
-                                    : () => _checkout(items),
+                              const SizedBox(height: 4),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(36),
+                                ),
+                                child: const Text(
+                                  'Continue shopping',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -328,6 +280,40 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SummaryLine extends StatelessWidget {
+  const _SummaryLine({
+    required this.label,
+    required this.value,
+    this.valueColor = Colors.white,
+  });
+
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white60, fontSize: 13.5),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: valueColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 13.5,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -360,23 +346,36 @@ class _CartRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                colors: [
-                  CatalogIcons.colorFromName(item.colorName),
-                  CatalogIcons.colorFromName(item.colorName)
-                      .withValues(alpha: 0.4),
-                ],
+              color: Colors.white.withValues(alpha: 0.06),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
               ),
             ),
             clipBehavior: Clip.antiAlias,
             child: item.imageUrl?.isNotEmpty == true
-                ? Image.network(item.imageUrl!, fit: BoxFit.cover)
-                : Center(
-                    child: Text(item.emoji, style: const TextStyle(fontSize: 24)),
+                ? Image.network(
+                    item.imageUrl!,
+                    fit: BoxFit.cover,
+                    width: 56,
+                    height: 56,
+                    errorBuilder: (_, _, _) => const Center(
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        color: Colors.white24,
+                        size: 24,
+                      ),
+                    ),
+                  )
+                : const Center(
+                    child: Icon(
+                      Icons.inventory_2_outlined,
+                      color: Colors.white24,
+                      size: 24,
+                    ),
                   ),
           ),
           const SizedBox(width: 12),
@@ -396,47 +395,59 @@ class _CartRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  item.lineTotalLabel,
+                  '${item.priceLabel} each',
                   style: const TextStyle(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13.5,
+                    color: Colors.white54,
+                    fontSize: 12,
                   ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _TinyBtn(icon: Icons.remove_rounded, onTap: onDec),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        '${item.quantity}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    _TinyBtn(icon: Icons.add_rounded, onTap: onInc),
+                    const Spacer(),
+                    Text(
+                      item.lineTotalLabel,
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 6),
           Column(
             children: [
-              Row(
-                children: [
-                  _TinyBtn(icon: Icons.remove_rounded, onTap: onDec),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      '${item.quantity}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  _TinyBtn(icon: Icons.add_rounded, onTap: onInc),
-                ],
-              ),
-              TextButton(
+              const SizedBox(height: 2),
+              IconButton(
                 onPressed: onRemove,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(0, 28),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 30,
+                  minHeight: 30,
                 ),
-                child: const Text(
-                  'Remove',
-                  style: TextStyle(
-                    color: Color(0xFFFF6B6B),
-                    fontSize: 11.5,
-                  ),
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.white38,
+                  size: 18,
                 ),
+                tooltip: 'Remove',
               ),
             ],
           ),

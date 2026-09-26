@@ -22,6 +22,7 @@ class AppRoutes {
   static const String feed = '/feed';
   static const String followRequests = '/follow-requests';
   static const String cart = '/cart';
+  static const String checkout = '/checkout';
   static const String orders = '/orders';
   static const String product = '/product';
   static const String merchExplore = '/merch-explore';

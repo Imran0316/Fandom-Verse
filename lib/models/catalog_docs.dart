@@ -160,6 +160,10 @@ class MerchProductDoc {
     this.description = '',
     this.imageUrl,
     this.active = true,
+    this.stock,
+    this.soldCount = 0,
+    this.rating = 0,
+    this.reviewCount = 0,
     this.createdAt,
   });
 
@@ -173,15 +177,29 @@ class MerchProductDoc {
   final String description;
   final String? imageUrl;
   final bool active;
+
+  /// Units the seller listed. `null` means stock is not tracked.
+  final int? stock;
+
+  /// Units sold (bumped by checkout).
+  final int soldCount;
+
+  /// Average rating, 0 when there are no reviews.
+  final double rating;
+
+  final int reviewCount;
+
   final DateTime? createdAt;
 
   Color get color => CatalogIcons.colorFromName(colorName);
 
-  factory MerchProductDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? const {};
+  factory MerchProductDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) =>
+      MerchProductDoc.fromMap(doc.id, doc.data() ?? const {});
+
+  factory MerchProductDoc.fromMap(String id, Map<String, dynamic> data) {
     final created = data['createdAt'];
     return MerchProductDoc(
-      id: doc.id,
+      id: id,
       name: (data['name'] as String?) ?? '',
       priceLabel: (data['priceLabel'] as String?) ?? r'$0',
       sellerUid: (data['sellerUid'] as String?) ?? '',
@@ -191,6 +209,10 @@ class MerchProductDoc {
       description: (data['description'] as String?) ?? '',
       imageUrl: data['imageUrl'] as String?,
       active: (data['active'] as bool?) ?? true,
+      stock: (data['stock'] as num?)?.toInt(),
+      soldCount: (data['soldCount'] as num?)?.toInt() ?? 0,
+      rating: (data['rating'] as num?)?.toDouble() ?? 0,
+      reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
       createdAt: created is Timestamp ? created.toDate() : null,
     );
   }
@@ -205,6 +227,63 @@ class MerchProductDoc {
     'description': description,
     'imageUrl': imageUrl,
     'active': active,
+    'stock': stock,
+    'soldCount': soldCount,
+    'rating': rating,
+    'reviewCount': reviewCount,
+    'createdAt': createdAt != null
+        ? Timestamp.fromDate(createdAt!)
+        : FieldValue.serverTimestamp(),
+  };
+}
+
+/// A buyer's review of a merch product — lives in
+/// `merch/{productId}/reviews/{authorUid}` (one review per user).
+class ProductReviewDoc {
+  const ProductReviewDoc({
+    required this.id,
+    required this.productId,
+    required this.authorUid,
+    required this.authorName,
+    required this.rating,
+    required this.text,
+    this.createdAt,
+  });
+
+  final String id;
+  final String productId;
+  final String authorUid;
+  final String authorName;
+
+  /// 1–5 stars.
+  final int rating;
+
+  final String text;
+  final DateTime? createdAt;
+
+  factory ProductReviewDoc.fromDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) => ProductReviewDoc.fromMap(doc.id, doc.data() ?? const {});
+
+  factory ProductReviewDoc.fromMap(String id, Map<String, dynamic> data) {
+    final created = data['createdAt'];
+    return ProductReviewDoc(
+      id: id,
+      productId: (data['productId'] as String?) ?? '',
+      authorUid: (data['authorUid'] as String?) ?? '',
+      authorName: (data['authorName'] as String?) ?? 'Fan',
+      rating: (data['rating'] as num?)?.toInt() ?? 5,
+      text: (data['text'] as String?) ?? '',
+      createdAt: created is Timestamp ? created.toDate() : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'productId': productId,
+    'authorUid': authorUid,
+    'authorName': authorName,
+    'rating': rating,
+    'text': text,
     'createdAt': createdAt != null
         ? Timestamp.fromDate(createdAt!)
         : FieldValue.serverTimestamp(),

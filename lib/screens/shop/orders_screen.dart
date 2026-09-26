@@ -193,7 +193,39 @@ class _OrderCard extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 children: [
-                  Text(i.emoji, style: const TextStyle(fontSize: 16)),
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7),
+                      color: Colors.white.withValues(alpha: 0.06),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.10),
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: i.imageUrl?.isNotEmpty == true
+                        ? Image.network(
+                            i.imageUrl!,
+                            fit: BoxFit.cover,
+                            width: 24,
+                            height: 24,
+                            errorBuilder: (_, _, _) => const Center(
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                size: 14,
+                                color: Colors.white24,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.inventory_2_outlined,
+                              size: 14,
+                              color: Colors.white24,
+                            ),
+                          ),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -241,6 +273,43 @@ class _OrderCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(
+                Icons.payments_outlined,
+                size: 13,
+                color: Colors.white38,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  order.paymentMethodLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (order.paymentNote.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              order.paymentNote,
+              style: TextStyle(
+                color: order.paymentMethod == 'cod' &&
+                        order.status != OrderStatus.delivered &&
+                        order.status != OrderStatus.paid
+                    ? const Color(0xFFFFD166)
+                    : Colors.white38,
+                fontSize: 11,
+              ),
+            ),
+          ],
           if (order.createdAt != null) ...[
             const SizedBox(height: 6),
             Text(

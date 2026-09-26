@@ -658,7 +658,6 @@ class _MerchCardDoc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = item.color;
     return GestureDetector(
       onTap: () =>
           Navigator.pushNamed(context, AppRoutes.product, arguments: item),
@@ -683,36 +682,33 @@ class _MerchCardDoc extends StatelessWidget {
                   margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        color.withValues(alpha: 0.7),
-                        color.withValues(alpha: 0.25),
-                      ],
-                    ),
+                    color: Colors.white.withValues(alpha: 0.06),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: Colors.white.withValues(alpha: 0.10),
                     ),
                   ),
-                  child: Center(
-                    child: item.imageUrl?.isNotEmpty == true
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.network(
-                              item.imageUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Text(
-                                item.emoji,
-                                style: const TextStyle(fontSize: 40),
-                              ),
+                  clipBehavior: Clip.antiAlias,
+                  child: item.imageUrl?.isNotEmpty == true
+                      ? Image.network(
+                          item.imageUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (_, _, _) => const Center(
+                            child: Icon(
+                              Icons.inventory_2_outlined,
+                              color: Colors.white24,
+                              size: 36,
                             ),
-                          )
-                        : Text(
-                            item.emoji,
-                            style: const TextStyle(fontSize: 40),
                           ),
-                  ),
+                        )
+                      : const Center(
+                          child: Icon(
+                            Icons.inventory_2_outlined,
+                            color: Colors.white24,
+                            size: 36,
+                          ),
+                        ),
                 ),
               ),
               Padding(
