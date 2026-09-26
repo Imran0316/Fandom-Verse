@@ -307,97 +307,53 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
   @override
   Widget build(BuildContext context) {
     if (_hidden) return const SizedBox.shrink();
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF111C42), Color(0xFF0A2C42), Color(0xFF0E1B3A)],
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2B6CB0).withValues(alpha: 0.28),
-            blurRadius: 34,
-            offset: const Offset(0, 14),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _header(),
+        if (_loading) ...[
+          _label('THE ANIME'),
+          const SizedBox(height: 10),
+          _skeletonRail(256),
+          const SizedBox(height: 16),
+          _label('RELATED CHARACTERS'),
+          const SizedBox(height: 10),
+          _skeletonRail(216),
+        ] else if (_media != null) ...[
+          _label('THE ANIME'),
+          const SizedBox(height: 10),
+          _mediaRail(),
+          if (_castLoading) ...[
+            const SizedBox(height: 16),
+            _label('RELATED CHARACTERS'),
+            const SizedBox(height: 10),
+            _skeletonRail(216),
+          ] else if (_media!.cast.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _label('RELATED CHARACTERS'),
+            const SizedBox(height: 10),
+            _characterRail(),
+          ],
+          if (!_castLoading &&
+              _character != null &&
+              _characterVoiceActors.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _label('VOICE ACTOR'),
+            const SizedBox(height: 10),
+            _personRail(),
+            if (_person != null) ...[
+              const SizedBox(height: 16),
+              _label('MORE FROM ${_person!.name.toUpperCase()}'),
+              const SizedBox(height: 10),
+              if (_worksLoading)
+                _skeletonRail(256)
+              else if (_works.isNotEmpty)
+                _worksRail(),
+            ],
+          ],
+          _postsRail(),
         ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -46,
-            right: -40,
-            child: _ring(150, Colors.white.withValues(alpha: 0.05)),
-          ),
-          Positioned(
-            top: -18,
-            right: -10,
-            child: _ring(96, Colors.white.withValues(alpha: 0.06)),
-          ),
-          Positioned(
-            bottom: -60,
-            left: -30,
-            child: _ring(170, AppColors.accent.withValues(alpha: 0.07)),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _header(),
-                if (_loading) ...[
-                  const SizedBox(height: 18),
-                  _label('THE ANIME'),
-                  const SizedBox(height: 10),
-                  const ContentRailSkeleton(height: 236),
-                  const SizedBox(height: 16),
-                  _label('RELATED CHARACTERS'),
-                  const SizedBox(height: 10),
-                  const ContentRailSkeleton(height: 210),
-                ] else
-                  if (_media != null) ...[
-                    const SizedBox(height: 16),
-                    _label('THE ANIME'),
-                    const SizedBox(height: 10),
-                    _mediaRail(),
-                    if (_castLoading) ...[
-                      const SizedBox(height: 16),
-                      _label('RELATED CHARACTERS'),
-                      const SizedBox(height: 10),
-                      const ContentRailSkeleton(height: 210),
-                    ] else if (_media!.cast.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _label('RELATED CHARACTERS'),
-                      const SizedBox(height: 10),
-                      _characterRail(),
-                    ],
-                    if (!_castLoading &&
-                        _character != null &&
-                        _characterVoiceActors.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _label('VOICE ACTOR'),
-                      const SizedBox(height: 10),
-                      _personRail(),
-                      if (_person != null) ...[
-                        const SizedBox(height: 16),
-                        _label('MORE FROM ${_person!.name.toUpperCase()}'),
-                        const SizedBox(height: 10),
-                        if (_worksLoading)
-                          const ContentRailSkeleton(height: 236)
-                        else if (_works.isNotEmpty)
-                          _worksRail(),
-                      ],
-                    ],
-                    _postsRail(),
-                  ],
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -407,80 +363,67 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
   }
 
   Widget _header() {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [Color(0xFF3B82F6), Color(0xFF22D3EE)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.travel_explore_rounded,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Deep Dive',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          ClipOval(
+            child: Image.asset(
+              'lib/assets/images/splash/splashScreenLogo.png',
+              width: 40,
+              height: 40,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [AppColors.primary, AppColors.accent],
+                  ),
+                ),
+                child: const Text(
+                  'F',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
-              Text(
-                'Story → anime → cast → voice actors → posts',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Color(0xFF93C5FD), fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            color: const Color(0xFF22D3EE).withValues(alpha: 0.14),
-            border: Border.all(
-              color: const Color(0xFF22D3EE).withValues(alpha: 0.45),
             ),
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.hub_rounded, size: 12, color: Color(0xFF22D3EE)),
-              SizedBox(width: 5),
-              Text(
-                'GRAPH',
-                style: TextStyle(
-                  color: Color(0xFF67E8F9),
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Deep Dive',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-            ],
+                SizedBox(height: 3),
+                Text(
+                  'Story → anime → cast → voice actors → posts',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -490,10 +433,27 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
-        color: Color(0xFF93C5FD),
+        color: AppColors.textMuted,
         fontSize: 10.5,
         fontWeight: FontWeight.w800,
-        letterSpacing: 1.4,
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _skeletonRail(double height) {
+    return SizedBox(
+      height: height,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 3,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (_, _) => SkeletonBox(
+          width: 152,
+          height: height,
+          radius: 18,
+        ),
       ),
     );
   }
@@ -605,17 +565,6 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
           ],
         );
       },
-    );
-  }
-
-  Widget _ring(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 1.5),
-      ),
     );
   }
 }
@@ -930,7 +879,7 @@ class _PersonCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Color(0xFF93C5FD),
+                  color: AppColors.textSecondary,
                   fontSize: 10,
                 ),
               ),
