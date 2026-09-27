@@ -415,32 +415,17 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   Widget _topBar() {
-    final name = AuthService.instance.greetingName;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hey, ${name.isEmpty ? 'Fan' : name}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Your fandoms are heating up',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13.5,
-                  ),
-                ),
-              ],
+            child: Image.asset(
+              'lib/assets/images/fanVerseLogoF.png',
+              height: 40,
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           ),
           Row(
