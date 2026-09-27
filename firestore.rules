@@ -350,7 +350,45 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if signedIn();
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || validEventRsvpUpdate(eventId);
+
+      function validEventRsvpUpdate(eventId) {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        let rsvpPath = /databases/$(database)/documents/events/$(eventId)/rsvps/$(request.auth.uid);
+        let currentCount = resource.data.get('rsvpCount', 0);
+        let nextCount = request.resource.data.get('rsvpCount', 0);
+        return signedIn()
+          && changed.hasOnly(['rsvpCount'])
+          && counterOnly('rsvpCount')
+          && (
+            (!exists(rsvpPath)
+              && existsAfter(rsvpPath)
+              && nextCount == currentCount + 1)
+            || (exists(rsvpPath)
+              && !existsAfter(rsvpPath)
+              && nextCount == (currentCount > 0 ? currentCount - 1 : 0))
+          );
+      }
+
+      match /rsvps/{uid} {
+        allow read: if signedIn() && (uid == request.auth.uid || isAdmin());
+        allow create: if signedIn()
+          && uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.eventId == eventId
+          && request.resource.data.keys().hasOnly(['eventId', 'uid', 'createdAt'])
+          && get(/databases/$(database)/documents/events/$(eventId)).data.get('isActive', true) == true
+          && getAfter(/databases/$(database)/documents/events/$(eventId)).data.get('rsvpCount', 0)
+            == get(/databases/$(database)/documents/events/$(eventId)).data.get('rsvpCount', 0) + 1;
+        allow delete: if signedIn()
+          && uid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/events/$(eventId)).data.get('rsvpCount', 0)
+            == (get(/databases/$(database)/documents/events/$(eventId)).data.get('rsvpCount', 0) > 0
+              ? get(/databases/$(database)/documents/events/$(eventId)).data.get('rsvpCount', 0) - 1
+              : 0);
+        allow update: if false;
+      }
     }
 
     // ---- Orders ----

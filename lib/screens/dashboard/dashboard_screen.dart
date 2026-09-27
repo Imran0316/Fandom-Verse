@@ -186,17 +186,6 @@ class _HomeTabState extends State<_HomeTab> {
     () => NotificationService.instance.watch(),
   );
 
-  void _toast(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: const Color(0xE616161F),
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -348,7 +337,7 @@ class _HomeTabState extends State<_HomeTab> {
         LatestDiscoveriesSection(stream: _published()),
         const SizedBox(height: 34),
         StreamBuilder<List<FandomEventDoc>>(
-          stream: CatalogService.instance.watchEvents(),
+          stream: CatalogService.instance.watchUpcomingEvents(),
           builder: (context, snap) {
             final events = (snap.data ?? const <FandomEventDoc>[])
                 .take(6)
@@ -360,7 +349,8 @@ class _HomeTabState extends State<_HomeTab> {
                 _SectionHeader(
                   title: 'Upcoming Events',
                   subtitle: 'Gatherings and moments from the fandom community',
-                  onSeeAll: () => _toast('Full event calendar'),
+                  onSeeAll: () =>
+                      Navigator.pushNamed(context, AppRoutes.events),
                 ),
                 SizedBox(
                   height: 150,
@@ -559,112 +549,116 @@ class _EventCardDoc extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = event.color;
-    return LiquidGlass(
-      radius: 20,
-      blur: 26,
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [base.withValues(alpha: 0.55), base.withValues(alpha: 0.9)],
-      ),
-      borderColor: Colors.white.withValues(alpha: 0.18),
-      child: SizedBox(
-        width: 224,
-        child: Stack(
-          children: [
-            if (event.coverImageUrl?.isNotEmpty == true)
-              Positioned.fill(
-                child: Image.network(
-                  event.coverImageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+    return GestureDetector(
+      onTap: () =>
+          Navigator.pushNamed(context, AppRoutes.eventDetail, arguments: event),
+      child: LiquidGlass(
+        radius: 20,
+        blur: 26,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [base.withValues(alpha: 0.55), base.withValues(alpha: 0.9)],
+        ),
+        borderColor: Colors.white.withValues(alpha: 0.18),
+        child: SizedBox(
+          width: 224,
+          child: Stack(
+            children: [
+              if (event.coverImageUrl?.isNotEmpty == true)
+                Positioned.fill(
+                  child: Image.network(
+                    event.coverImageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
                 ),
-              ),
-            if (event.coverImageUrl?.isNotEmpty == true)
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.2),
-                        Colors.black.withValues(alpha: 0.78),
-                      ],
+              if (event.coverImageUrl?.isNotEmpty == true)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.2),
+                          Colors.black.withValues(alpha: 0.78),
+                        ],
+                      ),
                     ),
                   ),
                 ),
+              Positioned(
+                right: -8,
+                top: -8,
+                child: Icon(
+                  event.icon,
+                  size: 88,
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
               ),
-            Positioned(
-              right: -8,
-              top: -8,
-              child: Icon(
-                event.icon,
-                size: 88,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LiquidGlass(
-                    radius: 999,
-                    blur: 12,
-                    tint: Colors.white.withValues(alpha: 0.14),
-                    borderColor: Colors.white.withValues(alpha: 0.25),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LiquidGlass(
+                      radius: 999,
+                      blur: 12,
+                      tint: Colors.white.withValues(alpha: 0.14),
+                      borderColor: Colors.white.withValues(alpha: 0.25),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        event.dateLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      event.dateLabel,
+                    const Spacer(),
+                    Text(
+                      event.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 11,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    event.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_rounded,
-                        color: Colors.white70,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          event.city,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white70,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            event.city,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

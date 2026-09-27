@@ -17,6 +17,9 @@ import 'screens/communities/community_detail_screen.dart';
 import 'screens/communities/edit_community_screen.dart';
 import 'screens/communities/feed_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/events/event_detail_screen.dart';
+import 'screens/events/event_list_screen.dart';
+import 'screens/events/event_map_screen.dart';
 import 'screens/get_started/get_started_screen.dart';
 import 'screens/interests/interests_screen.dart';
 import 'screens/profile/about_screen.dart';
@@ -132,6 +135,15 @@ class FandomVerseApp extends StatelessWidget {
             break;
           case AppRoutes.merchExplore:
             page = const MerchExploreScreen();
+            break;
+          case AppRoutes.events:
+            page = const EventListScreen();
+            break;
+          case AppRoutes.eventMap:
+            page = const EventMapScreen();
+            break;
+          case AppRoutes.eventDetail:
+            page = const EventDetailScreen();
             break;
           case AppRoutes.contentDetail:
             final detailArgs = settings.arguments;

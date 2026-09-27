@@ -107,7 +107,20 @@ class FandomEventDoc {
     this.iconName = 'event',
     this.colorName = 'red',
     this.coverImageUrl,
+    this.description = '',
+    this.eventType = 'Other',
+    this.venue = '',
+    this.address = '',
+    this.latitude,
+    this.longitude,
     this.startAt,
+    this.endAt,
+    this.ticketUrl,
+    this.organizer = '',
+    this.isActive = true,
+    this.rsvpCount = 0,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
@@ -117,36 +130,119 @@ class FandomEventDoc {
   final String iconName;
   final String colorName;
   final String? coverImageUrl;
+  final String description;
+  final String eventType;
+  final String venue;
+  final String address;
+  final double? latitude;
+  final double? longitude;
   final DateTime? startAt;
+  final DateTime? endAt;
+  final String? ticketUrl;
+  final String organizer;
+  final bool isActive;
+  final int rsvpCount;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   IconData get icon => CatalogIcons.fromName(iconName);
   Color get color => CatalogIcons.colorFromName(colorName);
+  bool get hasLocation =>
+      latitude != null &&
+      longitude != null &&
+      latitude! >= -90 &&
+      latitude! <= 90 &&
+      longitude! >= -180 &&
+      longitude! <= 180;
+  bool get hasDescription => description.trim().isNotEmpty;
+  String get locationLabel =>
+      [venue, address, city].where((part) => part.trim().isNotEmpty).join(', ');
 
   factory FandomEventDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const {};
-    final start = data['startAt'];
+    DateTime? readDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.tryParse(value);
+      return null;
+    }
+
+    final startAt = readDate(data['startAt']) ?? readDate(data['eventDate']);
+    final latitude = (data['latitude'] as num?)?.toDouble();
+    final longitude = (data['longitude'] as num?)?.toDouble();
     return FandomEventDoc(
       id: doc.id,
       title: (data['title'] as String?) ?? '',
-      city: (data['city'] as String?) ?? '',
-      dateLabel: (data['dateLabel'] as String?) ?? '',
+      city: (data['city'] as String?) ?? (data['cityName'] as String?) ?? '',
+      dateLabel:
+          (data['dateLabel'] as String?) ??
+          (startAt == null ? '' : _formatEventDate(startAt)),
       iconName: (data['iconName'] as String?) ?? 'event',
       colorName: (data['colorName'] as String?) ?? 'red',
-      coverImageUrl: data['coverImageUrl'] as String?,
-      startAt: start is Timestamp ? start.toDate() : null,
+      coverImageUrl:
+          (data['coverImageUrl'] as String?) ?? (data['imageUrl'] as String?),
+      description: (data['description'] as String?) ?? '',
+      eventType: (data['eventType'] as String?) ?? 'Other',
+      venue: (data['venue'] as String?) ?? '',
+      address: (data['address'] as String?) ?? '',
+      latitude: latitude,
+      longitude: longitude,
+      startAt: startAt,
+      endAt: readDate(data['endAt']),
+      ticketUrl: data['ticketUrl'] as String?,
+      organizer: (data['organizer'] as String?) ?? '',
+      isActive: (data['isActive'] as bool?) ?? true,
+      rsvpCount: (data['rsvpCount'] as num?)?.toInt() ?? 0,
+      createdAt: readDate(data['createdAt']),
+      updatedAt: readDate(data['updatedAt']),
     );
   }
 
   Map<String, dynamic> toMap() => {
     'title': title,
     'city': city,
+    'cityName': city,
     'dateLabel': dateLabel,
     'iconName': iconName,
     'colorName': colorName,
     'coverImageUrl': coverImageUrl,
+    'description': description,
+    'eventType': eventType,
+    'venue': venue,
+    'address': address,
+    'latitude': latitude,
+    'longitude': longitude,
     'startAt': startAt != null ? Timestamp.fromDate(startAt!) : null,
+    'eventDate': startAt != null ? Timestamp.fromDate(startAt!) : null,
+    'endAt': endAt != null ? Timestamp.fromDate(endAt!) : null,
+    'ticketUrl': ticketUrl,
+    'organizer': organizer,
+    'isActive': isActive,
+    'rsvpCount': rsvpCount,
+    'createdAt': createdAt != null
+        ? Timestamp.fromDate(createdAt!)
+        : FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
   };
 }
+
+String _formatEventDate(DateTime date) =>
+    '${_monthNames[date.month - 1]} ${date.day}';
+
+const _monthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 class MerchProductDoc {
   const MerchProductDoc({

@@ -75,33 +75,138 @@ class CatalogService {
 
   /* -------------------------------- Events -------------------------------- */
 
-  Stream<List<FandomEventDoc>> watchEvents() {
+  Stream<List<FandomEventDoc>> watchEvents({bool activeOnly = true}) {
     if (!_ready) return Stream.value(const []);
-    return _events
-        .orderBy('startAt')
-        .snapshots()
-        .map((s) => s.docs.map(FandomEventDoc.fromDoc).toList());
+    return _events.limit(200).snapshots().map((s) {
+      final events = s.docs.map(FandomEventDoc.fromDoc).where((event) {
+        return event.title.trim().isNotEmpty && (!activeOnly || event.isActive);
+      }).toList();
+      events.sort((a, b) {
+        final aDate = a.startAt ?? DateTime(9999);
+        final bDate = b.startAt ?? DateTime(9999);
+        return aDate.compareTo(bDate);
+      });
+      return events;
+    });
+  }
+
+  Stream<List<FandomEventDoc>> watchUpcomingEvents() {
+    final today = DateTime.now();
+    final startOfToday = DateTime(today.year, today.month, today.day);
+    return watchEvents().map(
+      (events) => events
+          .where(
+            (event) =>
+                event.startAt != null && !event.startAt!.isBefore(startOfToday),
+          )
+          .toList(),
+    );
+  }
+
+  Stream<List<FandomEventDoc>> searchEvents(String query) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return watchUpcomingEvents();
+    return watchUpcomingEvents().map(
+      (events) => events.where((event) {
+        return [
+          event.title,
+          event.description,
+          event.city,
+          event.venue,
+          event.address,
+          event.eventType,
+        ].any((value) => value.toLowerCase().contains(normalized));
+      }).toList(),
+    );
+  }
+
+  Future<FandomEventDoc?> fetchEvent(String id) async {
+    if (!_ready || id.isEmpty) return null;
+    final snapshot = await _events.doc(id).get();
+    if (!snapshot.exists) return null;
+    return FandomEventDoc.fromDoc(snapshot);
   }
 
   Future<void> upsertEvent({
     String? id,
     required String title,
     required String city,
-    required String dateLabel,
-    required String iconName,
-    required String colorName,
+    String dateLabel = '',
+    String iconName = 'event',
+    String colorName = 'red',
     String? coverImageUrl,
-    DateTime? startAt,
+    required DateTime startAt,
+    DateTime? endAt,
+    String description = '',
+    String eventType = 'Other',
+    String venue = '',
+    String address = '',
+    required double latitude,
+    required double longitude,
+    String? ticketUrl,
+    String organizer = '',
+    bool isActive = true,
   }) async {
-    final data = {
-      'title': title.trim(),
-      'city': city.trim(),
-      'dateLabel': dateLabel.trim(),
-      'iconName': iconName,
-      'colorName': colorName,
-      'coverImageUrl': coverImageUrl,
-      'startAt': startAt != null ? Timestamp.fromDate(startAt) : null,
-    };
+    final cleanTitle = title.trim();
+    final cleanCity = city.trim();
+    final cleanVenue = venue.trim();
+    if (cleanTitle.length < 2) {
+      throw const FormatException('Enter an event title.');
+    }
+    if (cleanCity.isEmpty) {
+      throw const FormatException('Enter a city.');
+    }
+    if (cleanVenue.isEmpty) {
+      throw const FormatException('Enter a venue.');
+    }
+    if (!latitude.isFinite || latitude < -90 || latitude > 90) {
+      throw const FormatException('Latitude must be between -90 and 90.');
+    }
+    if (!longitude.isFinite || longitude < -180 || longitude > 180) {
+      throw const FormatException('Longitude must be between -180 and 180.');
+    }
+    if (endAt != null && !endAt.isAfter(startAt)) {
+      throw const FormatException('End time must be after the start time.');
+    }
+    final cleanTicketUrl = ticketUrl?.trim();
+    if (cleanTicketUrl != null && cleanTicketUrl.isNotEmpty) {
+      final uri = Uri.tryParse(cleanTicketUrl);
+      if (uri == null ||
+          !uri.hasAuthority ||
+          !{'http', 'https'}.contains(uri.scheme.toLowerCase())) {
+        throw const FormatException('Enter a valid http or https ticket URL.');
+      }
+    }
+    final cleanImageUrl = coverImageUrl?.trim();
+    final event = FandomEventDoc(
+      id: id ?? '',
+      title: cleanTitle,
+      city: cleanCity,
+      dateLabel: dateLabel.trim().isNotEmpty
+          ? dateLabel.trim()
+          : _eventDateLabel(startAt),
+      iconName: iconName,
+      colorName: colorName,
+      coverImageUrl: cleanImageUrl,
+      description: description.trim(),
+      eventType: eventType.trim().isEmpty ? 'Other' : eventType.trim(),
+      venue: cleanVenue,
+      address: address.trim(),
+      latitude: latitude,
+      longitude: longitude,
+      startAt: startAt,
+      endAt: endAt,
+      ticketUrl: cleanTicketUrl?.isEmpty == true ? null : cleanTicketUrl,
+      organizer: organizer.trim(),
+      isActive: isActive,
+    );
+    final data = event.toMap();
+    if (id == null || id.isEmpty) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+    } else {
+      data.remove('createdAt');
+    }
+    data['updatedAt'] = FieldValue.serverTimestamp();
     if (id == null || id.isEmpty) {
       await _events.add(data);
     } else {
@@ -110,6 +215,24 @@ class CatalogService {
   }
 
   Future<void> deleteEvent(String id) => _events.doc(id).delete();
+
+  String _eventDateLabel(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}';
+  }
 
   /* --------------------------------- Merch -------------------------------- */
 
@@ -141,9 +264,10 @@ class CatalogService {
   /// Emits null when signed out or the product no longer exists.
   Stream<MerchProductDoc?> watchMerchProduct(String productId) {
     if (!_ready) return Stream<MerchProductDoc?>.value(null);
-    return _merch.doc(productId).snapshots().map(
-          (d) => d.exists ? MerchProductDoc.fromDoc(d) : null,
-        );
+    return _merch
+        .doc(productId)
+        .snapshots()
+        .map((d) => d.exists ? MerchProductDoc.fromDoc(d) : null);
   }
 
   Future<void> createMerch({
@@ -222,8 +346,7 @@ class CatalogService {
       ).toMap(),
     );
 
-    final snap =
-        await _merch.doc(productId).collection('reviews').get();
+    final snap = await _merch.doc(productId).collection('reviews').get();
     var sum = 0;
     var count = 0;
     for (final d in snap.docs) {
