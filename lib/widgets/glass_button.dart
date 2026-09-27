@@ -59,7 +59,9 @@ class _GlassButtonState extends State<GlassButton> {
             Icon(widget.icon, size: 19, color: Colors.white),
             const SizedBox(width: 8),
           ],
-          label,
+          Flexible(
+            child: FittedBox(fit: BoxFit.scaleDown, child: label),
+          ),
         ],
       ],
     );
