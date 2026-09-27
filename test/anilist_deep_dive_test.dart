@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:fandom_verse/models/content_docs.dart';
 import 'package:fandom_verse/screens/content/content_deep_dive.dart';
 import 'package:fandom_verse/services/entities/anilist_provider.dart';
+import 'package:fandom_verse/services/entities/deep_dive_models.dart';
 
 const Map<String, dynamic> _mediaJson = {
   'id': 21,
@@ -63,10 +64,53 @@ const Map<String, dynamic> _staffJson = {
   },
 };
 
+MockClient _fixtureClient() => MockClient((request) async {
+      final body = request.body;
+      if (body.contains('Staff(')) {
+        return http.Response(
+          jsonEncode({
+            'data': {'Staff': _staffJson},
+          }),
+          200,
+        );
+      }
+      if (body.contains('Page(')) {
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'Page': {
+                'media': [_mediaJson],
+              },
+            },
+          }),
+          200,
+        );
+      }
+      if (body.contains('Media(')) {
+        return http.Response(
+          jsonEncode({
+            'data': {'Media': _mediaJson},
+          }),
+          200,
+        );
+      }
+      return http.Response('{"errors":[{"message":"unexpected"}]}', 400);
+    });
+
+Future<void> _settle(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump();
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 void main() {
   group('AniList parsing', () {
-    test('parses media with cast and voice actors', () {
-      final media = AniMedia.fromJson(_mediaJson);
+    test('parses media with cast and voice actors', () async {
+      final provider = AniListProvider(client: _fixtureClient());
+      final results = await provider.search('one piece');
+      final media = results.single;
       expect(media.id, 21);
       expect(media.title, 'ONE PIECE');
       expect(media.year, 1999);
@@ -79,9 +123,13 @@ void main() {
       expect(media.cast.last.voiceActors, isEmpty);
     });
 
-    test('parses a staff member with other works', () {
-      final person = AniPerson.fromJson(_staffJson);
-      expect(person.id, 95075);
+    test('resolves a person with their other works', () async {
+      final provider = AniListProvider(client: _fixtureClient());
+      final person = await provider.loadPerson(
+        const DivePerson(id: 95075, name: 'Mayumi Tanaka'),
+      );
+      expect(person, isNotNull);
+      expect(person!.id, 95075);
       expect(person.name, 'Mayumi Tanaka');
       expect(person.works, hasLength(1));
       expect(person.works.single.title, 'Sakura Taisen');
@@ -121,40 +169,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    final provider = AniListProvider(
-      client: MockClient((request) async {
-        final body = request.body;
-        if (body.contains('Staff(')) {
-          return http.Response(
-            jsonEncode({
-              'data': {'Staff': _staffJson},
-            }),
-            200,
-          );
-        }
-        if (body.contains('Page(')) {
-          return http.Response(
-            jsonEncode({
-              'data': {
-                'Page': {
-                  'media': [_mediaJson],
-                },
-              },
-            }),
-            200,
-          );
-        }
-        if (body.contains('Media(')) {
-          return http.Response(
-            jsonEncode({
-              'data': {'Media': _mediaJson},
-            }),
-            200,
-          );
-        }
-        return http.Response('{"errors":[{"message":"unexpected"}]}', 400);
-      }),
-    );
+    final provider = AniListProvider(client: _fixtureClient());
 
     final content = ContentDoc(
       id: 'c1',
@@ -167,15 +182,12 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: ContentDeepDive(content: content, provider: provider),
+            child: ContentDeepDive(content: content, providers: [provider]),
           ),
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump(const Duration(milliseconds: 50));
+    await _settle(tester);
 
     expect(find.text('Deep Dive'), findsOneWidget);
     expect(find.text('THE ANIME'), findsOneWidget);
@@ -184,6 +196,7 @@ void main() {
     expect(find.text('Luffy Monkey'), findsOneWidget);
     expect(find.text('VOICE ACTOR'), findsOneWidget);
     expect(find.text('Mayumi Tanaka'), findsOneWidget);
+    expect(find.text('Voice of Luffy Monkey'), findsOneWidget);
     expect(find.text('MORE FROM MAYUMI TANAKA'), findsOneWidget);
     expect(find.text('Sakura Taisen'), findsOneWidget);
   });
@@ -218,14 +231,12 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: ContentDeepDive(content: content, provider: provider),
+            child: ContentDeepDive(content: content, providers: [provider]),
           ),
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await _settle(tester);
 
     expect(find.text('Deep Dive'), findsNothing);
   });

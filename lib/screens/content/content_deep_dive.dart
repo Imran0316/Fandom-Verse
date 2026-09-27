@@ -4,7 +4,8 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
 import '../../models/post_docs.dart';
-import '../../services/entities/anilist_provider.dart';
+import '../../services/entities/deep_dive_models.dart';
+import '../../services/entities/deep_dive_registry.dart';
 import '../../services/post_service.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/skeletons.dart';
@@ -12,21 +13,25 @@ import '../../widgets/skeletons.dart';
 /// In-content Deep Dive: opens a live graph from a News / Article / Lore /
 /// Trivia story and walks it hop by hop —
 ///
-/// story → anime → related characters → voice actor → person →
+/// story → title → cast → voice actor / actor / studio / artist →
 /// their other works → FanVerse posts.
 ///
-/// Each hop is a horizontal rail; tapping a card re-focuses the chain
-/// below it. Renders nothing when no entity matches the story.
+/// The domain (anime, movies/TV, games, music) is detected from the
+/// story's fandom / category / tags; each domain's provider fills the
+/// same chain shape with its own data source. Each hop is a horizontal
+/// rail; tapping a card re-focuses the chain below it. Renders nothing
+/// when no entity matches the story.
 class ContentDeepDive extends StatefulWidget {
-  const ContentDeepDive({super.key, required this.content, this.provider});
+  const ContentDeepDive({super.key, required this.content, this.providers});
 
   final ContentDoc content;
 
-  /// Injectable for tests.
-  final AniListProvider? provider;
+  /// Injectable for tests; defaults to the detected provider cascade.
+  final List<DeepDiveProvider>? providers;
 
-  /// Search candidates for the story's anchor anime: specific tags first,
-  /// then the title. Generic editorial tags are skipped, capped at three.
+  /// Search candidates for the story's anchor entity: specific tags
+  /// first, then the title. Generic editorial tags are skipped, capped
+  /// at three.
   static const Set<String> genericTags = {
     'anime',
     'manga',
@@ -47,6 +52,34 @@ class ContentDeepDive extends StatefulWidget {
     'history',
     'fan',
     'fandom',
+    'game',
+    'games',
+    'gaming',
+    'music',
+    'movie',
+    'movies',
+    'film',
+    'films',
+    'tv',
+    'series',
+    'show',
+    'song',
+    'songs',
+    'album',
+    'albums',
+    'artist',
+    'band',
+    'concert',
+    'episode',
+    'episodes',
+    'drama',
+    'cinema',
+    'esports',
+    'kpop',
+    'k-pop',
+    'trailer',
+    'review',
+    'reviews',
   };
 
   static List<String> anchorQueries(ContentDoc content) {
@@ -73,58 +106,73 @@ class ContentDeepDive extends StatefulWidget {
 }
 
 class _ContentDeepDiveState extends State<ContentDeepDive> {
-  late final AniListProvider _provider;
+  late final List<DeepDiveProvider> _candidates;
+  DeepDiveProvider? _provider;
   late final Stream<List<PostDoc>> _posts;
-  final _worksCache = <int, List<AniMedia>>{};
+  final _worksCache = <String, List<DiveMedia>>{};
+
+  String _personKey(DivePerson person) => '${person.kind ?? ''}:${person.id}';
 
   bool _loading = true;
   bool _hidden = false;
-  List<AniMedia> _anchors = const [];
-  AniMedia? _media;
-  AniCharacter? _character;
-  AniPerson? _person;
-  List<AniMedia> _works = const [];
+  List<DiveMedia> _anchors = const [];
+  DiveMedia? _media;
+  DiveCharacter? _character;
+  DivePerson? _person;
+  List<DiveMedia> _works = const [];
   bool _worksLoading = false;
   bool _castLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _provider = widget.provider ?? AniListProvider.instance;
+    _candidates = (widget.providers ?? const <DeepDiveProvider>[])
+        .isEmpty
+        ? DeepDiveRegistry.forContent(widget.content)
+        : widget.providers!.where((p) => p.isAvailable).toList();
     _posts = PostService.instance.watchFeed();
     _bootstrap();
   }
 
+  /// Provider currently driving labels: the matched one, else the lead
+  /// candidate while still loading.
+  DeepDiveProvider? get _active =>
+      _provider ?? (_candidates.isEmpty ? null : _candidates.first);
+
   Future<void> _bootstrap() async {
-    for (final query in ContentDeepDive.anchorQueries(widget.content)) {
-      List<AniMedia> results;
-      try {
-        results = await _provider.searchMedia(query);
-      } catch (_) {
-        continue;
+    final queries = ContentDeepDive.anchorQueries(widget.content);
+    for (final provider in _candidates) {
+      for (final query in queries) {
+        List<DiveMedia> results;
+        try {
+          results = await provider.search(query);
+        } catch (_) {
+          continue;
+        }
+        final matched = [
+          for (final media in results)
+            if (_matches(query, media)) media,
+        ];
+        if (matched.isEmpty) continue;
+        final media = matched.first;
+        final character = _defaultCharacter(media);
+        final person = _firstPerson(character, media);
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _provider = provider;
+          _anchors = matched;
+          _media = media;
+          _character = character;
+          _person = person;
+          _works = person == null ? const [] : (_worksCache[_personKey(person)] ?? const []);
+          _worksLoading = person != null && !_worksCache.containsKey(_personKey(person));
+          _castLoading = media.cast.isEmpty;
+        });
+        if (person != null) _loadWorks(person);
+        if (media.cast.isEmpty) _fetchCast(media);
+        return;
       }
-      final matched = [
-        for (final media in results)
-          if (_matches(query, media)) media,
-      ];
-      if (matched.isEmpty) continue;
-      final media = matched.first;
-      final character = _defaultCharacter(media);
-      final person = _firstPerson(character, media);
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _anchors = matched;
-        _media = media;
-        _character = character;
-        _person = person;
-        _works = person == null ? const [] : (_worksCache[person.id] ?? const []);
-        _worksLoading = person != null && !_worksCache.containsKey(person.id);
-        _castLoading = media.cast.isEmpty;
-      });
-      if (person != null) _loadWorks(person);
-      if (media.cast.isEmpty) _fetchCast(media);
-      return;
     }
     if (!mounted) return;
     setState(() {
@@ -133,7 +181,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     });
   }
 
-  bool _matches(String query, AniMedia media) {
+  bool _matches(String query, DiveMedia media) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return false;
     final titles = [media.title, media.romaji, media.english]
@@ -153,7 +201,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     return false;
   }
 
-  AniCharacter? _defaultCharacter(AniMedia media) {
+  DiveCharacter? _defaultCharacter(DiveMedia media) {
     if (media.cast.isEmpty) return null;
     for (final member in media.cast) {
       if (member.role == 'MAIN') return member.character;
@@ -161,7 +209,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     return media.cast.first.character;
   }
 
-  AniCastMember? _castMemberFor(AniCharacter? character) {
+  DiveCastMember? _castMemberFor(DiveCharacter? character) {
     final media = _media;
     if (character == null || media == null) return null;
     for (final member in media.cast) {
@@ -170,7 +218,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     return null;
   }
 
-  AniPerson? _firstPerson(AniCharacter? character, AniMedia media) {
+  DivePerson? _firstPerson(DiveCharacter? character, DiveMedia media) {
     if (character == null) return null;
     for (final member in media.cast) {
       if (member.character.id == character.id &&
@@ -181,8 +229,12 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     return null;
   }
 
-  Future<void> _focusMedia(AniMedia media) async {
-    if (media.id == _media?.id && !_castLoading) return;
+  Future<void> _focusMedia(DiveMedia media) async {
+    if (media.id == _media?.id &&
+        media.kind == _media?.kind &&
+        !_castLoading) {
+      return;
+    }
     final character = _defaultCharacter(media);
     final person = _firstPerson(character, media);
     if (!mounted) return;
@@ -190,46 +242,49 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
       _media = media;
       _character = character;
       _person = person;
-      _works = person == null ? const [] : (_worksCache[person.id] ?? const []);
-      _worksLoading = person != null && !_worksCache.containsKey(person.id);
+      _works = person == null ? const [] : (_worksCache[_personKey(person)] ?? const []);
+      _worksLoading = person != null && !_worksCache.containsKey(_personKey(person));
       _castLoading = media.cast.isEmpty;
     });
     if (person != null) _loadWorks(person);
     if (media.cast.isEmpty) _fetchCast(media);
   }
 
-  /// Loads cast + voice actors for a media node that came from a light
-  /// query (staff works), then re-focuses the defaults.
-  Future<void> _fetchCast(AniMedia media) async {
-    AniMedia? loaded;
+  /// Loads cast for a media node that was found without one (TMDB, RAWG,
+  /// AniList staff works), then re-focuses the defaults.
+  Future<void> _fetchCast(DiveMedia media) async {
+    final provider = _provider;
+    if (provider == null) return;
+    List<DiveCastMember> cast;
     try {
-      loaded = await _provider.mediaById(media.id);
+      cast = await provider.loadCast(media);
     } catch (_) {
-      loaded = null;
+      cast = const [];
     }
-    if (!mounted || _media?.id != media.id) return;
-    if (loaded == null) {
-      setState(() => _castLoading = false);
+    if (!mounted) return;
+    final current = _media;
+    if (current == null || current.id != media.id || current.kind != media.kind) {
       return;
     }
-    final character = _defaultCharacter(loaded);
-    final person = _firstPerson(character, loaded);
+    final updated = media.copyWith(cast: cast);
+    final character = _defaultCharacter(updated);
+    final person = _firstPerson(character, updated);
     setState(() {
-      _media = loaded;
+      _media = updated;
       _anchors = [
         for (final a in _anchors)
-          if (a.id == loaded!.id) loaded else a,
+          if (a.id != updated.id || a.kind != updated.kind) a else updated,
       ];
       _character = character;
       _person = person;
-      _works = person == null ? const [] : (_worksCache[person.id] ?? const []);
-      _worksLoading = person != null && !_worksCache.containsKey(person.id);
+      _works = person == null ? const [] : (_worksCache[_personKey(person)] ?? const []);
+      _worksLoading = person != null && !_worksCache.containsKey(_personKey(person));
       _castLoading = false;
     });
     if (person != null) _loadWorks(person);
   }
 
-  void _focusCharacter(AniCastMember member) {
+  void _focusCharacter(DiveCastMember member) {
     if (member.character.id == _character?.id) return;
     final person = member.voiceActors.isEmpty
         ? null
@@ -238,25 +293,25 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     setState(() {
       _character = member.character;
       _person = person;
-      _works = person == null ? const [] : (_worksCache[person.id] ?? const []);
-      _worksLoading = person != null && !_worksCache.containsKey(person.id);
+      _works = person == null ? const [] : (_worksCache[_personKey(person)] ?? const []);
+      _worksLoading = person != null && !_worksCache.containsKey(_personKey(person));
     });
     if (person != null) _loadWorks(person);
   }
 
-  void _focusPerson(AniPerson person) {
+  void _focusPerson(DivePerson person) {
     if (person.id == _person?.id) return;
     if (!mounted) return;
     setState(() {
       _person = person;
-      _works = _worksCache[person.id] ?? const [];
-      _worksLoading = !_worksCache.containsKey(person.id);
+      _works = _worksCache[_personKey(person)] ?? const [];
+      _worksLoading = !_worksCache.containsKey(_personKey(person));
     });
     _loadWorks(person);
   }
 
-  Future<void> _loadWorks(AniPerson person) async {
-    final cached = _worksCache[person.id];
+  Future<void> _loadWorks(DivePerson person) async {
+    final cached = _worksCache[_personKey(person)];
     if (cached != null) {
       if (!mounted || _person?.id != person.id) return;
       setState(() {
@@ -265,15 +320,17 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
       });
       return;
     }
-    AniPerson? full;
+    final provider = _provider;
+    if (provider == null) return;
+    DivePerson? full;
     try {
-      full = await _provider.personWorks(person.id);
+      full = await provider.loadPerson(person);
     } catch (_) {
       full = null;
     }
     if (!mounted || _person?.id != person.id) return;
-    final works = full?.works ?? const <AniMedia>[];
-    if (full != null) _worksCache[person.id] = works;
+    final works = full?.works ?? const <DiveMedia>[];
+    if (full != null) _worksCache[_personKey(person)] = works;
     setState(() {
       _works = works;
       _worksLoading = false;
@@ -306,31 +363,33 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
 
   @override
   Widget build(BuildContext context) {
-    if (_hidden) return const SizedBox.shrink();
+    final active = _active;
+    if (_hidden || active == null) return const SizedBox.shrink();
+    final media = _media;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _header(),
         if (_loading) ...[
-          _label('THE ANIME'),
+          _label(active.mediaLabel(null)),
           const SizedBox(height: 10),
           _skeletonRail(256),
           const SizedBox(height: 16),
-          _label('RELATED CHARACTERS'),
+          _label(active.castLabel),
           const SizedBox(height: 10),
           _skeletonRail(216),
-        ] else if (_media != null) ...[
-          _label('THE ANIME'),
+        ] else if (media != null) ...[
+          _label(active.mediaLabel(media)),
           const SizedBox(height: 10),
           _mediaRail(),
           if (_castLoading) ...[
             const SizedBox(height: 16),
-            _label('RELATED CHARACTERS'),
+            _label(active.castLabel),
             const SizedBox(height: 10),
             _skeletonRail(216),
-          ] else if (_media!.cast.isNotEmpty) ...[
+          ] else if (_showCastRail) ...[
             const SizedBox(height: 16),
-            _label('RELATED CHARACTERS'),
+            _label(active.castLabel),
             const SizedBox(height: 10),
             _characterRail(),
           ],
@@ -338,7 +397,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
               _character != null &&
               _characterVoiceActors.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _label('VOICE ACTOR'),
+            _label(active.personLabel),
             const SizedBox(height: 10),
             _personRail(),
             if (_person != null) ...[
@@ -347,7 +406,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
               const SizedBox(height: 10),
               if (_worksLoading)
                 _skeletonRail(256)
-              else if (_works.isNotEmpty)
+              else if (_visibleWorks.isNotEmpty)
                 _worksRail(),
             ],
           ],
@@ -357,7 +416,23 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     );
   }
 
-  List<AniPerson> get _characterVoiceActors {
+  /// Games/music cast slots describe the same face as their person
+  /// (artist = artist, studio = studio); showing both rails would
+  /// duplicate the card, so the cast rail collapses for those chains.
+  bool get _showCastRail {
+    final cast = _media?.cast ?? const [];
+    if (cast.isEmpty) return false;
+    for (final member in cast) {
+      if (member.voiceActors.isEmpty) return true;
+      final personName = member.voiceActors.first.name.trim().toLowerCase();
+      if (personName != member.character.name.trim().toLowerCase()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<DivePerson> get _characterVoiceActors {
     final member = _castMemberFor(_character);
     return member?.voiceActors ?? const [];
   }
@@ -395,11 +470,11 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Deep Dive',
                   style: TextStyle(
                     color: Colors.white,
@@ -408,12 +483,13 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
                     letterSpacing: -0.3,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  'Story → anime → cast → voice actors → posts',
+                  _active?.subtitle ??
+                      'Characters, cast and related FanVerse posts',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     height: 1.35,
@@ -464,7 +540,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     final items = [
       media,
       for (final anchor in _anchors)
-        if (anchor.id != media.id) anchor,
+        if (anchor.id != media.id || anchor.kind != media.kind) anchor,
     ];
     return SizedBox(
       height: 262,
@@ -502,6 +578,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
   }
 
   Widget _personRail() {
+    final member = _castMemberFor(_character);
     return SizedBox(
       height: 168,
       child: ListView.separated(
@@ -511,7 +588,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
         separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, i) => _PersonCard(
           person: _characterVoiceActors[i],
-          caption: _character?.name,
+          caption: member == null ? null : _active?.personCaption(member),
           selected: _characterVoiceActors[i].id == _person?.id,
           onTap: () => _focusPerson(_characterVoiceActors[i]),
         ),
@@ -519,18 +596,30 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
     );
   }
 
+  /// Other works, minus the media the chain is currently focused on
+  /// (person credits usually include the current title itself).
+  List<DiveMedia> get _visibleWorks {
+    final media = _media;
+    return [
+      for (final work in _works)
+        if (media == null || work.id != media.id || work.kind != media.kind)
+          work,
+    ];
+  }
+
   Widget _worksRail() {
+    final items = _visibleWorks;
     return SizedBox(
       height: 262,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: _works.length,
+        itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, i) => _MediaCard(
-          media: _works[i],
-          selected: _works[i].id == _media?.id,
-          onTap: () => _focusMedia(_works[i]),
+          media: items[i],
+          selected: items[i].id == _media?.id,
+          onTap: () => _focusMedia(items[i]),
         ),
       ),
     );
@@ -576,7 +665,7 @@ class _MediaCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final AniMedia media;
+  final DiveMedia media;
   final bool selected;
   final VoidCallback onTap;
 
@@ -692,7 +781,7 @@ class _CharacterCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final AniCastMember member;
+  final DiveCastMember member;
   final bool selected;
   final VoidCallback onTap;
 
@@ -805,7 +894,7 @@ class _PersonCard extends StatelessWidget {
     this.caption,
   });
 
-  final AniPerson person;
+  final DivePerson person;
   final bool selected;
   final VoidCallback onTap;
   final String? caption;
@@ -874,7 +963,7 @@ class _PersonCard extends StatelessWidget {
             if (caption != null && caption!.isNotEmpty) ...[
               const SizedBox(height: 3),
               Text(
-                'Voice of $caption',
+                caption!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
