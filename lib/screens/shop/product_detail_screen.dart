@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/pkr_format.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
@@ -234,7 +235,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               Row(
                                 children: [
                                   Text(
-                                    p.priceLabel,
+                                    formatPkrPrice(p.priceLabel),
                                     style: const TextStyle(
                                       color: AppColors.accent,
                                       fontSize: 28,

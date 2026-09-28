@@ -25,7 +25,7 @@ void main() {
     );
 
     expect(find.text('Fandom Tee'), findsOneWidget);
-    expect(find.text('\$29'), findsOneWidget);
+    expect(find.text('PKR 29'), findsOneWidget);
   });
 
   testWidgets('product detail screen shows review section', (
@@ -51,7 +51,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Ensure product detail shows price and the review action.
-    expect(find.text('\$29'), findsOneWidget);
+    expect(find.text('PKR 29'), findsOneWidget);
     expect(find.byType(GlassButton), findsWidgets);
   });
 
@@ -171,7 +171,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('\$29'), findsOneWidget);
+    expect(find.text('PKR 29'), findsOneWidget);
     expect(find.text('Only 3 left — order soon'), findsOneWidget);
     expect(find.textContaining('No reviews yet'), findsOneWidget);
     expect(find.byType(GlassButton), findsWidgets);

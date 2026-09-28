@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/animations/app_transitions.dart';
+import '../../core/pkr_format.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_catalog.dart';
 import '../../models/catalog_docs.dart';
 import '../../models/content_docs.dart';
 import '../../models/community_docs.dart';
@@ -664,14 +664,6 @@ class _EventCardDoc extends StatelessWidget {
   }
 }
 
-/// Normalises a seller-entered [MerchProductDoc.priceLabel] (`$59`,
-/// `Rs 1,200`, `PKR 999`) into a PKR label. Any currency symbol/prefix is
-/// stripped first so the amount is never double-prefixed.
-String formatPkrPrice(String raw) {
-  final amount = raw.replaceAll(RegExp(r'[^0-9.,]'), '').trim();
-  return 'PKR ${amount.isEmpty ? '0' : amount}';
-}
-
 class _MerchCardDoc extends StatelessWidget {
   const _MerchCardDoc({required this.item});
 
@@ -1044,7 +1036,8 @@ class _PosterCard extends StatelessWidget {
 /* --------------------------------- SEARCH --------------------------------- */
 
 /// One search result. Rendered by [_PosterCard]; [onTap] is the route the
-/// tile opens (detail screens for live hits, a preview for suggestions).
+/// tile opens — every hit points at a real document (detail screens for live
+/// hits, the feed/community for posts).
 class _SearchHit {
   const _SearchHit({
     required this.title,
@@ -1081,7 +1074,7 @@ bool _hitsQuery(String query, List<String> fields) =>
 List<T>? _sourceData<T>(AsyncSnapshot<List<T>> snapshot) =>
     snapshot.data ?? (snapshot.hasError ? <T>[] : null);
 
-/// Poster gradients per content type — mirrors the MockCatalog palette.
+/// Poster gradients per content type — mirrors the browse poster palette.
 List<Color> _contentColors(ContentType type) => switch (type) {
   ContentType.article => const [Color(0xFF1D4ED8), Color(0xFF030B1F)],
   ContentType.news => const [Color(0xFFBE123C), Color(0xFF18040A)],
@@ -1121,6 +1114,11 @@ class _SearchTabState extends State<_SearchTab> {
   /// Ceiling per section so a broad query can't build hundreds of tiles.
   static const int _maxHitsPerSection = 12;
 
+  /// Tighter ceilings for the empty-query browse so the discovery feed stays
+  /// scannable instead of dumping every source on the screen.
+  static const int _maxBrowsePerSection = 6;
+  static const int _maxBrowsePosts = 4;
+
   static const _filters = [
     'All',
     'Anime',
@@ -1133,6 +1131,53 @@ class _SearchTabState extends State<_SearchTab> {
     'Merch',
   ];
   int _filter = 0;
+
+  String get _filterLabel => _filters[_filter];
+
+  /// `Events` / `Merch` chips isolate their own section; every other chip is
+  /// a category that must be matched against each doc's fields.
+  bool get _isCategoryFilter =>
+      _filter != 0 && _filterLabel != 'Events' && _filterLabel != 'Merch';
+
+  /// The section group a chip isolates (`events` / `merch`), or `null` when
+  /// every group is visible.
+  String? get _isolatedGroup {
+    switch (_filterLabel) {
+      case 'Events':
+        return 'events';
+      case 'Merch':
+        return 'merch';
+      default:
+        return null;
+    }
+  }
+
+  bool _groupVisible(String group) {
+    final isolated = _isolatedGroup;
+    return isolated == null || isolated == group;
+  }
+
+  /// Case-insensitive `contains` of the active chip label over [fields], with
+  /// a hyphen/punctuation-insensitive fallback so `K-Pop` also matches `Kpop`
+  /// and `Sci-Fi` matches `Sci Fi`. Sources with no plausible category field
+  /// simply never match, which hides them under a category chip.
+  bool _matchesFilter(List<String> fields) {
+    if (!_isCategoryFilter) return true;
+    final needle = _filterLabel.toLowerCase();
+    final compactNeedle = _compactFilterKey(_filterLabel);
+    for (final field in fields) {
+      final value = field.toLowerCase();
+      if (value.contains(needle)) return true;
+      if (compactNeedle.isNotEmpty &&
+          _compactFilterKey(value).contains(compactNeedle)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static String _compactFilterKey(String value) =>
+      value.toLowerCase().replaceAll(RegExp('[^a-z0-9]'), '');
 
   @override
   void dispose() {
@@ -1251,69 +1296,11 @@ class _SearchTabState extends State<_SearchTab> {
     );
   }
 
-  /// Static browse grid shown before the user types, so the tab never opens
-  /// on an empty page while the live sources are still connecting.
-  Widget _browse() {
-    final suggestions = <_SearchHit>[
-      for (final item in MockCatalog.recommended)
-        _SearchHit(
-          title: item.title,
-          tag: item.tag,
-          colors: item.colors,
-          emoji: item.emoji,
-          onTap: () => _peek(item.title),
-        ),
-      for (final item in MockCatalog.trending)
-        _SearchHit(
-          title: item.title,
-          tag: item.category,
-          colors: item.colors,
-          emoji: item.emoji,
-          onTap: () => _peek(item.title),
-        ),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Suggestions',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.only(bottom: 130),
-              physics: const BouncingScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: 14,
-                childAspectRatio: 0.7,
-              ),
-              itemCount: suggestions.length,
-              itemBuilder: (context, i) => _PosterCard(
-                item: suggestions[i],
-                width: double.infinity,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _peek(String title) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(title)));
-  }
+  /// Live browse shown before the user types: the exact same cached sources
+  /// as [_liveResults], just sectioned for discovery instead of matched
+  /// against a query. An empty query matches everything, so the section
+  /// builder keeps its browse titles and tighter caps.
+  Widget _browse() => _liveResults('');
 
   /// One [StreamBuilder] per cached source; each layer hands its slice to
   /// the next and the innermost layer groups the hits into sections.
@@ -1437,6 +1424,21 @@ class _SearchTabState extends State<_SearchTab> {
       );
     }
 
+    if (query.isEmpty) {
+      final filtered = _isCategoryFilter || _isolatedGroup != null;
+      return ContentEmptyState(
+        icon: filtered ? Icons.filter_alt_off_rounded : Icons.auto_awesome,
+        title: filtered
+            ? 'Nothing under “$_filterLabel” yet'
+            : 'Nothing in the verse yet',
+        message: filtered
+            ? 'No live picks match this chip right now. Try another one, '
+                'or tap All to see everything.'
+            : 'Fresh stories, communities, events and merch show up here '
+                'the moment they drop.',
+      );
+    }
+
     return ContentEmptyState(
       icon: Icons.search_off_rounded,
       title: 'No matches',
@@ -1446,6 +1448,9 @@ class _SearchTabState extends State<_SearchTab> {
     );
   }
 
+  /// Groups the live slices into sections. An empty [query] means "browse":
+  /// sections then carry discovery titles and tighter caps, but both modes
+  /// run the same field matching plus the active chip filter.
   List<_SearchSection> _sections(
     String query, {
     required List<ContentDoc>? content,
@@ -1454,158 +1459,214 @@ class _SearchTabState extends State<_SearchTab> {
     required List<MerchProductDoc>? merch,
     required List<PostDoc>? posts,
   }) {
+    final browse = query.isEmpty;
+    final cap = browse ? _maxBrowsePerSection : _maxHitsPerSection;
     final sections = <_SearchSection>[];
 
-    final contentHits = <_SearchHit>[];
-    for (final item in content ?? const <ContentDoc>[]) {
-      if (item.title.trim().isEmpty) continue;
-      final fields = [
-        item.title,
-        item.summary,
-        item.fandomName,
-        item.categoryName,
-        item.tags.join(' '),
-      ];
-      if (!_hitsQuery(query, fields)) continue;
+    if (_groupVisible('content')) {
+      final contentHits = <_SearchHit>[];
+      for (final item in content ?? const <ContentDoc>[]) {
+        if (item.title.trim().isEmpty) continue;
+        final fields = [
+          item.title,
+          item.summary,
+          item.fandomName,
+          item.categoryName,
+          item.tags.join(' '),
+        ];
+        if (!_hitsQuery(query, fields)) continue;
+        if (!_matchesFilter(fields)) continue;
 
-      var tag = item.type.label;
-      if (item.categoryName.trim().isNotEmpty) tag = item.categoryName;
-      if (item.fandomName.trim().isNotEmpty) tag = item.fandomName;
+        var tag = item.type.label;
+        if (item.categoryName.trim().isNotEmpty) tag = item.categoryName;
+        if (item.fandomName.trim().isNotEmpty) tag = item.fandomName;
 
-      contentHits.add(
-        _SearchHit(
-          title: item.title,
-          tag: tag,
-          colors: _contentColors(item.type),
-          icon: item.type.icon,
-          onTap: () => Navigator.pushNamed(
-            context,
-            AppRoutes.contentDetail,
-            arguments: ContentDetailArgs(contentId: item.id),
+        contentHits.add(
+          _SearchHit(
+            title: item.title,
+            tag: tag,
+            colors: _contentColors(item.type),
+            icon: item.type.icon,
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.contentDetail,
+              arguments: ContentDetailArgs(contentId: item.id),
+            ),
           ),
-        ),
-      );
-      if (contentHits.length >= _maxHitsPerSection) break;
-    }
-    if (contentHits.isNotEmpty) {
-      sections.add(_SearchSection(title: 'Content', hits: contentHits));
-    }
-
-    final communityHits = <_SearchHit>[];
-    for (final item in communities ?? const <CommunityDoc>[]) {
-      if (item.name.trim().isEmpty) continue;
-      if (!_hitsQuery(query, [item.name, item.description])) continue;
-
-      communityHits.add(
-        _SearchHit(
-          title: item.name,
-          tag: '${item.memberCount} '
-              '${item.memberCount == 1 ? 'member' : 'members'}',
-          colors: [item.color, item.color.withValues(alpha: 0.22)],
-          icon: item.icon,
-          onTap: () => Navigator.pushNamed(
-            context,
-            AppRoutes.communityDetail,
-            arguments: item.id,
-          ),
-        ),
-      );
-      if (communityHits.length >= _maxHitsPerSection) break;
-    }
-    if (communityHits.isNotEmpty) {
-      sections.add(_SearchSection(title: 'Communities', hits: communityHits));
-    }
-
-    final eventHits = <_SearchHit>[];
-    for (final item in events ?? const <FandomEventDoc>[]) {
-      if (item.title.trim().isEmpty) continue;
-      final fields = [item.title, item.description, item.city, item.eventType];
-      if (!_hitsQuery(query, fields)) continue;
-
-      var tag = item.dateLabel;
-      if (tag.trim().isEmpty) tag = item.city;
-      if (tag.trim().isEmpty) tag = item.eventType;
-
-      eventHits.add(
-        _SearchHit(
-          title: item.title,
-          tag: tag,
-          colors: [item.color, item.color.withValues(alpha: 0.22)],
-          icon: item.icon,
-          onTap: () => Navigator.pushNamed(
-            context,
-            AppRoutes.eventDetail,
-            arguments: item,
-          ),
-        ),
-      );
-      if (eventHits.length >= _maxHitsPerSection) break;
-    }
-    if (eventHits.isNotEmpty) {
-      sections.add(_SearchSection(title: 'Events', hits: eventHits));
-    }
-
-    final merchHits = <_SearchHit>[];
-    for (final item in merch ?? const <MerchProductDoc>[]) {
-      if (item.name.trim().isEmpty) continue;
-      final fields = [item.name, item.description, item.sellerName];
-      if (!_hitsQuery(query, fields)) continue;
-
-      merchHits.add(
-        _SearchHit(
-          title: item.name,
-          tag: formatPkrPrice(item.priceLabel),
-          colors: [item.color, item.color.withValues(alpha: 0.22)],
-          emoji: item.emoji,
-          onTap: () => Navigator.pushNamed(
-            context,
-            AppRoutes.product,
-            arguments: item,
-          ),
-        ),
-      );
-      if (merchHits.length >= _maxHitsPerSection) break;
-    }
-    if (merchHits.isNotEmpty) {
-      sections.add(_SearchSection(title: 'Merch', hits: merchHits));
-    }
-
-    final postHits = <_SearchHit>[];
-    for (final item in posts ?? const <PostDoc>[]) {
-      if (item.body.trim().isEmpty) continue;
-      final fields = [item.body, item.authorName, item.communityName ?? ''];
-      if (!_hitsQuery(query, fields)) continue;
-
-      var tag = 'Fan post';
-      if (item.communityName?.trim().isNotEmpty ?? false) {
-        tag = item.communityName!;
+        );
+        if (contentHits.length >= cap) break;
       }
-      if (item.authorName.trim().isNotEmpty) tag = item.authorName;
-
-      final communityId = item.communityId ?? '';
-      postHits.add(
-        _SearchHit(
-          title: _postTitle(item),
-          tag: tag,
-          colors: const [Color(0xFFA855F7), Color(0xFF1E0B33)],
-          icon: Icons.forum_rounded,
-          onTap: () {
-            if (communityId.isEmpty) {
-              Navigator.pushNamed(context, AppRoutes.feed);
-            } else {
-              Navigator.pushNamed(
-                context,
-                AppRoutes.communityDetail,
-                arguments: communityId,
-              );
-            }
-          },
-        ),
-      );
-      if (postHits.length >= _maxHitsPerSection) break;
+      if (contentHits.isNotEmpty) {
+        sections.add(
+          _SearchSection(
+            title: browse ? 'Fresh discoveries' : 'Content',
+            hits: contentHits,
+          ),
+        );
+      }
     }
-    if (postHits.isNotEmpty) {
-      sections.add(_SearchSection(title: 'Posts', hits: postHits));
+
+    if (_groupVisible('communities')) {
+      final source = communities ?? const <CommunityDoc>[];
+      // Browse leads with the biggest rooms; typed queries keep source order.
+      final ordered = browse
+          ? ([...source]
+              ..sort((a, b) => b.memberCount.compareTo(a.memberCount)))
+          : source;
+
+      final communityHits = <_SearchHit>[];
+      for (final item in ordered) {
+        if (item.name.trim().isEmpty) continue;
+        final fields = [item.name, item.description];
+        if (!_hitsQuery(query, fields)) continue;
+        if (!_matchesFilter(fields)) continue;
+
+        communityHits.add(
+          _SearchHit(
+            title: item.name,
+            tag: '${item.memberCount} '
+                '${item.memberCount == 1 ? 'member' : 'members'}',
+            colors: [item.color, item.color.withValues(alpha: 0.22)],
+            icon: item.icon,
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.communityDetail,
+              arguments: item.id,
+            ),
+          ),
+        );
+        if (communityHits.length >= cap) break;
+      }
+      if (communityHits.isNotEmpty) {
+        sections.add(
+          _SearchSection(
+            title: browse ? 'Popular communities' : 'Communities',
+            hits: communityHits,
+          ),
+        );
+      }
+    }
+
+    if (_groupVisible('events')) {
+      final eventHits = <_SearchHit>[];
+      for (final item in events ?? const <FandomEventDoc>[]) {
+        if (item.title.trim().isEmpty) continue;
+        final fields = [
+          item.title,
+          item.description,
+          item.city,
+          item.eventType,
+        ];
+        if (!_hitsQuery(query, fields)) continue;
+        if (!_matchesFilter(fields)) continue;
+
+        var tag = item.dateLabel;
+        if (tag.trim().isEmpty) tag = item.city;
+        if (tag.trim().isEmpty) tag = item.eventType;
+
+        eventHits.add(
+          _SearchHit(
+            title: item.title,
+            tag: tag,
+            colors: [item.color, item.color.withValues(alpha: 0.22)],
+            icon: item.icon,
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.eventDetail,
+              arguments: item,
+            ),
+          ),
+        );
+        if (eventHits.length >= cap) break;
+      }
+      if (eventHits.isNotEmpty) {
+        sections.add(
+          _SearchSection(
+            title: browse ? 'Upcoming events' : 'Events',
+            hits: eventHits,
+          ),
+        );
+      }
+    }
+
+    if (_groupVisible('merch')) {
+      final merchHits = <_SearchHit>[];
+      for (final item in merch ?? const <MerchProductDoc>[]) {
+        if (item.name.trim().isEmpty) continue;
+        final fields = [item.name, item.description, item.sellerName];
+        if (!_hitsQuery(query, fields)) continue;
+        if (!_matchesFilter(fields)) continue;
+
+        merchHits.add(
+          _SearchHit(
+            title: item.name,
+            tag: formatPkrPrice(item.priceLabel),
+            colors: [item.color, item.color.withValues(alpha: 0.22)],
+            emoji: item.emoji,
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.product,
+              arguments: item,
+            ),
+          ),
+        );
+        if (merchHits.length >= cap) break;
+      }
+      if (merchHits.isNotEmpty) {
+        sections.add(
+          _SearchSection(
+            title: browse ? 'Fan merch' : 'Merch',
+            hits: merchHits,
+          ),
+        );
+      }
+    }
+
+    if (_groupVisible('posts')) {
+      final postHits = <_SearchHit>[];
+      final postCap = browse ? _maxBrowsePosts : _maxHitsPerSection;
+      for (final item in posts ?? const <PostDoc>[]) {
+        if (item.body.trim().isEmpty) continue;
+        final fields = [item.body, item.authorName, item.communityName ?? ''];
+        if (!_hitsQuery(query, fields)) continue;
+        if (!_matchesFilter(fields)) continue;
+
+        var tag = 'Fan post';
+        if (item.communityName?.trim().isNotEmpty ?? false) {
+          tag = item.communityName!;
+        }
+        if (item.authorName.trim().isNotEmpty) tag = item.authorName;
+
+        final communityId = item.communityId ?? '';
+        postHits.add(
+          _SearchHit(
+            title: _postTitle(item),
+            tag: tag,
+            colors: const [Color(0xFFA855F7), Color(0xFF1E0B33)],
+            icon: Icons.forum_rounded,
+            onTap: () {
+              if (communityId.isEmpty) {
+                Navigator.pushNamed(context, AppRoutes.feed);
+              } else {
+                Navigator.pushNamed(
+                  context,
+                  AppRoutes.communityDetail,
+                  arguments: communityId,
+                );
+              }
+            },
+          ),
+        );
+        if (postHits.length >= postCap) break;
+      }
+      if (postHits.isNotEmpty) {
+        sections.add(
+          _SearchSection(
+            title: browse ? 'Latest posts' : 'Posts',
+            hits: postHits,
+          ),
+        );
+      }
     }
 
     return sections;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/pkr_format.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
@@ -208,7 +209,7 @@ class _CartScreenState extends State<CartScreen> {
                             children: [
                               _SummaryLine(
                                 label: 'Subtotal',
-                                value: '\$${_format(total)}',
+                                value: 'PKR ${_format(total)}',
                               ),
                               const SizedBox(height: 6),
                               const _SummaryLine(
@@ -235,7 +236,7 @@ class _CartScreenState extends State<CartScreen> {
                                     ),
                                   ),
                                   Text(
-                                    '\$${_format(total)}',
+                                    'PKR ${_format(total)}',
                                     style: const TextStyle(
                                       color: AppColors.accent,
                                       fontSize: 21,
@@ -395,7 +396,7 @@ class _CartRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${item.priceLabel} each',
+                  '${formatPkrPrice(item.priceLabel)} each',
                   style: const TextStyle(
                     color: Colors.white54,
                     fontSize: 12,
@@ -418,7 +419,7 @@ class _CartRow extends StatelessWidget {
                     _TinyBtn(icon: Icons.add_rounded, onTap: onInc),
                     const Spacer(),
                     Text(
-                      item.lineTotalLabel,
+                      formatPkrPrice(item.lineTotalLabel),
                       style: const TextStyle(
                         color: AppColors.accent,
                         fontWeight: FontWeight.w800,

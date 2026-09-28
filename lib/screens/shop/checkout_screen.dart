@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/pkr_format.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
@@ -79,7 +80,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           content: Text(
             cod
                 ? 'Order ${id.substring(0, 6).toUpperCase()} is confirmed.\n\n'
-                    'Pay ${_format(_total(items))} in cash when your order arrives.'
+                    'Pay PKR ${_format(_total(items))} in cash when your order arrives.'
                 : 'Order ${id.substring(0, 6).toUpperCase()} is confirmed and paid.',
             style: const TextStyle(color: Colors.white70, height: 1.45),
           ),
@@ -361,7 +362,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             ),
                                           ),
                                           Text(
-                                            i.lineTotalLabel,
+                                            formatPkrPrice(i.lineTotalLabel),
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w700,
@@ -374,7 +375,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   const Divider(color: Colors.white12, height: 16),
                                   _SummaryRow(
                                     label: 'Subtotal',
-                                    value: '\$${_format(total)}',
+                                    value: 'PKR ${_format(total)}',
                                   ),
                                   const SizedBox(height: 6),
                                   const _SummaryRow(
@@ -396,7 +397,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         ),
                                       ),
                                       Text(
-                                        '\$${_format(total)}',
+                                        'PKR ${_format(total)}',
                                         style: const TextStyle(
                                           color: AppColors.accent,
                                           fontSize: 21,
@@ -502,7 +503,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: GlassButton(
                           label: _placing
                               ? 'Placing order…'
-                              : 'Place order · \$${_format(total)}',
+                              : 'Place order · PKR ${_format(total)}',
                           isLoading: _placing,
                           onPressed:
                               _placing ? null : () => _placeOrder(items),

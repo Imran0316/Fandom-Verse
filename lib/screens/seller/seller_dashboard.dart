@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/pkr_format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../models/user_profile.dart';
@@ -196,8 +197,8 @@ class SellerDashboardScreen extends StatelessWidget {
                                           const SizedBox(height: 3),
                                           Text(
                                             m.soldCount > 0
-                                                ? '${m.priceLabel} · ${m.active ? 'Active' : 'Paused'} · ${m.soldCount} sold'
-                                                : '${m.priceLabel} · ${m.active ? 'Active' : 'Paused'}',
+                                                ? '${formatPkrPrice(m.priceLabel)} · ${m.active ? 'Active' : 'Paused'} · ${m.soldCount} sold'
+                                                : '${formatPkrPrice(m.priceLabel)} · ${m.active ? 'Active' : 'Paused'}',
                                             style: TextStyle(
                                               color: m.active
                                                   ? AppColors.accent
@@ -394,7 +395,7 @@ class SellerDashboardScreen extends StatelessWidget {
                       const SizedBox(height: 14),
                       AppTextField(
                         controller: price,
-                        label: 'Price (e.g. \$29)',
+                        label: 'Price (e.g. PKR 2900)',
                         prefixIcon: Icons.attach_money_rounded,
                         validator: (v) =>
                             (v == null || v.trim().isEmpty)
