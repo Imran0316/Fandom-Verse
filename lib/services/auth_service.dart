@@ -8,7 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'user_service.dart';
 
-class AuthService {
+class AuthService with WidgetsBindingObserver {
   AuthService._();
 
   static final AuthService instance = AuthService._();
@@ -37,6 +37,92 @@ class AuthService {
       return user.email!.split('@').first;
     }
     return 'Fan';
+  }
+
+  // ---- Session keep-alive ----
+
+  Timer? _tokenRefreshTimer;
+  StreamSubscription<User?>? _idTokenSubscription;
+  bool _sessionMonitorStarted = false;
+
+  /// Start monitoring the auth session to keep it alive.
+  ///
+  /// Listens to token changes and periodically refreshes the ID token to
+  /// prevent session expiration. The session persists until the user
+  /// manually signs out.
+  void startSessionMonitor() {
+    if (_sessionMonitorStarted) return;
+    if (!firebaseReady) return;
+    _sessionMonitorStarted = true;
+
+    // Listen to idTokenChanges to detect token refreshes and sign-outs
+    _idTokenSubscription = FirebaseAuth.instance.idTokenChanges().listen(
+      (user) {
+        if (user != null) {
+          debugPrint('AuthService: ID token changed for ${user.uid}');
+        } else {
+          debugPrint('AuthService: User signed out');
+          _stopTokenRefresh();
+        }
+      },
+      onError: (error) {
+        debugPrint('AuthService: idTokenChanges error: $error');
+      },
+    );
+
+    // Start periodic token refresh (Firebase tokens expire after 1 hour)
+    _startTokenRefresh();
+
+    // Listen to app lifecycle to refresh token on resume
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Stop monitoring the auth session.
+  void stopSessionMonitor() {
+    _sessionMonitorStarted = false;
+    _idTokenSubscription?.cancel();
+    _idTokenSubscription = null;
+    _stopTokenRefresh();
+    WidgetsBinding.instance.removeObserver(this);
+  }
+
+  void _startTokenRefresh() {
+    _stopTokenRefresh();
+    // Refresh every 50 minutes (tokens expire after 1 hour)
+    _tokenRefreshTimer = Timer.periodic(
+      const Duration(minutes: 50),
+      (_) => _refreshToken(),
+    );
+  }
+
+  void _stopTokenRefresh() {
+    _tokenRefreshTimer?.cancel();
+    _tokenRefreshTimer = null;
+  }
+
+  /// Force-refresh the ID token to keep the session alive.
+  Future<void> _refreshToken() async {
+    if (!firebaseReady) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await user.getIdToken(true);
+      debugPrint('AuthService: Token refreshed successfully');
+    } catch (e) {
+      debugPrint('AuthService: Token refresh failed: $e');
+    }
+  }
+
+  /// Manually refresh the ID token. Useful before making API calls that
+  /// require a fresh token.
+  Future<void> refreshToken() => _refreshToken();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh token when app comes back to foreground
+      _refreshToken();
+    }
   }
 
   Never _notConfigured() {
