@@ -13,6 +13,7 @@ Future<void> main() async {
       Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
           .then((_) {
             AuthService.firebaseReady = true;
+            AuthService.instance.startSessionMonitor();
             return NotificationService.instance.initialize();
           })
           .catchError((_) {
