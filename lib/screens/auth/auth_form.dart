@@ -1,4 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuthException;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
@@ -62,6 +65,7 @@ class _AuthFormState extends State<AuthForm>
 
   void _showMessage(String message) {
     if (!mounted) return;
+    if (message.isEmpty) return; // Silenced user-cancel paths.
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
@@ -71,6 +75,67 @@ class _AuthFormState extends State<AuthForm>
     final text = error.toString();
     if (text.contains('firebase-not-configured')) {
       return 'Firebase is not connected yet — run flutterfire configure first.';
+    }
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'account-exists-with-different-credential':
+        case 'credential-already-in-use':
+          return 'This email already has an account. Sign in with your '
+              'password — Google will be linked automatically.';
+        case 'account-exists-with-password':
+          return error.message ??
+              'This email is registered with a password. Sign in with your '
+                  'password once — Google will be linked automatically.';
+        case 'google-no-id-token':
+          return error.message ??
+              'Google sign-in is not configured for this device yet. '
+                  'Contact support if this keeps happening.';
+        case 'network-request-failed':
+          return 'No internet connection. Check your network and try again.';
+        case 'too-many-requests':
+          return 'Too many attempts. Please wait a moment and try again.';
+        case 'operation-not-allowed':
+          return 'Google sign-in is not enabled for this app yet.';
+        case 'user-disabled':
+          return 'This account has been disabled.';
+        case 'popup-closed-by-user':
+        case 'popup-blocked':
+          return 'The sign-in window was closed before finishing.';
+        case 'invalid-credential':
+        case 'id-token-failed':
+          return 'Google sign-in failed to verify. If this persists, the '
+              'app fingerprint may not be registered — try updating the app.';
+      }
+    }
+    if (error is GoogleSignInException) {
+      switch (error.code) {
+        case GoogleSignInExceptionCode.canceled:
+        case GoogleSignInExceptionCode.interrupted:
+          return ''; // User closed the sheet — not an error worth a snack.
+        case GoogleSignInExceptionCode.uiUnavailable:
+          return 'Google Sign-In is unavailable on this device.';
+        default:
+          return 'Google Sign-In failed (${error.code.name.replaceAll('-', ' ')}). '
+              'If this persists, the app fingerprint may need to be registered.';
+      }
+    }
+    if (error is PlatformException) {
+      // google_sign_in Android surfaces API errors like "ApiException: 10"
+      // (DEVELOPER_ERROR — SHA-1 not registered in the Firebase console).
+      if (error.code == 'google_sign_in_canceled' ||
+          error.details == 'canceled') {
+        return '';
+      }
+      if (error.code == '10' ||
+          text.contains('ApiException: 10') ||
+          error.message?.contains('ApiException: 10') == true) {
+        return 'Google sign-in is not configured for this build. The app '
+            'fingerprint must be registered in the Firebase console.';
+      }
+    }
+    if (text.contains('MissingPluginException')) {
+      return 'Google Sign-In is not supported on this platform. Please use '
+          'email and password.';
     }
     if (text.contains(']')) {
       final code = text.substring(text.indexOf(']') + 1).trim();
