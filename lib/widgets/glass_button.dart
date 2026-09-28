@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'glass_container.dart';
+import 'liquid_glass.dart';
 
-enum GlassButtonVariant { primary, outline }
+enum GlassButtonVariant { primary, outline, sleek }
 
 class GlassButton extends StatefulWidget {
   const GlassButton({
@@ -12,7 +13,7 @@ class GlassButton extends StatefulWidget {
     this.variant = GlassButtonVariant.primary,
     this.isLoading = false,
     this.icon,
-    this.height = 58,
+    this.height,
   });
 
   final String label;
@@ -20,7 +21,7 @@ class GlassButton extends StatefulWidget {
   final GlassButtonVariant variant;
   final bool isLoading;
   final IconData? icon;
-  final double height;
+  final double? height;
 
   @override
   State<GlassButton> createState() => _GlassButtonState();
@@ -34,14 +35,16 @@ class _GlassButtonState extends State<GlassButton> {
   @override
   Widget build(BuildContext context) {
     final isPrimary = widget.variant == GlassButtonVariant.primary;
+    final isSleek = widget.variant == GlassButtonVariant.sleek;
+    final height = widget.height ?? (isSleek ? 52 : 58);
 
     final label = Text(
       widget.label,
       style: TextStyle(
         color: Colors.white,
-        fontSize: isPrimary ? 17 : 15.5,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.4,
+        fontSize: isSleek ? 16 : (isPrimary ? 17 : 15.5),
+        fontWeight: isSleek ? FontWeight.w600 : FontWeight.w800,
+        letterSpacing: isSleek ? -0.1 : 0.4,
       ),
     );
 
@@ -66,6 +69,49 @@ class _GlassButtonState extends State<GlassButton> {
       ],
     );
 
+    final Widget surface;
+    if (isPrimary) {
+      surface = child;
+    } else if (isSleek) {
+      surface = LiquidGlass(
+        radius: 999,
+        blur: 16,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.07),
+          ],
+        ),
+        borderColor: Colors.white.withValues(alpha: 0.26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: child,
+      );
+    } else {
+      surface = GlassContainer(
+        blur: 20,
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.12),
+            Colors.white.withValues(alpha: 0.04),
+          ],
+        ),
+        borderColor: Colors.white.withValues(alpha: 0.3),
+        child: child,
+      );
+    }
+
     return GestureDetector(
       onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
       onTapUp: _enabled
@@ -80,26 +126,11 @@ class _GlassButtonState extends State<GlassButton> {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: Opacity(
-          opacity: _enabled ? 1 : 0.55,
+          opacity: _enabled ? 1 : (isSleek ? 0.45 : 0.55),
           child: SizedBox(
-            height: widget.height,
+            height: height,
             width: double.infinity,
-            child: isPrimary
-                ? child
-                : GlassContainer(
-                    blur: 20,
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.12),
-                        Colors.white.withValues(alpha: 0.04),
-                      ],
-                    ),
-                    borderColor: Colors.white.withValues(alpha: 0.3),
-                    child: child,
-                  ),
+            child: surface,
           ),
         ),
       ),

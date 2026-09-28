@@ -12,7 +12,10 @@ import '../../widgets/liquid_glass.dart';
 enum _EventsView { list, calendar }
 
 class EventListScreen extends StatefulWidget {
-  const EventListScreen({super.key});
+  const EventListScreen({super.key, this.eventsStream});
+
+  /// Test seam: defaults to the live upcoming-events stream.
+  final Stream<List<FandomEventDoc>>? eventsStream;
 
   @override
   State<EventListScreen> createState() => _EventListScreenState();
@@ -36,7 +39,8 @@ class _EventListScreenState extends State<EventListScreen> {
   @override
   void initState() {
     super.initState();
-    _eventsStream = EventService.instance.watchUpcoming();
+    _eventsStream =
+        widget.eventsStream ?? EventService.instance.watchUpcoming();
     _requestLocation();
   }
 
@@ -718,7 +722,10 @@ class _EventListItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: LiquidGlass(
         radius: 18,
-        blur: 16,
+        // The list sits on a flat background where a backdrop blur is a
+        // visual no-op but re-reads the screen for every card every frame —
+        // the main source of scroll jank on this page.
+        blur: 0,
         gradient: LinearGradient(
           colors: [
             event.color.withValues(alpha: 0.25),
@@ -762,29 +769,35 @@ class _EventListItem extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (event.hasLocation) ...[
-                            const SizedBox(width: 8),
+                        ],
+                      ),
+                      if (event.hasLocation) ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
                             const Icon(
                               Icons.location_on_rounded,
                               color: Colors.white54,
                               size: 12,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              event.locationLabel.isEmpty
-                                  ? event.city
-                                  : event.locationLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                            Flexible(
+                              child: Text(
+                                event.locationLabel.isEmpty
+                                    ? event.city
+                                    : event.locationLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],
-                        ],
-                      ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Text(
                         event.title,

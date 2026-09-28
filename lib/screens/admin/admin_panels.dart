@@ -436,7 +436,8 @@ class CategoriesPanel extends StatelessWidget {
           child: StreamBuilder<List<FandomDoc>>(
             stream: TaxonomyService.instance.watchFandoms(),
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
+              if (snap.connectionState == ConnectionState.waiting &&
+                  snap.data == null) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
@@ -460,7 +461,7 @@ class CategoriesPanel extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: LiquidGlass(
                       radius: 16,
-                      blur: 18,
+                      blur: 0,
                       gradient: LinearGradient(
                         colors: [
                           c.color.withValues(alpha: 0.2),
@@ -529,7 +530,7 @@ class CategoriesPanel extends StatelessWidget {
                                 ),
                               );
                               if (ok == true) {
-                                await CatalogService.instance.deleteCategory(
+                                await TaxonomyService.instance.deleteFandom(
                                   c.id,
                                 );
                               }
@@ -936,7 +937,8 @@ class EventsPanel extends StatelessWidget {
           child: StreamBuilder<List<FandomEventDoc>>(
             stream: CatalogService.instance.watchEvents(activeOnly: false),
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
+              if (snap.connectionState == ConnectionState.waiting &&
+                  snap.data == null) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
@@ -958,7 +960,7 @@ class EventsPanel extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: LiquidGlass(
                       radius: 16,
-                      blur: 18,
+                      blur: 0,
                       gradient: LinearGradient(
                         colors: [
                           e.color.withValues(alpha: 0.35),
@@ -1258,7 +1260,8 @@ class MerchAdminPanel extends StatelessWidget {
           child: StreamBuilder<List<MerchProductDoc>>(
             stream: CatalogService.instance.watchMerch(activeOnly: false),
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
+              if (snap.connectionState == ConnectionState.waiting &&
+                  snap.data == null) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
@@ -1284,7 +1287,7 @@ class MerchAdminPanel extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: LiquidGlass(
                       radius: 16,
-                      blur: 18,
+                      blur: 0,
                       gradient: LinearGradient(
                         colors: [
                           Colors.white.withValues(

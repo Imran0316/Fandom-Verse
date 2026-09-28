@@ -28,6 +28,7 @@ import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/follow_requests_screen.dart';
 import 'screens/profile/notifications_screen.dart';
 import 'screens/profile/user_profile_screen.dart';
+import 'screens/reels/create_reel_screen.dart';
 import 'screens/seller/seller_dashboard.dart';
 import 'screens/shop/cart_screen.dart';
 import 'screens/shop/checkout_screen.dart';
@@ -145,6 +146,13 @@ class FandomVerseApp extends StatelessWidget {
           case AppRoutes.eventDetail:
             page = const EventDetailScreen();
             break;
+          case AppRoutes.createReel:
+            page = CreateReelScreen(
+              initialCommunity: settings.arguments is CommunityDoc
+                  ? settings.arguments as CommunityDoc
+                  : null,
+            );
+            break;
           case AppRoutes.contentDetail:
             final detailArgs = settings.arguments;
             if (detailArgs is ContentDetailArgs) {
@@ -208,6 +216,7 @@ class FandomVerseApp extends StatelessWidget {
             name == AppRoutes.interestsEditor ||
             name == AppRoutes.createCommunity ||
             name == AppRoutes.editCommunity ||
+            name == AppRoutes.createReel ||
             name == AppRoutes.followRequests ||
             name == AppRoutes.cart ||
             name == AppRoutes.checkout ||

@@ -18,7 +18,8 @@ class OrdersScreen extends StatelessWidget {
           child: StreamBuilder<List<OrderDoc>>(
             stream: CartService.instance.watchMyOrders(),
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
+              if (snap.connectionState == ConnectionState.waiting &&
+                  snap.data == null) {
                 return const Scaffold(
                   backgroundColor: AppColors.backgroundDeep,
                   body: Center(child: CircularProgressIndicator()),
@@ -110,6 +111,7 @@ class OrdersScreen extends StatelessWidget {
                     else
                       Expanded(
                         child: ListView.separated(
+                          key: const PageStorageKey<String>('orders_list'),
                           physics: const BouncingScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                           itemCount: orders.length,
@@ -146,7 +148,7 @@ class _OrderCard extends StatelessWidget {
 
     return LiquidGlass(
       radius: 18,
-      blur: 20,
+      blur: 0,
       padding: const EdgeInsets.all(16),
       gradient: LinearGradient(
         colors: [
@@ -317,8 +319,68 @@ class _OrderCard extends StatelessWidget {
               style: const TextStyle(color: Colors.white38, fontSize: 11.5),
             ),
           ],
+          if (order.status == OrderStatus.pending) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _confirmCancel(context),
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: const Text('Cancel order'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFFF6B6B),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _confirmCancel(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xF2101018),
+        title: const Text(
+          'Cancel order?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Order ${order.id.substring(0, 6).toUpperCase()} will be '
+          'cancelled. This cannot be undone.',
+          style: const TextStyle(color: Colors.white70, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Cancel order',
+              style: TextStyle(color: Color(0xFFFF6B6B)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await CartService.instance.cancelOrder(order.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order cancelled.')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 }

@@ -152,6 +152,35 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  /// Edit dialog for own posts: same multiline field and empty-body rule as
+  /// the composers (an image-only post may keep an empty body).
+  Future<void> _editPost() async {
+    final post = widget.post;
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => _EditPostDialog(
+        initialBody: post.body,
+        hasImage: post.imageUrl?.isNotEmpty == true,
+      ),
+    );
+    if (text == null || !mounted) return;
+    try {
+      await PostService.instance.updatePost(post.id, text);
+      widget.onChanged?.call();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post updated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
@@ -161,7 +190,7 @@ class _PostCardState extends State<PostCard> {
 
     return LiquidGlass(
       radius: 18,
-      blur: 22,
+      blur: 0,
       gradient: LinearGradient(
         colors: [
           Colors.white.withValues(alpha: 0.1),
@@ -278,7 +307,11 @@ class _PostCardState extends State<PostCard> {
                   ),
                   color: const Color(0xFF1A1A22),
                   onSelected: (v) async {
+                    if (v == 'edit') {
+                      await _editPost();
+                    }
                     if (v == 'delete') {
+                      if (!context.mounted) return;
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -313,6 +346,13 @@ class _PostCardState extends State<PostCard> {
                     }
                   },
                   itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Text(
+                        'Edit post',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'delete',
                       child: Text(
@@ -452,6 +492,7 @@ class _PostCardState extends State<PostCard> {
                         key: ValueKey(c.id),
                         postId: widget.post.id,
                         comment: c,
+                        onChanged: widget.onChanged,
                       ),
                   ],
                 );
@@ -657,15 +698,89 @@ String _timeLabel(DateTime? at) {
   return '${at.month}/${at.day}/${at.year}';
 }
 
+/// Body editor used by the post's overflow menu. Owns its controller so it
+/// outlives the dialog's exit animation, and pops the edited text on save.
+class _EditPostDialog extends StatefulWidget {
+  const _EditPostDialog({
+    required this.initialBody,
+    required this.hasImage,
+  });
+
+  final String initialBody;
+  final bool hasImage;
+
+  @override
+  State<_EditPostDialog> createState() => _EditPostDialogState();
+}
+
+class _EditPostDialogState extends State<_EditPostDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialBody);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A22),
+      title: const Text(
+        'Edit post',
+        style: TextStyle(color: Colors.white),
+      ),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        minLines: 1,
+        maxLines: 4,
+        style: const TextStyle(color: Colors.white, fontSize: 14.5),
+        decoration: const InputDecoration(
+          hintText: "What's hype in your fandom?",
+          hintStyle: TextStyle(color: Colors.white38),
+          border: InputBorder.none,
+          isDense: true,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            final text = _controller.text.trim();
+            if (text.isEmpty && !widget.hasImage) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Post cannot be empty.')),
+              );
+              return;
+            }
+            Navigator.pop(context, _controller.text);
+          },
+          child: const Text(
+            'Save',
+            style: TextStyle(color: AppColors.accent),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CommentTile extends StatefulWidget {
   const _CommentTile({
     super.key,
     required this.postId,
     required this.comment,
+    this.onChanged,
   });
 
   final String postId;
   final PostCommentDoc comment;
+  final VoidCallback? onChanged;
 
   @override
   State<_CommentTile> createState() => _CommentTileState();
@@ -817,9 +932,71 @@ class _CommentTileState extends State<_CommentTile> {
     Navigator.pushNamed(context, '/user-profile', arguments: uid);
   }
 
+  Future<bool> _confirmDelete(String title) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'This cannot be undone.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Color(0xFFFF6B6B)),
+            ),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _deleteComment() async {
+    if (!await _confirmDelete('Delete comment?')) return;
+    if (!mounted) return;
+    try {
+      await PostService.instance.deleteComment(
+        widget.postId,
+        widget.comment.id,
+      );
+      widget.onChanged?.call();
+    } catch (e) {
+      _snack('Delete failed: $e');
+    }
+  }
+
+  Future<void> _deleteReply(PostCommentDoc reply) async {
+    if (!await _confirmDelete('Delete reply?')) return;
+    if (!mounted) return;
+    try {
+      await PostService.instance.deleteReply(
+        widget.postId,
+        widget.comment.id,
+        reply.id,
+      );
+      widget.onChanged?.call();
+    } catch (e) {
+      _snack('Delete failed: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = widget.comment;
+    final myUid = AuthService.instance.currentUser?.uid;
+    final isOwn = myUid != null && c.authorUid == myUid;
     final initial =
         (c.authorName.isNotEmpty ? c.authorName.characters.first : '?')
             .toUpperCase();
@@ -1197,6 +1374,23 @@ class _CommentTileState extends State<_CommentTile> {
                                           ],
                                         ),
                                       ),
+                                      if (myUid != null && r.authorUid == myUid)
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => _deleteReply(r),
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              left: 6,
+                                              top: 2,
+                                            ),
+                                            child: Icon(
+                                              Icons.delete_outline_rounded,
+                                              size: 13,
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.45),
+                                            ),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -1300,6 +1494,19 @@ class _CommentTileState extends State<_CommentTile> {
                   ],
                 ),
               ),
+              if (isOwn)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _deleteComment,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 6, top: 4),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 15,
+                      color: Colors.white.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
             ],
           ),
         ],

@@ -201,4 +201,23 @@ class CartService {
     await clearCart();
     return ref.id;
   }
+
+  Future<void> cancelOrder(String orderId) async {
+    final uid = _uid;
+    if (!_ready || uid == null) throw StateError('Sign in required.');
+    final ref = _orders.doc(orderId);
+    final snap = await ref.get();
+    if (!snap.exists) throw StateError('Order not found.');
+    final order = OrderDoc.fromDoc(snap);
+    if (order.buyerUid != uid) {
+      throw StateError('You can only cancel your own orders.');
+    }
+    if (order.status != OrderStatus.pending) {
+      throw StateError('This order can no longer be cancelled.');
+    }
+    await ref.update({
+      'status': OrderStatus.cancelled.name,
+      'cancelledAt': FieldValue.serverTimestamp(),
+    });
+  }
 }

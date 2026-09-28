@@ -78,7 +78,8 @@ class SellerDashboardScreen extends StatelessWidget {
                   child: StreamBuilder<List<MerchProductDoc>>(
                     stream: CatalogService.instance.watchSellerMerch(uid),
                     builder: (context, snap) {
-                      if (snap.connectionState == ConnectionState.waiting) {
+                      if (snap.connectionState == ConnectionState.waiting &&
+                          snap.data == null) {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (snap.hasError) {
@@ -110,6 +111,7 @@ class SellerDashboardScreen extends StatelessWidget {
                         );
                       }
                       return ListView.builder(
+                        key: const PageStorageKey<String>('seller_listings'),
                         physics: const BouncingScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                         itemCount: items.length,
@@ -122,7 +124,7 @@ class SellerDashboardScreen extends StatelessWidget {
                                   _showProductSheet(context, uid, existing: m),
                               child: LiquidGlass(
                                 radius: 18,
-                                blur: 20,
+                                blur: 0,
                                 gradient: LinearGradient(
                                   colors: [
                                     Colors.white.withValues(alpha: 0.12),

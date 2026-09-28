@@ -108,6 +108,21 @@ class PostService {
     await batch.commit();
   }
 
+  Future<void> updatePost(String postId, String body) async {
+    final uid = _uid;
+    if (!_ready || uid == null) throw StateError('Sign in required.');
+    final text = body.trim();
+    final snap = await _doc(postId).get();
+    final imageUrl = snap.data()?['imageUrl'] as String?;
+    if (text.isEmpty && (imageUrl == null || imageUrl.isEmpty)) {
+      throw ArgumentError('Post cannot be empty.');
+    }
+    await _doc(postId).update({
+      'body': text,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> deletePost(String postId) async {
     final snap = await _doc(postId).get();
     final communityId = snap.data()?['communityId'] as String?;

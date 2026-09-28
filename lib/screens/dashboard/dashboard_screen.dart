@@ -27,6 +27,7 @@ import '../communities/post_card.dart';
 import '../content/content_detail_screen.dart';
 import '../content/discovery_sections.dart';
 import '../reels/reels_tab.dart';
+import 'trending_tab.dart';
 
 String _normalizeFandomKey(String? value) => (value ?? '').trim().toLowerCase();
 
@@ -129,16 +130,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               SafeArea(
                 bottom: false,
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: const [
-                    _HomeTab(),
-                    _TrendingTab(),
-                    _SearchTab(),
-                    ReelsTab(),
-                    _ProfileTab(),
-                  ],
-                ),
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  const _HomeTab(),
+                  TrendingTab(onOpenReels: () => _onSelected(3)),
+                  const _SearchTab(),
+                  const ReelsTab(),
+                  const _ProfileTab(),
+                ],
+              ),
               ),
               Positioned(
                 left: 0,
@@ -185,10 +186,17 @@ class _HomeTabState extends State<_HomeTab> {
   final _notifications = StreamCache<List<NotificationDoc>>(
     () => NotificationService.instance.watch(),
   );
+  final _events = StreamCache<List<FandomEventDoc>>(
+    () => CatalogService.instance.watchUpcomingEvents(),
+  );
+  final _merch = StreamCache<List<MerchProductDoc>>(
+    () => CatalogService.instance.watchMerch(),
+  );
 
   @override
   Widget build(BuildContext context) {
     return ListView(
+      key: const PageStorageKey<String>('home_feed'),
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 130),
       children: [
@@ -219,6 +227,7 @@ class _HomeTabState extends State<_HomeTab> {
             return SizedBox(
               height: 122,
               child: ListView.separated(
+                key: const PageStorageKey<String>('home_communities_rail'),
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 physics: const BouncingScrollPhysics(),
@@ -267,6 +276,9 @@ class _HomeTabState extends State<_HomeTab> {
                     SizedBox(
                       height: 214,
                       child: ListView.separated(
+                        key: const PageStorageKey<String>(
+                          'home_recommended_rail',
+                        ),
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         physics: const BouncingScrollPhysics(),
@@ -337,7 +349,7 @@ class _HomeTabState extends State<_HomeTab> {
         LatestDiscoveriesSection(stream: _published()),
         const SizedBox(height: 34),
         StreamBuilder<List<FandomEventDoc>>(
-          stream: CatalogService.instance.watchUpcomingEvents(),
+          stream: _events(),
           builder: (context, snap) {
             final events = (snap.data ?? const <FandomEventDoc>[])
                 .take(6)
@@ -355,6 +367,7 @@ class _HomeTabState extends State<_HomeTab> {
                 SizedBox(
                   height: 150,
                   child: ListView.separated(
+                    key: const PageStorageKey<String>('home_events_rail'),
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     physics: const BouncingScrollPhysics(),
@@ -370,7 +383,7 @@ class _HomeTabState extends State<_HomeTab> {
         ),
         const SizedBox(height: 34),
         StreamBuilder<List<MerchProductDoc>>(
-          stream: CatalogService.instance.watchMerch(),
+          stream: _merch(),
           builder: (context, snap) {
             final merch = (snap.data ?? const <MerchProductDoc>[])
                 .take(8)
@@ -388,6 +401,7 @@ class _HomeTabState extends State<_HomeTab> {
                 SizedBox(
                   height: 238,
                   child: ListView.separated(
+                    key: const PageStorageKey<String>('home_merch_rail'),
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     physics: const BouncingScrollPhysics(),
@@ -477,7 +491,7 @@ class _TopBarAction extends StatelessWidget {
         children: [
           LiquidGlass(
             radius: 16,
-            blur: 20,
+            blur: 0,
             padding: const EdgeInsets.all(10),
             gradient: LinearGradient(
               colors: [
@@ -539,7 +553,7 @@ class _EventCardDoc extends StatelessWidget {
           Navigator.pushNamed(context, AppRoutes.eventDetail, arguments: event),
       child: LiquidGlass(
         radius: 20,
-        blur: 26,
+        blur: 0,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -669,7 +683,7 @@ class _MerchCardDoc extends StatelessWidget {
         width: 162,
         child: LiquidGlass(
           radius: 24,
-          blur: 26,
+          blur: 0,
           padding: const EdgeInsets.all(7),
           gradient: LinearGradient(
             colors: [
@@ -936,7 +950,7 @@ class _PosterCard extends StatelessWidget {
       onTap: onTap,
       child: LiquidGlass(
         radius: 18,
-        blur: 18,
+        blur: 0,
         borderColor: Colors.white.withValues(alpha: 0.16),
         boxShadow: [
           BoxShadow(
@@ -1017,74 +1031,6 @@ class _PosterCard extends StatelessWidget {
 
 /* -------------------------------- TRENDING -------------------------------- */
 
-class _TrendingTab extends StatelessWidget {
-  const _TrendingTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ...MockCatalog.recommended,
-      ...MockCatalog.trending.map(
-        (t) => MediaTitle(
-          title: t.title,
-          tag: t.category,
-          colors: t.colors,
-          emoji: t.emoji,
-        ),
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-          child: Text(
-            'Trending Now',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Text(
-            'What the verse is buzzing about this week',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-          ),
-        ),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final cols = constraints.maxWidth > 360 ? 2 : 2;
-              return GridView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
-                physics: const BouncingScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: cols,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 0.7,
-                ),
-                itemCount: items.length,
-                itemBuilder: (context, i) => _PosterCard(
-                  item: items[i],
-                  width: double.infinity,
-                  onTap: () => ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(items[i].title))),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /* --------------------------------- SEARCH --------------------------------- */
 
 class _SearchTab extends StatefulWidget {
@@ -1153,9 +1099,9 @@ class _SearchTabState extends State<_SearchTab> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: LiquidGlass(
+          child:           LiquidGlass(
             radius: 16,
-            blur: 20,
+            blur: 0,
             child: TextField(
               controller: _controller,
               onChanged: (v) => setState(() => _query = v.trim()),
@@ -1282,7 +1228,7 @@ class _CompactCommunityCard extends StatelessWidget {
         width: 112,
         child: LiquidGlass(
           radius: 20,
-          blur: 20,
+          blur: 0,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           gradient: LinearGradient(
             colors: [
@@ -1938,7 +1884,7 @@ class _ProfileTab extends StatelessWidget {
                               },
                         child: LiquidGlass(
                           radius: 16,
-                          blur: 18,
+                          blur: 0,
                           gradient: const LinearGradient(
                             colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
                           ),
@@ -2064,7 +2010,7 @@ class _SignOutButtonState extends State<_SignOutButton> {
         opacity: _busy ? 0.7 : 1,
         child: LiquidGlass(
           radius: 16,
-          blur: 20,
+          blur: 0,
           gradient: LinearGradient(
             colors: [
               AppColors.primary.withValues(alpha: 0.35),
@@ -2181,7 +2127,7 @@ class _SellerUpgradeCard extends StatelessWidget {
       onTap: onUpgrade,
       child: LiquidGlass(
         radius: 20,
-        blur: 26,
+        blur: 0,
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -2331,7 +2277,7 @@ class _ProfileTile extends StatelessWidget {
         onTap: onTap,
         child: LiquidGlass(
           radius: 16,
-          blur: 22,
+          blur: 0,
           gradient: LinearGradient(
             colors: [
               Colors.white.withValues(alpha: 0.12),

@@ -203,7 +203,7 @@ class _CommunityTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlass(
       radius: 18,
-      blur: 22,
+      blur: 0,
       gradient: LinearGradient(
         colors: [
           community.color.withValues(alpha: 0.2),

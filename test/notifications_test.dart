@@ -35,6 +35,7 @@ void main() {
     expect(find.text("You're all caught up"), findsOneWidget);
     // Nothing unread — the bulk action stays hidden.
     expect(find.text('Mark all read'), findsNothing);
+    expect(find.text('Clear'), findsNothing);
     expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

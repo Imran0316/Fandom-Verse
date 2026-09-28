@@ -12,6 +12,7 @@ ContentDoc _doc({
   ContentStatus status = ContentStatus.published,
   DateTime? publishedAt,
   List<String> tags = const [],
+  String? videoUrl,
 }) {
   return ContentDoc(
     id: 'c1',
@@ -25,6 +26,7 @@ ContentDoc _doc({
     tags: tags,
     fandomName: 'Anime',
     categoryName: 'Trivia',
+    videoUrl: videoUrl,
   );
 }
 
@@ -97,6 +99,17 @@ void main() {
       expect(map['isFeatured'], isFalse);
       expect(map['isTrending'], isFalse);
       expect(map.containsKey('createdBy'), isTrue);
+    });
+
+    test('videoUrl round-trips through toMap only when set', () {
+      expect(_doc().toMap().containsKey('videoUrl'), isFalse);
+      expect(_doc(videoUrl: '').toMap().containsKey('videoUrl'), isFalse);
+      expect(_doc(videoUrl: '   ').toMap().containsKey('videoUrl'), isFalse);
+
+      final map = _doc(
+        videoUrl: ' https://cdn.example.com/clip.mp4 ',
+      ).toMap();
+      expect(map['videoUrl'], 'https://cdn.example.com/clip.mp4');
     });
   });
 

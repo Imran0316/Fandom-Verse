@@ -83,6 +83,7 @@ class ContentService {
     required bool isFeatured,
     required bool isTrending,
     String? coverImageUrl,
+    String? videoUrl,
   }) async {
     final uid = AuthService.instance.currentUser?.uid ?? '';
     final doc = ContentDoc(
@@ -95,6 +96,7 @@ class ContentService {
       answer: answer,
       explanation: explanation,
       coverImageUrl: coverImageUrl,
+      videoUrl: videoUrl,
       fandomId: fandomId,
       fandomName: fandomName,
       categoryId: categoryId,
@@ -139,6 +141,7 @@ class ContentService {
     required bool isFeatured,
     required bool isTrending,
     String? coverImageUrl,
+    String? videoUrl,
     DateTime? existingPublishedAt,
   }) async {
     final data = <String, dynamic>{
@@ -152,6 +155,8 @@ class ContentService {
       'coverImageUrl': (coverImageUrl ?? '').trim().isEmpty
           ? null
           : coverImageUrl!.trim(),
+      // Clearing the field in the editor removes the video from the doc.
+      'videoUrl': (videoUrl ?? '').trim().isEmpty ? null : videoUrl!.trim(),
       'fandomId': fandomId,
       'fandomName': fandomName,
       'categoryId': categoryId,

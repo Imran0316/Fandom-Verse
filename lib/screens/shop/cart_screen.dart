@@ -195,7 +195,7 @@ class _CartScreenState extends State<CartScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                         child: LiquidGlass(
                           radius: 20,
-                          blur: 22,
+                          blur: 0,
                           padding: const EdgeInsets.all(16),
                           gradient: LinearGradient(
                             colors: [
@@ -335,7 +335,7 @@ class _CartRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlass(
       radius: 16,
-      blur: 20,
+      blur: 0,
       padding: const EdgeInsets.all(12),
       gradient: LinearGradient(
         colors: [

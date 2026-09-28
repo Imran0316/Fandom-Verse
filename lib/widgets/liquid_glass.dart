@@ -32,6 +32,16 @@ class LiquidGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final border = borderColor ?? Colors.white.withValues(alpha: 0.14);
 
+    final surface = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        color: gradient == null ? tint : null,
+        gradient: gradient,
+      ),
+      child: child,
+    );
+
     return Container(
       margin: margin,
       clipBehavior: clipBehavior,
@@ -47,18 +57,14 @@ class LiquidGlass extends StatelessWidget {
               ),
             ],
       ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(radius),
-            color: gradient == null ? tint : null,
-            gradient: gradient,
-          ),
-          child: child,
-        ),
-      ),
+      // A blur over a flat background is visually a no-op but costs a full
+      // backdrop readback per frame — skip the layer entirely when blur <= 0.
+      child: blur > 0
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: surface,
+            )
+          : surface,
     );
   }
 }

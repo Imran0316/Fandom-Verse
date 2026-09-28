@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
-import '../../widgets/liquid_glass.dart';
+import '../../widgets/glass_button.dart';
 import '../auth/auth_form.dart';
 
 /// Background slides for the Get Started carousel (files under lib/assets/images/).
@@ -316,117 +316,18 @@ class _LandingContent extends StatelessWidget {
   }
 }
 
-class _GlowGetStartedButton extends StatefulWidget {
+class _GlowGetStartedButton extends StatelessWidget {
   const _GlowGetStartedButton({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
-  State<_GlowGetStartedButton> createState() => _GlowGetStartedButtonState();
-}
-
-class _GlowGetStartedButtonState extends State<_GlowGetStartedButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2200),
-  )..repeat(reverse: true);
-
-  bool _pressed = false;
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      child: AnimatedBuilder(
-        animation: _pulse,
-        builder: (context, child) {
-          final glow = 0.35 + _pulse.value * 0.35;
-          final scale = _pressed ? 0.96 : 1.0;
-
-          return AnimatedScale(
-            scale: scale,
-            duration: const Duration(milliseconds: 120),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: glow * 0.55),
-                    blurRadius: 32,
-                    spreadRadius: 1,
-                  ),
-                  BoxShadow(
-                    color: AppColors.accent.withValues(alpha: glow * 0.25),
-                    blurRadius: 48,
-                    spreadRadius: 4,
-                  ),
-                ],
-              ),
-              child: LiquidGlass(
-                radius: 999,
-                blur: 18,
-                tint: const Color(0x33FFFFFF),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.28),
-                    Colors.white.withValues(alpha: 0.1),
-                    AppColors.primary.withValues(alpha: 0.45),
-                    AppColors.primaryDark.withValues(alpha: 0.35),
-                  ],
-                  stops: const [0, 0.4, 0.75, 1],
-                ),
-                borderColor: Colors.white.withValues(alpha: 0.4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 22,
-                    offset: const Offset(0, 14),
-                  ),
-                ],
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 52,
-                  vertical: 18,
-                ),
-                child: child ?? const SizedBox.shrink(),
-              ),
-            ),
-          );
-        },
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Get Started',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-              ),
-            ),
-            SizedBox(width: 10),
-            Icon(
-              Icons.arrow_forward_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
+    return GlassButton(
+      label: 'Get Started',
+      variant: GlassButtonVariant.sleek,
+      icon: Icons.arrow_forward_rounded,
+      onPressed: onTap,
     );
   }
 }
