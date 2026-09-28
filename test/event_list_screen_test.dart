@@ -99,4 +99,26 @@ void main() {
     expect(find.text('Ek Khaas Shaam'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('calendar view fits a 360x640 screen without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    _mockGeolocator(tester);
+    await _pumpEvents(tester);
+
+    await tester.tap(
+      find.byIcon(Icons.calendar_month_rounded),
+      warnIfMissed: true,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+
+    expect(find.byIcon(Icons.chevron_left_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(find.textContaining('No events'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -5,9 +5,12 @@ import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/post_docs.dart';
+import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/image_upload_service.dart';
 import '../../services/post_service.dart';
+import '../../services/stream_cache.dart';
+import '../../services/user_service.dart';
 import '../../widgets/expandable_text.dart';
 import '../../widgets/gif_picker.dart';
 import '../../widgets/image_viewer.dart';
@@ -236,17 +239,9 @@ class _PostCardState extends State<PostCard> {
                                 const Icon(Icons.person_rounded,
                                     color: Colors.white, size: 20),
                           )
-                        : Center(
-                            child: Text(
-                              (post.authorName.isNotEmpty
-                                      ? post.authorName.characters.first
-                                      : '?')
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+                        : _AuthorAvatarImage(
+                            uid: post.authorUid,
+                            name: post.authorName,
                           ),
                   ),
                 ),
@@ -1606,6 +1601,64 @@ class _ActionChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Author avatar used when the post doc has no stored `authorAvatarUrl`
+/// (posts created before the avatar field was wired up): resolves the
+/// author's profile once through a cached stream and falls back to the
+/// initial letter while loading or unavailable.
+class _AuthorAvatarImage extends StatefulWidget {
+  const _AuthorAvatarImage({required this.uid, required this.name});
+
+  final String uid;
+  final String name;
+
+  @override
+  State<_AuthorAvatarImage> createState() => _AuthorAvatarImageState();
+}
+
+class _AuthorAvatarImageState extends State<_AuthorAvatarImage> {
+  StreamCache<UserProfile?>? _profile;
+
+  Widget _initial() {
+    final initial = widget.name.isNotEmpty
+        ? widget.name.characters.first
+        : '?';
+    return Center(
+      child: Text(
+        initial.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.uid.isEmpty || !AuthService.firebaseReady) return _initial();
+    final cache = _profile ??= StreamCache<UserProfile?>(
+      () => UserService.instance.watch(widget.uid),
+    );
+    return StreamBuilder<UserProfile?>(
+      stream: cache(),
+      builder: (context, snap) {
+        final avatar = snap.data?.avatarUrl;
+        if (avatar == null || avatar.isEmpty) return _initial();
+        return Image.network(
+          avatar,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => const Icon(
+            Icons.person_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+        );
+      },
     );
   }
 }

@@ -530,7 +530,13 @@ class _CalendarEvents extends StatelessWidget {
           (selectedDate == null || _sameDate(date, selectedDate!));
     }).toList();
 
-    return Column(
+    // The month card is intrinsically tall (~300px at 360w). Built as a
+    // plain Column it was forced into the screen's tight Expanded, so the
+    // space left for the day list / empty state could be far smaller than
+    // their content and the Column asserted a RenderFlex overflow. The whole
+    // calendar now lives in one scroll view: nothing is squeezed into a fixed
+    // slot, and in tall enough layouts it simply renders without scrolling.
+    final content = Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -656,31 +662,34 @@ class _CalendarEvents extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(
-          child: visibleEvents.isEmpty
-              ? ContentEmptyState(
-                  icon: Icons.event_available_outlined,
-                  title: selectedDate == null
-                      ? 'No events this month'
-                      : 'No events on this date',
-                  message: 'Choose another date or browse a different month.',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: visibleEvents.length,
-                  itemBuilder: (context, index) => _EventListItem(
-                    event: visibleEvents[index],
-                    distanceKm: distanceFor(visibleEvents[index]),
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      '/events/detail',
-                      arguments: visibleEvents[index],
-                    ),
-                  ),
-                ),
-        ),
+        if (visibleEvents.isEmpty)
+          ContentEmptyState(
+            icon: Icons.event_available_outlined,
+            title: selectedDate == null
+                ? 'No events this month'
+                : 'No events on this date',
+            message: 'Choose another date or browse a different month.',
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: visibleEvents.length,
+            itemBuilder: (context, index) => _EventListItem(
+              event: visibleEvents[index],
+              distanceKm: distanceFor(visibleEvents[index]),
+              onTap: () => Navigator.pushNamed(
+                context,
+                '/events/detail',
+                arguments: visibleEvents[index],
+              ),
+            ),
+          ),
       ],
     );
+
+    return SingleChildScrollView(child: content);
   }
 }
 

@@ -37,7 +37,9 @@ class ContentService {
 
   /// Fan list: published only, newest discovery first.
   Stream<List<ContentDoc>> watchPublished({int limit = 200}) {
-    if (!_ready) return Stream.value(const []);
+    if (!_ready || AuthService.instance.currentUser == null) {
+      return Stream.value(const []);
+    }
     return _col
         .where('status', isEqualTo: ContentStatus.published.value)
         .limit(limit)

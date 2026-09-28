@@ -90,7 +90,8 @@ class PostService {
     batch.set(ref, {
       'authorUid': uid,
       'authorName': authorName ?? AuthService.instance.greetingName,
-      'authorAvatarUrl': authorAvatarUrl,
+      'authorAvatarUrl':
+          authorAvatarUrl ?? AuthService.instance.currentUser?.photoURL,
       'body': text,
       'communityId': communityId,
       'communityName': communityName,

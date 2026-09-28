@@ -83,28 +83,34 @@ class _TrendingTabState extends State<TrendingTab> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFFF5C4D), Color(0xFF7F1D1D)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.45),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
+            Image.asset(
+              'lib/assets/images/fanVerseLogo.png',
+              width: 48,
+              height: 48,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFF5C4D), Color(0xFF7F1D1D)],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.local_fire_department_rounded,
-                color: Colors.white,
-                size: 24,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.45),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.local_fire_department_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -398,30 +404,34 @@ class _SectionHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
+      padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.accent, size: 17),
+          Icon(icon, color: AppColors.accent, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               title,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 17,
                 fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
+                letterSpacing: -0.3,
               ),
             ),
           ),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: onAction,
-            child: Text(
-              '$actionLabel ›',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: Text(
+                '$actionLabel ›',
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -823,7 +833,7 @@ class _EventTrendRow extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: LiquidGlass(
-          radius: 16,
+          radius: 18,
           blur: 0,
           gradient: LinearGradient(
             colors: [
@@ -832,7 +842,7 @@ class _EventTrendRow extends StatelessWidget {
             ],
           ),
           borderColor: Colors.white.withValues(alpha: 0.12),
-          padding: const EdgeInsets.all(11),
+          padding: const EdgeInsets.all(13),
           child: Row(
             children: [
               Container(

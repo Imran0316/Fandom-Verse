@@ -158,28 +158,38 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
             onTap: () => Navigator.pop(context),
           ),
           const SizedBox(width: 12),
-          Container(
+          Image.asset(
+            'lib/assets/images/splash/splashScreenLogo.png',
             width: 42,
             height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFF5C4D), Color(0xFFC1121F), Color(0xFF7F1D1D)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.5),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFFF5C4D),
+                    Color(0xFFC1121F),
+                    Color(0xFF7F1D1D),
+                  ],
                 ),
-              ],
-            ),
-            child: const Icon(
-              Icons.auto_awesome_rounded,
-              color: Colors.white,
-              size: 22,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.5),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
           ),
           const SizedBox(width: 12),

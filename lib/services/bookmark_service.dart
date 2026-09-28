@@ -49,9 +49,14 @@ class BookmarkService {
     if (!_ready || uid == null) {
       throw StateError('Sign in to save discoveries.');
     }
-    final ref = _col.doc(_docId(uid, contentId));
-    final snap = await ref.get();
-    if (snap.exists) {
+    final docId = _docId(uid, contentId);
+    final ref = _col.doc(docId);
+    final probe = await _col
+        .where('userId', isEqualTo: uid)
+        .where('contentId', isEqualTo: contentId)
+        .get();
+    final exists = probe.docs.any((d) => d.id == docId);
+    if (exists) {
       await ref.delete();
       return false;
     }

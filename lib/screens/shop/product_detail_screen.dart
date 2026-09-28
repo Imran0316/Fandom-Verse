@@ -82,78 +82,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: SafeArea(
             child: Stack(
               children: [
-                Positioned(
-                  top: 4,
-                  left: 8,
-                  right: 16,
-                  height: 54,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.55),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        LiquidGlassPill(
-                          child: IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: IconButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.all(9),
-                              minimumSize: const Size(38, 38),
-                              iconSize: 20,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            icon: const Icon(Icons.arrow_back_rounded),
-                          ),
-                        ),
-                        const Spacer(),
-                        StreamBuilder<int>(
-                          stream: _cartCount(),
-                          builder: (context, countSnap) {
-                            final n = countSnap.data ?? 0;
-                            return LiquidGlassPill(
-                              child: IconButton(
-                                onPressed: () => Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.cart,
-                                ),
-                                style: IconButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.all(9),
-                                  minimumSize: const Size(38, 38),
-                                  iconSize: 20,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                icon: Badge(
-                                  isLabelVisible: n > 0,
-                                  label: Text(
-                                    '$n',
-                                    style: const TextStyle(
-                                      fontSize: 9.5,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.shopping_bag_outlined,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 Column(
                   children: [
                     Expanded(
@@ -636,6 +564,78 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   ],
+                ),
+                Positioned(
+                  top: 4,
+                  left: 8,
+                  right: 16,
+                  height: 54,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.55),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        LiquidGlassPill(
+                          child: IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: IconButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.all(9),
+                              minimumSize: const Size(38, 38),
+                              iconSize: 20,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.arrow_back_rounded),
+                          ),
+                        ),
+                        const Spacer(),
+                        StreamBuilder<int>(
+                          stream: _cartCount(),
+                          builder: (context, countSnap) {
+                            final n = countSnap.data ?? 0;
+                            return LiquidGlassPill(
+                              child: IconButton(
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.cart,
+                                ),
+                                style: IconButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.all(9),
+                                  minimumSize: const Size(38, 38),
+                                  iconSize: 20,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: Badge(
+                                  isLabelVisible: n > 0,
+                                  label: Text(
+                                    '$n',
+                                    style: const TextStyle(
+                                      fontSize: 9.5,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.shopping_bag_outlined,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -490,6 +490,16 @@ class _BookmarkButtonState extends State<_BookmarkButton> {
             ),
           ),
         );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xE616161F),
+            content: Text(e.message),
+          ),
+        );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

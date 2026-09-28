@@ -5,6 +5,13 @@ import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
 import '../../widgets/liquid_glass.dart';
 
+/// Restyle a stored price label (e.g. `'$29.99'`) as `PKR 29.99` — the
+/// symbol is stripped and `PKR` is prefixed.
+String _pkr(String label) {
+  final amount = label.replaceAll(RegExp(r'[^0-9.]'), '');
+  return 'PKR ${amount.isEmpty ? '0' : amount}';
+}
+
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
@@ -32,28 +39,49 @@ class OrdersScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
                       child: Row(
                         children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: IconButton.styleFrom(
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: 0.08),
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: const Icon(Icons.arrow_back_rounded),
-                          ),
-                          const Expanded(
-                            child: Text(
-                              'My Orders',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
+                          LiquidGlassPill(
+                            child: IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: IconButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.all(9),
+                                minimumSize: const Size(38, 38),
+                                iconSize: 20,
+                                tapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                               ),
+                              icon: const Icon(Icons.arrow_back_rounded),
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'My Orders',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 21,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.4,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Track, pay or cancel your merch drops',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
                           Icon(
                             Icons.receipt_long_rounded,
                             color: AppColors.primary,
@@ -147,59 +175,90 @@ class _OrderCard extends StatelessWidget {
     };
 
     return LiquidGlass(
-      radius: 18,
+      radius: 20,
       blur: 0,
       padding: const EdgeInsets.all(16),
       gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
         colors: [
-          statusColor.withValues(alpha: 0.14),
-          Colors.white.withValues(alpha: 0.04),
+          statusColor.withValues(alpha: 0.16),
+          Colors.white.withValues(alpha: 0.05),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  'Order ${order.id.substring(0, 6).toUpperCase()}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Order ${order.id.substring(0, 6).toUpperCase()}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15.5,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    if (order.createdAt != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Placed ${order.createdAt!.month}/${order.createdAt!.day}/${order.createdAt!.year}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              const SizedBox(width: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
-                  color: statusColor.withValues(alpha: 0.2),
+                  color: statusColor.withValues(alpha: 0.18),
                   border: Border.all(color: statusColor.withValues(alpha: 0.55)),
                 ),
-                child: Text(
-                  order.statusLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, size: 6, color: statusColor),
+                    const SizedBox(width: 5),
+                    Text(
+                      order.statusLabel,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           ...order.items.map(
             (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 7),
               child: Row(
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: 30,
+                    height: 30,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(7),
+                      borderRadius: BorderRadius.circular(9),
                       color: Colors.white.withValues(alpha: 0.06),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.10),
@@ -210,12 +269,12 @@ class _OrderCard extends StatelessWidget {
                         ? Image.network(
                             i.imageUrl!,
                             fit: BoxFit.cover,
-                            width: 24,
-                            height: 24,
+                            width: 30,
+                            height: 30,
                             errorBuilder: (_, _, _) => const Center(
                               child: Icon(
                                 Icons.inventory_2_outlined,
-                                size: 14,
+                                size: 16,
                                 color: Colors.white24,
                               ),
                             ),
@@ -223,12 +282,12 @@ class _OrderCard extends StatelessWidget {
                         : const Center(
                             child: Icon(
                               Icons.inventory_2_outlined,
-                              size: 14,
+                              size: 16,
                               color: Colors.white24,
                             ),
                           ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '${i.quantity}× ${i.name}',
@@ -241,7 +300,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    i.lineTotalLabel,
+                    _pkr(i.lineTotalLabel),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -252,75 +311,104 @@ class _OrderCard extends StatelessWidget {
               ),
             ),
           ),
-          const Divider(color: Colors.white12, height: 18),
+          const Divider(color: Colors.white12, height: 20),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Icon(Icons.place_outlined, size: 14, color: Colors.white38),
-              const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  order.shipTo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.payments_outlined,
+                          size: 13,
+                          color: Colors.white38,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            order.paymentMethodLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (order.paymentNote.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        order.paymentNote,
+                        style: TextStyle(
+                          color: order.paymentMethod == 'cod' &&
+                                  order.status != OrderStatus.delivered &&
+                                  order.status != OrderStatus.paid
+                              ? const Color(0xFFFFD166)
+                              : Colors.white38,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.place_outlined,
+                          size: 14,
+                          color: Colors.white38,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            order.shipTo,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                order.totalLabel,
-                style: const TextStyle(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(
-                Icons.payments_outlined,
-                size: 13,
-                color: Colors.white38,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  order.paymentMethodLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'Total',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _pkr(order.totalLabel),
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          if (order.paymentNote.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              order.paymentNote,
-              style: TextStyle(
-                color: order.paymentMethod == 'cod' &&
-                        order.status != OrderStatus.delivered &&
-                        order.status != OrderStatus.paid
-                    ? const Color(0xFFFFD166)
-                    : Colors.white38,
-                fontSize: 11,
-              ),
-            ),
-          ],
-          if (order.createdAt != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Placed ${order.createdAt!.month}/${order.createdAt!.day}/${order.createdAt!.year}',
-              style: const TextStyle(color: Colors.white38, fontSize: 11.5),
-            ),
-          ],
           if (order.status == OrderStatus.pending) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
