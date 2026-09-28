@@ -7,13 +7,32 @@ import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/image_upload_service.dart';
+import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
-class SellerDashboardScreen extends StatelessWidget {
+class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({super.key});
+
+  @override
+  State<SellerDashboardScreen> createState() => _SellerDashboardScreenState();
+}
+
+class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
+  String? _merchUid;
+  StreamCache<List<MerchProductDoc>>? _merch;
+
+  Stream<List<MerchProductDoc>> _watchSellerMerch(String uid) {
+    if (_merchUid != uid) {
+      _merchUid = uid;
+      _merch = StreamCache<List<MerchProductDoc>>(
+        () => CatalogService.instance.watchSellerMerch(uid),
+      );
+    }
+    return _merch!();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +96,7 @@ class SellerDashboardScreen extends StatelessWidget {
               else
                 Expanded(
                   child: StreamBuilder<List<MerchProductDoc>>(
-                    stream: CatalogService.instance.watchSellerMerch(uid),
+                    stream: _watchSellerMerch(uid),
                     builder: (context, snap) {
                       if (snap.connectionState == ConnectionState.waiting &&
                           snap.data == null) {

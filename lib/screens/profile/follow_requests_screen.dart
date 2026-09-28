@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/follow_docs.dart';
+import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
 
 /// Inbox for pending inbound follow requests: accept writes both edge
@@ -16,6 +17,9 @@ class FollowRequestsScreen extends StatefulWidget {
 
 class _FollowRequestsScreenState extends State<FollowRequestsScreen> {
   final Set<String> _busyIds = {};
+  final _requests = StreamCache<List<FollowDoc>>(
+    () => UserService.instance.watchFollowRequests(),
+  );
 
   Future<void> _accept(FollowDoc request) async {
     if (_busyIds.contains(request.uid)) return;
@@ -85,7 +89,7 @@ class _FollowRequestsScreenState extends State<FollowRequestsScreen> {
                 ),
                 Expanded(
                   child: StreamBuilder<List<FollowDoc>>(
-                    stream: UserService.instance.watchFollowRequests(),
+                    stream: _requests(),
                     builder: (context, snap) {
                       if (snap.connectionState == ConnectionState.waiting &&
                           snap.data == null) {

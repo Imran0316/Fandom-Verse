@@ -202,7 +202,7 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
                   final isOwner = membership?.role == CommunityRole.owner;
 
                   return CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
+                    physics: const ClampingScrollPhysics(),
                     slivers: <Widget>[
                       SliverToBoxAdapter(
                         child: _header(community, isMember, isOwner),

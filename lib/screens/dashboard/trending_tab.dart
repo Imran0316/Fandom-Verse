@@ -61,7 +61,7 @@ class _TrendingTabState extends State<TrendingTab> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      physics: const BouncingScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 130),
       children: [
         _header(),
@@ -236,7 +236,7 @@ class _TrendingTabState extends State<TrendingTab> {
               height: 208,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: reels.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
@@ -281,7 +281,7 @@ class _TrendingTabState extends State<TrendingTab> {
               height: 132,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: top.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
@@ -719,36 +719,45 @@ class _RisingCommunityCard extends StatelessWidget {
       onTap: onTap,
       child: SizedBox(
         width: 168,
-        child: LiquidGlass(
-          radius: 18,
-          blur: 0,
-          gradient: LinearGradient(
-            colors: [
-              community.color.withValues(alpha: 0.34),
-              community.color.withValues(alpha: 0.10),
-            ],
-          ),
-          borderColor: Colors.white.withValues(alpha: 0.16),
-          padding: const EdgeInsets.all(13),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withValues(alpha: 0.25),
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: Icon(
-                      community.icon,
-                      color: Colors.white,
-                      size: 17,
-                    ),
+              // Cover artwork behind the card; the gradient below only shows
+              // through when a community has no images yet.
+              if (community.coverImageUrl?.isNotEmpty == true)
+                Image.network(
+                  community.coverImageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x59000000), Color(0xE6000000)],
                   ),
+                ),
+              ),
+              LiquidGlass(
+                radius: 18,
+                blur: 0,
+                gradient: LinearGradient(
+                  colors: [
+                    community.color.withValues(alpha: 0.20),
+                    community.color.withValues(alpha: 0.05),
+                  ],
+                ),
+                borderColor: Colors.white.withValues(alpha: 0.16),
+                padding: const EdgeInsets.all(13),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _CommunityAvatar(community: community),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -810,8 +819,44 @@ class _RisingCommunityCard extends StatelessWidget {
               ),
             ],
           ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Round community badge: profile/cover photo when available, fallback to
+/// the icon so rooms without artwork still look intentional.
+class _CommunityAvatar extends StatelessWidget {
+  const _CommunityAvatar({required this.community});
+
+  final CommunityDoc community;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = community.profileImageUrl?.isNotEmpty == true
+        ? community.profileImageUrl!
+        : (community.coverImageUrl ?? '');
+    return Container(
+      width: 34,
+      height: 34,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withValues(alpha: 0.25),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: url.isNotEmpty
+          ? Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  Icon(community.icon, color: Colors.white, size: 17),
+            )
+          : Icon(community.icon, color: Colors.white, size: 17),
     );
   }
 }
@@ -845,40 +890,107 @@ class _EventTrendRow extends StatelessWidget {
           padding: const EdgeInsets.all(13),
           child: Row(
             children: [
+              // Cover artwork tile with the date laid over it; falls back to
+              // the flat badge when the event has no image.
               Container(
                 width: 46,
                 height: 46,
+                clipBehavior: Clip.antiAlias,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(13),
                   color: Colors.black.withValues(alpha: 0.30),
                   border: Border.all(color: Colors.white24),
                 ),
-                child: day.isEmpty
-                    ? Icon(event.icon, color: event.color, size: 20)
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                child: event.coverImageUrl?.isNotEmpty == true
+                    ? Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Text(
-                            month.toUpperCase(),
-                            style: TextStyle(
-                              color: event.color,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
+                          Image.network(
+                            event.coverImageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0x66000000), Color(0xB3000000)],
+                              ),
                             ),
                           ),
-                          Text(
-                            day,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              height: 1.1,
-                            ),
+                          Center(
+                            // FittedBox scales long dates ("29-OCT") down
+                            // instead of overflowing the 46px badge.
+                            child: day.isEmpty
+                                ? Icon(
+                                    event.icon,
+                                    color: event.color,
+                                    size: 20,
+                                  )
+                                : FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          month.toUpperCase(),
+                                          maxLines: 1,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                        Text(
+                                          day,
+                                          maxLines: 1,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900,
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                           ),
                         ],
-                      ),
+                      )
+                    : (day.isEmpty
+                        ? Icon(event.icon, color: event.color, size: 20)
+                        : FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  month.toUpperCase(),
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    color: event.color,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                Text(
+                                  day,
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
               ),
               const SizedBox(width: 12),
               Expanded(
