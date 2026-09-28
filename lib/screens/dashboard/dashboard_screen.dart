@@ -19,6 +19,7 @@ import '../../services/post_service.dart';
 import '../../services/stream_cache.dart';
 import '../../services/taxonomy_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_floating_nav.dart';
 import '../../widgets/liquid_glass.dart';
@@ -568,11 +569,7 @@ class _EventCardDoc extends StatelessWidget {
             children: [
               if (event.coverImageUrl?.isNotEmpty == true)
                 Positioned.fill(
-                  child: Image.network(
-                    event.coverImageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
+                  child: CachedImage(url: event.coverImageUrl),
                 ),
               if (event.coverImageUrl?.isNotEmpty == true)
                 Positioned.fill(
@@ -723,13 +720,7 @@ class _MerchCardDoc extends StatelessWidget {
                           ),
                         ),
                         if (item.imageUrl?.isNotEmpty == true)
-                          Image.network(
-                            item.imageUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
+                          CachedImage(url: item.imageUrl),
                         Positioned(
                           left: 0,
                           right: 0,
@@ -1004,18 +995,12 @@ class _PosterCard extends StatelessWidget {
                               width: 2,
                             ),
                           ),
-                          child: Image.network(
-                            image,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
+                          child: CachedImage(url: image),
                         ),
                       )
-                    : Image.network(
-                        image,
+                    : CachedImage(
+                        url: image,
                         fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
               Positioned(
                 left: 0,
@@ -1849,13 +1834,10 @@ class _CompactCommunityCard extends StatelessWidget {
                 child:
                     community.profileImageUrl?.isNotEmpty == true ||
                         community.coverImageUrl?.isNotEmpty == true
-                    ? Image.network(
-                        community.profileImageUrl?.isNotEmpty == true
-                            ? community.profileImageUrl!
-                            : community.coverImageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            Icon(community.icon, color: Colors.white, size: 22),
+                    ? CachedImage(
+                        url: community.profileImageUrl?.isNotEmpty == true
+                            ? community.profileImageUrl
+                            : community.coverImageUrl,
                       )
                     : Icon(community.icon, color: Colors.white, size: 22),
               ),
@@ -2017,6 +1999,70 @@ class _ProfileTabState extends State<_ProfileTab> {
   Widget build(BuildContext context) {
     final user = AuthService.instance.currentUser;
 
+    // Explore mode: signed-out visitors get a sign-in prompt instead of a
+    // profile (their data isn't readable per the security rules).
+    if (user == null) {
+      return ListView(
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 48, 20, 130),
+        children: [
+          const SizedBox(height: 40),
+          Center(
+            child: Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                ),
+              ),
+              child: const Icon(
+                Icons.person_outline_rounded,
+                color: Colors.white,
+                size: 46,
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          const Center(
+            child: Text(
+              'You are exploring as a guest',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Center(
+            child: Text(
+              'Create a free account to post, like, save discoveries '
+              'and shop merch. Everything you can see now stays browsable.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13.5,
+                height: 1.45,
+              ),
+            ),
+          ),
+          const SizedBox(height: 26),
+          GlassButton(
+            label: 'Get Started',
+            variant: GlassButtonVariant.sleek,
+            icon: Icons.arrow_forward_rounded,
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.getStarted),
+          ),
+        ],
+      );
+    }
+
     return StreamBuilder<UserProfile?>(
       stream: _user(),
       builder: (context, snapshot) {
@@ -2062,38 +2108,23 @@ class _ProfileTabState extends State<_ProfileTab> {
                             ),
                           ],
                         ),
-                        child: profile?.avatarUrl?.isNotEmpty == true
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(27),
-                                child: Image.network(
-                                  profile!.avatarUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Center(
-                                    child: Text(
-                                      name.isNotEmpty
-                                          ? name.characters.first.toUpperCase()
-                                          : 'F',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(27),
+                          child: profile?.avatarUrl?.isNotEmpty == true
+                              ? CachedImage(url: profile!.avatarUrl)
+                              : Center(
+                                  child: Text(
+                                    name.isNotEmpty
+                                        ? name.characters.first.toUpperCase()
+                                        : 'F',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                 ),
-                              )
-                            : Center(
-                                child: Text(
-                                  name.isNotEmpty
-                                      ? name.characters.first.toUpperCase()
-                                      : 'F',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
+                        ),
                       ),
                     ),
                   ),
@@ -2129,7 +2160,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                   Text(
                     profile?.shopName != null && profile!.shopName!.isNotEmpty
                         ? profile.shopName!
-                        : (user?.email ?? 'Local session'),
+                        : (user.email ?? 'Local session'),
                     style: const TextStyle(
                       color: Colors.white60,
                       fontSize: 13.5,

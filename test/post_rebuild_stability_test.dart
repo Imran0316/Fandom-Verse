@@ -47,12 +47,19 @@ void main() {
     final hostKey = GlobalKey<RebuildHostState>();
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: RebuildHost(
-            key: hostKey,
-            child: ListView(children: [PostCard(post: _post())]),
-          ),
-        ),
+        // Explore mode gates push the named GetStarted route ('/') — give
+        // the test screen its own initial route so the pushed '/' is a
+        // separate, key-free subtree.
+        initialRoute: '/test',
+        routes: {
+          '/test': (context) => Scaffold(
+                body: RebuildHost(
+                  key: hostKey,
+                  child: ListView(children: [PostCard(post: _post())]),
+                ),
+              ),
+          '/': (context) => const SizedBox.shrink(),
+        },
       ),
     );
     await tester.pump();
@@ -60,9 +67,12 @@ void main() {
 
     final card = tester.element(find.byType(PostCard));
 
-    // Like tap (falls back to a snackbar in tests — must not tear down).
+    // Like tap (gated → snackbar + GetStarted push — must not tear down).
     await tester.tap(find.text('3'));
     await tester.pump(const Duration(milliseconds: 250));
+    // Pop the gate's GetStarted route to interact with the card again.
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pump();
     expect(tester.element(find.byType(PostCard)), same(card));
 
     // Comment chip opens the thread in place.

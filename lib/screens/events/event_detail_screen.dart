@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/auth_gate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../services/event_service.dart';
@@ -85,6 +86,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Future<void> _toggleRsvp() async {
     final event = _event;
     if (event == null) return;
+    // Explore mode: RSVPs belong to an account.
+    if (!requireSignIn(context, reason: 'Sign in to RSVP to events.')) {
+      return;
+    }
     try {
       final ok = await EventService.instance.toggleRsvp(event.id);
       final updated = await EventService.instance.getById(event.id);

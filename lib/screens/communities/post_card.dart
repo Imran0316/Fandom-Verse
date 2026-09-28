@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/auth_gate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/post_docs.dart';
 import '../../models/user_profile.dart';
@@ -11,6 +12,7 @@ import '../../services/image_upload_service.dart';
 import '../../services/post_service.dart';
 import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/expandable_text.dart';
 import '../../widgets/gif_picker.dart';
 import '../../widgets/image_viewer.dart';
@@ -88,6 +90,10 @@ class _PostCardState extends State<PostCard> {
   Future<void> _sendComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty && _commentImageUrl == null) return;
+    // Explore mode: commenting requires an account.
+    if (!requireSignIn(context, reason: 'Sign in to join the conversation.')) {
+      return;
+    }
     setState(() => _sendingComment = true);
     try {
       await PostService.instance.addComment(
@@ -231,14 +237,7 @@ class _PostCardState extends State<PostCard> {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: post.authorAvatarUrl?.isNotEmpty == true
-                        ? Image.network(
-                            post.authorAvatarUrl!,
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                            errorBuilder: (_, _, _) =>
-                                const Icon(Icons.person_rounded,
-                                    color: Colors.white, size: 20),
-                          )
+                        ? CachedImage(url: post.authorAvatarUrl)
                         : _AuthorAvatarImage(
                             uid: post.authorUid,
                             name: post.authorName,
@@ -384,27 +383,7 @@ class _PostCardState extends State<PostCard> {
                 child: SizedBox(
                   width: double.infinity,
                   height: 260,
-                  child: Image.network(
-                    post.imageUrl!,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    loadingBuilder: (context, child, progress) => progress ==
-                            null
-                        ? child
-                        : Container(
-                            color: Colors.white.withValues(alpha: 0.05),
-                          ),
-                    errorBuilder: (_, _, _) => Container(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image_outlined,
-                          color: Colors.white30,
-                          size: 34,
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: CachedImage(url: post.imageUrl),
                 ),
               ),
             ),
@@ -420,6 +399,13 @@ class _PostCardState extends State<PostCard> {
                 active: _liked,
                 activeColor: AppColors.primary,
                 onTap: () async {
+                  // Explore mode: likes belong to an account.
+                  if (!requireSignIn(
+                    context,
+                    reason: 'Sign in to like posts.',
+                  )) {
+                    return;
+                  }
                   final messenger = ScaffoldMessenger.of(context);
                   try {
                     await PostService.instance.toggleLike(post.id);
@@ -842,6 +828,8 @@ class _CommentTileState extends State<_CommentTile> {
 
   Future<void> _toggleLike() async {
     if (_busy) return;
+    // Explore mode: comment likes belong to an account.
+    if (!requireSignIn(context, reason: 'Sign in to like comments.')) return;
     final wasLiked = _liked;
     setState(() {
       _busy = true;
@@ -868,6 +856,8 @@ class _CommentTileState extends State<_CommentTile> {
 
   Future<void> _react(String emoji) async {
     if (_busy) return;
+    // Explore mode: reactions belong to an account.
+    if (!requireSignIn(context, reason: 'Sign in to react.')) return;
     final previous = _myReaction;
     final next = previous == emoji ? null : emoji;
     setState(() {
@@ -905,6 +895,8 @@ class _CommentTileState extends State<_CommentTile> {
   Future<void> _sendReply() async {
     final text = _replyController.text.trim();
     if (text.isEmpty) return;
+    // Explore mode: replies require an account.
+    if (!requireSignIn(context, reason: 'Sign in to reply.')) return;
     setState(() => _sendingReply = true);
     try {
       await PostService.instance.addReply(

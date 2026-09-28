@@ -16,19 +16,21 @@ ReelDoc _reel() => ReelDoc(
 );
 
 void main() {
+  /// Host with the named GetStarted route registered — the explore-mode
+  /// gate navigates to it when a signed-out user tries to comment.
+  Widget host() => MaterialApp(
+        routes: {
+          '/': (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showReelCommentsSheet(context, _reel()),
+                  child: const Text('open'),
+                ),
+              ),
+        },
+      );
+
   testWidgets('sheet opens with header, list and composer', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () => showReelCommentsSheet(context, _reel()),
-              child: const Text('open'),
-            ),
-          ),
-        ),
-      ),
-    );
+    await tester.pumpWidget(host());
 
     await tester.tap(find.text('open'));
     await tester.pump();
@@ -44,18 +46,7 @@ void main() {
   testWidgets('signed-out send surfaces a friendly sign-in message', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () => showReelCommentsSheet(context, _reel()),
-              child: const Text('open'),
-            ),
-          ),
-        ),
-      ),
-    );
+    await tester.pumpWidget(host());
 
     await tester.tap(find.text('open'));
     await tester.pump();
@@ -65,7 +56,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
     await tester.pump();
 
-    expect(find.text('Sign in to comment.'), findsOneWidget);
+    // The gate surfaces the sign-in message (snackbar) and pushes the
+    // GetStarted route.
+    expect(find.text('Sign in to comment on reels.'), findsWidgets);
 
     // Let the snackbar dismiss so no timers are left pending.
     await tester.pump(const Duration(seconds: 5));

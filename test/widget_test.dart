@@ -12,24 +12,47 @@ Future<void> _pumpApp(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 600));
 }
 
+/// Explore-first flow: the dashboard is the entry screen for everyone.
+/// Signed-out visitors browse freely and hit the Get Started screen only
+/// when they tap a gated action (or the Profile tab's CTA).
 void main() {
-  testWidgets('Get Started screen is minimal', (WidgetTester tester) async {
+  testWidgets('app opens straight into the dashboard (explore mode)', (
+    WidgetTester tester,
+  ) async {
     await _pumpApp(tester);
 
-    expect(find.text('Get Started'), findsOneWidget);
-    expect(
-      find.textContaining('Privacy Policy', findRichText: true),
-      findsOneWidget,
-    );
+    // Dashboard nav is visible without any sign-in step.
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Trending'), findsOneWidget);
+    expect(find.text('Reels'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
+
+    // No forced auth form on launch.
     expect(find.text('Join FandomVerse'), findsNothing);
-    expect(find.text('Create Account'), findsNothing);
   });
 
-  testWidgets('Get Started opens auth form', (WidgetTester tester) async {
+  testWidgets('guest profile tab offers Get Started which opens auth', (
+    WidgetTester tester,
+  ) async {
     await _pumpApp(tester);
 
-    await tester.tap(find.text('Get Started'));
+    await tester.tap(find.text('Profile'));
     await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('You are exploring as a guest'), findsOneWidget);
+
+    // Profile CTA pushes the GetStarted screen (landing first). Extra
+    // pumps let the fade transition fully settle before the next tap.
+    await tester.tap(find.text('Get Started').last);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Landing CTA opens the auth form.
+    await tester.tap(find.text('Get Started').last);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Join FandomVerse'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
@@ -40,9 +63,6 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpApp(tester);
-
-    await tester.tap(find.text('Get Started'));
-    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
     expect(find.textContaining('trailer'), findsNothing);

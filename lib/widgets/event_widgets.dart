@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../models/catalog_docs.dart';
+import 'cached_image.dart';
 import 'liquid_glass.dart';
 
 /// Compact horizontal event chip for home rails and event lists.
@@ -37,11 +38,7 @@ class EventChip extends StatelessWidget {
             children: [
               if (event.coverImageUrl?.isNotEmpty == true)
                 Positioned.fill(
-                  child: Image.network(
-                    event.coverImageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
+                  child: CachedImage(url: event.coverImageUrl),
                 ),
               if (event.coverImageUrl?.isNotEmpty == true)
                 Positioned.fill(
@@ -155,11 +152,7 @@ class EventMapPin extends StatelessWidget {
         height: 128,
         width: double.infinity,
         child: event.coverImageUrl?.isNotEmpty == true
-            ? Image.network(
-                event.coverImageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _LocationChip(event: event),
-              )
+            ? CachedImage(url: event.coverImageUrl)
             : _LocationChip(event: event),
       ),
     );

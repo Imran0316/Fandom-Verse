@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/auth_gate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/reel_docs.dart';
 import '../../services/auth_service.dart';
@@ -92,6 +93,10 @@ class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
+    // Explore mode: commenting requires an account.
+    if (!requireSignIn(context, reason: 'Sign in to comment on reels.')) {
+      return;
+    }
     setState(() => _sending = true);
     try {
       await ReelService.instance.addComment(

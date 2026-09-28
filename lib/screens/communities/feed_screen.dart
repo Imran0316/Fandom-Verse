@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/animations/app_transitions.dart';
+import '../../core/auth_gate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/post_docs.dart';
 import '../../services/post_service.dart';
@@ -32,6 +33,8 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _submit() async {
     final body = _controller.text.trim();
     if (body.isEmpty) return;
+    // Explore mode: posting requires an account.
+    if (!requireSignIn(context, reason: 'Sign in to share a post.')) return;
     setState(() => _posting = true);
     try {
       await PostService.instance.createPost(body: body);
