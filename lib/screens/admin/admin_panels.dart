@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
+import '../../core/pkr_format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../models/content_docs.dart';
@@ -1348,7 +1349,7 @@ class MerchAdminPanel extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '${m.priceLabel} · ${m.sellerName.isEmpty ? 'Seller' : m.sellerName}'
+                                  '${formatPkrPrice(m.priceLabel)} · ${m.sellerName.isEmpty ? 'Seller' : m.sellerName}'
                                   '${m.active ? '' : ' · paused'}',
                                   style: TextStyle(
                                     color: m.active

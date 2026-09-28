@@ -1,16 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/pkr_format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
 import '../../widgets/liquid_glass.dart';
-
-/// Restyle a stored price label (e.g. `'$29.99'`) as `PKR 29.99` — the
-/// symbol is stripped and `PKR` is prefixed.
-String _pkr(String label) {
-  final amount = label.replaceAll(RegExp(r'[^0-9.]'), '');
-  return 'PKR ${amount.isEmpty ? '0' : amount}';
-}
 
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
@@ -300,7 +294,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    _pkr(i.lineTotalLabel),
+                    formatPkrPrice(i.lineTotalLabel),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -395,7 +389,7 @@ class _OrderCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _pkr(order.totalLabel),
+                    formatPkrPrice(order.totalLabel),
                     style: const TextStyle(
                       color: AppColors.accent,
                       fontWeight: FontWeight.w900,

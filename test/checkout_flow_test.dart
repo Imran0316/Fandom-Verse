@@ -45,7 +45,7 @@ void main() {
     expect(find.text('Delivery'), findsOneWidget);
     expect(find.text('Free'), findsOneWidget);
     expect(find.text('Total'), findsOneWidget);
-    expect(find.text(r'$58'), findsWidgets);
+    expect(find.text('PKR 58'), findsWidgets);
     expect(find.text('Proceed to checkout'), findsOneWidget);
 
     await tester.tap(find.text('Proceed to checkout'));
@@ -60,7 +60,7 @@ void main() {
     expect(find.text('Cash on Delivery'), findsOneWidget);
     expect(find.text('Card payment'), findsOneWidget);
     expect(find.text('Coming soon'), findsOneWidget);
-    expect(find.text('Place order · \$58'), findsOneWidget);
+    expect(find.text('Place order · PKR 58'), findsOneWidget);
   });
 
   testWidgets('checkout validates address before placing an order', (
@@ -74,7 +74,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Place order · \$58'));
+    await tester.tap(find.text('Place order · PKR 58'));
     await tester.pump();
 
     expect(
