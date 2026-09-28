@@ -35,11 +35,10 @@ class ContentService {
         .map((s) => s.docs.map(ContentDoc.fromDoc).toList());
   }
 
-  /// Fan list: published only, newest discovery first.
+  /// Fan list: published only, newest discovery first. Public per the
+  /// security rules, so signed-out users browse the live feed too.
   Stream<List<ContentDoc>> watchPublished({int limit = 200}) {
-    if (!_ready || AuthService.instance.currentUser == null) {
-      return Stream.value(const []);
-    }
+    if (!_ready) return Stream.value(const []);
     return _col
         .where('status', isEqualTo: ContentStatus.published.value)
         .limit(limit)

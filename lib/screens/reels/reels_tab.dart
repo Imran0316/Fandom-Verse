@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/auth_gate.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/mock_catalog.dart';
@@ -12,6 +13,7 @@ import '../../models/reel_docs.dart';
 import '../../services/auth_service.dart';
 import '../../services/reel_service.dart';
 import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/liquid_glass.dart';
 import 'reel_comments_sheet.dart';
 
@@ -71,14 +73,8 @@ class _ReelsTabState extends State<ReelsTab> {
   }
 
   Future<void> _openCreate() async {
-    if (AuthService.instance.currentUser == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Sign in to post a reel.')),
-        );
-      return;
-    }
+    // Explore mode: posting requires an account.
+    if (!requireSignIn(context, reason: 'Sign in to post a reel.')) return;
     await Navigator.pushNamed(context, AppRoutes.createReel);
   }
 
@@ -862,11 +858,7 @@ class _PosterFallback extends StatelessWidget {
             Center(
               child: AspectRatio(
                 aspectRatio: 9 / 16,
-                child: Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
+                child: CachedImage(url: url),
               ),
             ),
           const Center(
@@ -902,11 +894,7 @@ class _AuthorAvatar extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
       ),
       child: url != null && url!.isNotEmpty
-          ? Image.network(
-              url!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _initial(),
-            )
+          ? CachedImage(url: url)
           : _initial(),
     );
   }

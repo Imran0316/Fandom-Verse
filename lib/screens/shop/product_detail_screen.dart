@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/pkr_format.dart';
+import '../../core/auth_gate.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
@@ -39,6 +40,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('This listing is out of stock.')),
       );
+      return;
+    }
+    // Explore mode: browsing is open, purchasing requires an account.
+    if (!requireSignIn(context, reason: 'Sign in to add items to your cart.')) {
       return;
     }
     var qty = _qty;

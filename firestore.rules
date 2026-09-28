@@ -195,29 +195,30 @@ service cloud.firestore {
       }
     }
 
-    // ---- Categories (admin-managed, everyone signed-in can read) ----
+    // ---- Categories (admin-managed; public read feeds the signed-out
+    //      explore mode and the offline cache) ----
     match /categories/{categoryId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // ---- V1 Content: fandoms + content categories (admin-managed) ----
     match /fandoms/{fandomId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     match /contentCategories/{categoryId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // ---- V1 Content: unified `contents` collection ----
-    // Admins manage everything. Fans may only read published docs — the
-    // client hides drafts, but rules guarantee it.
+    // Admins manage everything. Published docs are publicly readable so
+    // signed-out users can browse; drafts stay admin-only.
     match /contents/{contentId} {
       allow read: if isAdmin()
-        || (signedIn() && resource.data.status == 'published');
+        || resource.data.status == 'published';
       allow create: if isAdmin()
         && request.resource.data.status in ['draft', 'published']
         && request.resource.data.createdBy == request.auth.uid;
@@ -237,8 +238,11 @@ service cloud.firestore {
     }
 
     // ---- Communities / posts / merch / events (Phase 1+) ----
+    // Reads are public: the explore-first flow shows real content to
+    // signed-out users and the offline cache keeps it available with no
+    // connection. All writes still require auth.
     match /communities/{communityId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid;
       allow update: if isAdmin()
@@ -265,7 +269,7 @@ service cloud.firestore {
     }
 
     match /posts/{postId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create: if signedIn()
         && request.resource.data.authorUid == request.auth.uid;
       allow update: if isAdmin()
@@ -328,7 +332,7 @@ service cloud.firestore {
 
     // ---- Community reels: Cloudinary video + Firestore metadata ----
     match /reels/{reelId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create: if signedIn()
         && request.resource.data.authorUid == request.auth.uid;
       allow update: if isAdmin()
@@ -356,7 +360,7 @@ service cloud.firestore {
     }
 
     match /merch/{productId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create: if signedIn()
         && request.resource.data.sellerUid == request.auth.uid
         && (myRole() == 'seller' || isAdmin());
@@ -386,7 +390,7 @@ service cloud.firestore {
     }
 
     match /events/{eventId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || validEventRsvpUpdate(eventId);
 

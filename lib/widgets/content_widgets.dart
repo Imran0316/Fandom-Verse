@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../models/content_docs.dart';
+import 'cached_image.dart';
 import 'liquid_glass.dart';
 
 /* --------------------------------- Helpers -------------------------------- */
@@ -52,15 +53,7 @@ class ContentCover extends StatelessWidget {
         aspectRatio: aspectRatio,
         child: (url == null || url.isEmpty)
             ? _fallback()
-            : Image.network(
-                url,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return _fallback(loading: true);
-                },
-                errorBuilder: (_, _, _) => _fallback(),
-              ),
+            : CachedImage(url: url, fit: BoxFit.cover),
       ),
     );
   }
@@ -650,11 +643,7 @@ class FandomRailCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (fandom.coverImageUrl?.isNotEmpty == true)
-                  Image.network(
-                    fandom.coverImageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
+                  CachedImage(url: fandom.coverImageUrl),
                 if (fandom.coverImageUrl?.isNotEmpty == true)
                   DecoratedBox(
                     decoration: BoxDecoration(

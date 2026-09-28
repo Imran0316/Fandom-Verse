@@ -13,6 +13,7 @@ import '../../services/event_service.dart';
 import '../../services/post_service.dart';
 import '../../services/reel_service.dart';
 import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 import '../reels/reels_tab.dart' show formatCount;
@@ -727,11 +728,7 @@ class _RisingCommunityCard extends StatelessWidget {
               // Cover artwork behind the card; the gradient below only shows
               // through when a community has no images yet.
               if (community.coverImageUrl?.isNotEmpty == true)
-                Image.network(
-                  community.coverImageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
+                CachedImage(url: community.coverImageUrl),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -850,12 +847,7 @@ class _CommunityAvatar extends StatelessWidget {
         border: Border.all(color: Colors.white24),
       ),
       child: url.isNotEmpty
-          ? Image.network(
-              url,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  Icon(community.icon, color: Colors.white, size: 17),
-            )
+          ? CachedImage(url: url, circular: true)
           : Icon(community.icon, color: Colors.white, size: 17),
     );
   }
@@ -906,11 +898,7 @@ class _EventTrendRow extends StatelessWidget {
                     ? Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(
-                            event.coverImageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
+                          CachedImage(url: event.coverImageUrl),
                           const DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(

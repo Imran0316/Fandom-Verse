@@ -145,15 +145,15 @@ class _SplashScreenState extends State<SplashScreen>
             .first
             .timeout(const Duration(milliseconds: 2500));
       } catch (_) {
-        // Not configured or timed out — fall through to signed-out routing.
+        // Not configured or timed out — continue into explore mode.
       }
     }
     if (!mounted) return;
 
-    final String next = AuthService.instance.isSignedIn
-        ? AppRoutes.dashboard
-        : AppRoutes.getStarted;
-    Navigator.of(context).pushReplacementNamed(next);
+    // Explore-first: everyone lands on the dashboard, signed in or not.
+    // The feed is publicly readable, and gated actions (like, comment,
+    // cart…) route to the Get Started screen on tap.
+    Navigator.of(context).pushReplacementNamed(AppRoutes.dashboard);
   }
 
   @override
