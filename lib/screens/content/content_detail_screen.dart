@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
 import '../../services/bookmark_service.dart';
 import '../../services/content_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/article_video.dart';
 import '../../widgets/content_widgets.dart';
 import '../../widgets/glass_button.dart';
@@ -89,12 +90,15 @@ class _DetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final videoUrl = content.videoUrl?.trim();
     return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
+      // BouncingScrollPhysics + a stretching SliverAppBar trigger an Android
+      // overscroll bug that snaps the scroll position back to the top when
+      // the user drags past either end of the page.
+      physics: const ClampingScrollPhysics(),
       slivers: [
         SliverAppBar(
           expandedHeight: preview ? 240 : 280,
           pinned: true,
-          stretch: true,
+          stretch: false,
           backgroundColor: AppColors.backgroundDeep,
           leading: Padding(
             padding: const EdgeInsets.all(8),
@@ -474,6 +478,10 @@ class _BookmarkButton extends StatefulWidget {
 class _BookmarkButtonState extends State<_BookmarkButton> {
   bool _busy = false;
 
+  late final _savedIds = StreamCache<Set<String>>(
+    () => BookmarkService.instance.watchMyContentIds(),
+  );
+
   Future<void> _toggle() async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -518,7 +526,7 @@ class _BookmarkButtonState extends State<_BookmarkButton> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<Set<String>>(
-      stream: BookmarkService.instance.watchMyContentIds(),
+      stream: _savedIds(),
       builder: (context, snap) {
         final saved = snap.data?.contains(widget.contentId) ?? false;
         return GlassButton(
@@ -535,13 +543,23 @@ class _BookmarkButtonState extends State<_BookmarkButton> {
   }
 }
 
-class _RelatedSection extends StatelessWidget {
+class _RelatedSection extends StatefulWidget {
   const _RelatedSection({required this.content, required this.onOpen});
 
   final ContentDoc content;
   final ValueChanged<ContentDoc> onOpen;
 
+  @override
+  State<_RelatedSection> createState() => _RelatedSectionState();
+}
+
+class _RelatedSectionState extends State<_RelatedSection> {
+  late final _published = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchPublished(),
+  );
+
   List<ContentDoc> _related(List<ContentDoc> all) {
+    final content = widget.content;
     final tags = content.tags.map((t) => t.toLowerCase()).toSet();
     final scored = <(int, ContentDoc)>[];
     for (final other in all) {
@@ -566,7 +584,7 @@ class _RelatedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ContentDoc>>(
-      stream: ContentService.instance.watchPublished(),
+      stream: _published(),
       builder: (context, snap) {
         final related = _related(snap.data ?? const []);
         if (related.isEmpty) return const SizedBox.shrink();
@@ -582,13 +600,13 @@ class _RelatedSection extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 itemCount: related.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 14),
                 itemBuilder: (context, i) => ContentRailCard(
                   content: related[i],
                   width: 176,
-                  onTap: () => onOpen(related[i]),
+                  onTap: () => widget.onOpen(related[i]),
                 ),
               ),
             ),

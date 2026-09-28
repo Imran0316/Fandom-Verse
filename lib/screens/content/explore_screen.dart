@@ -475,7 +475,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               }
               return ListView(
                 key: const PageStorageKey<String>('explore_results'),
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                 children: [
                   Padding(

@@ -5,12 +5,25 @@ import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
 import '../../services/bookmark_service.dart';
 import '../../services/content_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/content_widgets.dart';
 import '../../widgets/skeletons.dart';
 import 'content_detail_screen.dart';
 
-class SavedScreen extends StatelessWidget {
+class SavedScreen extends StatefulWidget {
   const SavedScreen({super.key});
+
+  @override
+  State<SavedScreen> createState() => _SavedScreenState();
+}
+
+class _SavedScreenState extends State<SavedScreen> {
+  final _published = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchPublished(),
+  );
+  final _bookmarks = StreamCache<List<BookmarkDoc>>(
+    () => BookmarkService.instance.watchMine(),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +62,10 @@ class SavedScreen extends StatelessWidget {
                 ),
                 Expanded(
                   child: StreamBuilder<List<ContentDoc>>(
-                    stream: ContentService.instance.watchPublished(),
+                    stream: _published(),
                     builder: (context, contentSnap) {
                       return StreamBuilder<List<BookmarkDoc>>(
-                        stream: BookmarkService.instance.watchMine(),
+                        stream: _bookmarks(),
                         builder: (context, bookmarkSnap) {
                           if (contentSnap.hasError || bookmarkSnap.hasError) {
                             return const ContentErrorState(

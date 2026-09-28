@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/reel_docs.dart';
 import '../../services/auth_service.dart';
 import '../../services/reel_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/liquid_glass.dart';
 
 /// Modal comments list + composer for a reel.
@@ -28,6 +29,10 @@ class _ReelCommentsSheet extends StatefulWidget {
 class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
   final _controller = TextEditingController();
   bool _sending = false;
+
+  late final _comments = StreamCache<List<ReelCommentDoc>>(
+    () => ReelService.instance.watchComments(widget.reel.id),
+  );
 
   /// Comments the user just removed — hidden locally until the stream
   /// catches up (same optimistic feel as the send flow).
@@ -166,7 +171,7 @@ class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
             ),
             Flexible(
               child: StreamBuilder<List<ReelCommentDoc>>(
-                stream: ReelService.instance.watchComments(widget.reel.id),
+                stream: _comments(),
                 builder: (context, snap) {
                   final comments = (snap.data ?? const <ReelCommentDoc>[])
                       .where((c) => !_removing.contains(c.id))

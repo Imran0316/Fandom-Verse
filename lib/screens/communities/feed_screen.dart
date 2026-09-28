@@ -164,7 +164,7 @@ class _FeedScreenState extends State<FeedScreen> {
                       final placeholder = waiting || showEmpty;
                       return ListView.separated(
                         key: const PageStorageKey<String>('feed_posts'),
-                        physics: const BouncingScrollPhysics(),
+                        physics: const ClampingScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                         itemCount: placeholder ? 1 : posts.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),

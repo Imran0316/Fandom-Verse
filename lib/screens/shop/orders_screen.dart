@@ -4,10 +4,20 @@ import '../../core/pkr_format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/liquid_glass.dart';
 
-class OrdersScreen extends StatelessWidget {
+class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
+
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
+  final _orders = StreamCache<List<OrderDoc>>(
+    () => CartService.instance.watchMyOrders(),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +27,7 @@ class OrdersScreen extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: StreamBuilder<List<OrderDoc>>(
-            stream: CartService.instance.watchMyOrders(),
+            stream: _orders(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting &&
                   snap.data == null) {

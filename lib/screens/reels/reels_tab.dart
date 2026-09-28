@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
@@ -22,9 +23,14 @@ import 'reel_comments_sheet.dart';
 ///
 /// [reelsStream] is a test seam.
 class ReelsTab extends StatefulWidget {
-  const ReelsTab({super.key, this.reelsStream});
+  const ReelsTab({super.key, this.reelsStream, this.active = true});
 
   final Stream<List<ReelDoc>>? reelsStream;
+
+  /// Whether the dashboard currently shows this tab. Video controllers keep
+  /// decoding while buried in the IndexedStack otherwise, so the parent passes
+  /// false to pause every page and stop the per-frame work.
+  final bool active;
 
   @override
   State<ReelsTab> createState() => _ReelsTabState();
@@ -33,6 +39,11 @@ class ReelsTab extends StatefulWidget {
 class _ReelsTabState extends State<ReelsTab> {
   final PageController _controller = PageController();
   int _index = 0;
+
+  /// Global mute for the whole feed. Mobile OSes allow autoplay with sound,
+  /// so the feed starts audible; web must start muted because browsers block
+  /// unmuted autoplay (the first video tap then unlocks sound in-gesture).
+  bool _soundOn = !kIsWeb;
 
   late final StreamCache<List<ReelDoc>> _reels = StreamCache<List<ReelDoc>>(
     () => widget.reelsStream ?? ReelService.instance.watchLatest(),
@@ -107,7 +118,9 @@ class _ReelsTabState extends State<ReelsTab> {
               itemBuilder: (context, i) => _ReelPage(
                 key: ValueKey(items[i].id),
                 reel: items[i],
-                active: i == _index,
+                active: widget.active && i == _index,
+                soundOn: _soundOn,
+                onToggleSound: () => setState(() => _soundOn = !_soundOn),
                 onOpenCommunity: items[i].communityId == null
                     ? null
                     : () => Navigator.pushNamed(
@@ -117,11 +130,44 @@ class _ReelsTabState extends State<ReelsTab> {
                         ),
               ),
             ),
-            // Header
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
+            // Right-side action rail (live reels only)
+            if (isLive)
+              Positioned(
+                right: 12,
+                bottom: 120,
+                child: Column(
+                  children: [
+                    _LikeButton(
+                      key: ValueKey('like-${current.id}'),
+                      reelId: current.id,
+                      count: current.likeCount,
+                      onError: _snack,
+                    ),
+                    const SizedBox(height: 16),
+                    _RailBtn(
+                      icon: Icons.mode_comment_rounded,
+                      label: formatCount(current.commentCount),
+                      onTap: () => showReelCommentsSheet(context, current),
+                    ),
+                    const SizedBox(height: 16),
+                    _RailBtn(
+                      icon: Icons.reply_rounded,
+                      label: 'Share',
+                      onTap: () => _share(current),
+                    ),
+                  ],
+                ),
+              ),
+            // Header — added last so it paints above the video scrims, and
+            // explicitly aligned to the top of the feed (StackFit.expand
+            // centers non-positioned children, which floated it mid-screen).
+            Align(
+              alignment: Alignment.topCenter,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(
                   children: [
                     const Text(
                       'Reels',
@@ -156,11 +202,26 @@ class _ReelsTabState extends State<ReelsTab> {
                       ),
                     ),
                     const Spacer(),
+                    // Feed-wide mute toggle.
+                    GestureDetector(
+                      onTap: () => setState(() => _soundOn = !_soundOn),
+                      child: LiquidGlassPill(
+                        radius: 999,
+                        padding: const EdgeInsets.all(9),
+                        child: Icon(
+                          _soundOn
+                              ? Icons.volume_up_rounded
+                              : Icons.volume_off_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: _openCreate,
                       child: const LiquidGlassPill(
                         radius: 999,
-                        blur: 12,
                         padding: EdgeInsets.all(9),
                         child: Icon(
                           Icons.add_rounded,
@@ -172,6 +233,7 @@ class _ReelsTabState extends State<ReelsTab> {
                   ],
                 ),
               ),
+            ),
             ),
             // Spotlight / empty call to action
             if (!isLive)
@@ -220,81 +282,7 @@ class _ReelsTabState extends State<ReelsTab> {
                   ),
                 ),
               ),
-            // Right-side action rail (live reels only)
-            if (isLive)
-              Positioned(
-                right: 12,
-                bottom: 120,
-                child: Column(
-                  children: [
-                    _LikeButton(
-                      key: ValueKey('like-${current.id}'),
-                      reelId: current.id,
-                      count: current.likeCount,
-                      onError: _snack,
-                    ),
-                    const SizedBox(height: 16),
-                    _RailBtn(
-                      icon: Icons.mode_comment_rounded,
-                      label: formatCount(current.commentCount),
-                      onTap: () => showReelCommentsSheet(context, current),
-                    ),
-                    const SizedBox(height: 16),
-                    _RailBtn(
-                      icon: Icons.reply_rounded,
-                      label: 'Share',
-                      onTap: () => _share(current),
-                    ),
-                  ],
-                ),
-              ),
-            // Position indicator
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 100,
-              child: items.length <= 8
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(items.length, (i) {
-                        final active = i == _index;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: active ? 18 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            color: active ? AppColors.accent : Colors.white38,
-                          ),
-                        );
-                      }),
-                    )
-                  : Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: Colors.black.withValues(alpha: 0.45),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Text(
-                          '${_index + 1} / ${items.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
+            ],
         );
       },
     );
@@ -414,11 +402,22 @@ class _ReelPage extends StatefulWidget {
     super.key,
     required this.reel,
     required this.active,
+    required this.soundOn,
+    required this.onToggleSound,
     this.onOpenCommunity,
   });
 
   final ReelDoc reel;
   final bool active;
+
+  /// Single source of truth for audio lives on the tab (the header toggle);
+  /// this page only mirrors it. Keeping a second local flag caused the
+  /// "mute/unmute does nothing" bug when the two states diverged.
+  final bool soundOn;
+
+  /// Flips the feed-wide mute from a tap on the video (needed so the web
+  /// unlock counts as a user gesture) while the header icon stays in sync.
+  final VoidCallback onToggleSound;
   final VoidCallback? onOpenCommunity;
 
   @override
@@ -432,9 +431,6 @@ class _ReelPageState extends State<_ReelPage> {
 
   /// Whether the viewer explicitly paused via a tap (vs. autoplay lag).
   bool _userPaused = false;
-
-  /// Whether the viewer has unlocked sound with a tap.
-  bool _soundOn = false;
 
   /// Guards overlapping auto-play attempts.
   bool _playing = false;
@@ -472,8 +468,9 @@ class _ReelPageState extends State<_ReelPage> {
     _video = controller;
     try {
       await controller.setLooping(true);
-      // Muted autoplay needs no user gesture; the first tap unlocks sound.
-      await controller.setVolume(0);
+      // Muted autoplay needs no user gesture on the web; on mobile the feed
+      // starts with sound on so reels are audible out of the box.
+      await controller.setVolume(widget.soundOn ? 1 : 0);
     } catch (_) {}
     controller.addListener(_onVideoTick);
     if (!mounted) return;
@@ -498,6 +495,9 @@ class _ReelPageState extends State<_ReelPage> {
     }
     _playing = true;
     try {
+      // Re-assert volume so a toggle that landed mid-initialization is
+      // never overwritten by a later muted default.
+      await controller.setVolume(widget.soundOn ? 1 : 0);
       await controller.play();
     } catch (error) {
       debugPrint('ReelsTab: autoplay blocked for ${widget.reel.id}: $error');
@@ -524,9 +524,9 @@ class _ReelPageState extends State<_ReelPage> {
     final controller = _video;
     if (controller == null || !controller.value.isInitialized) return;
     try {
-      if (!_soundOn) {
+      if (!widget.soundOn) {
         // First tap unlocks sound (browsers require a gesture for this).
-        _soundOn = true;
+        widget.onToggleSound();
         _userPaused = false;
         await controller.setVolume(1);
         if (!controller.value.isPlaying) {
@@ -560,6 +560,15 @@ class _ReelPageState extends State<_ReelPage> {
       unawaited(_autoPlay());
     } else if (!widget.active && old.active) {
       unawaited(controller.pause());
+    }
+    // Feed-wide mute toggle flipped.
+    if (widget.soundOn != old.soundOn) {
+      unawaited(
+        controller.setVolume(widget.soundOn ? 1 : 0).catchError((_) {}),
+      );
+      if (widget.soundOn && !controller.value.isPlaying && !_userPaused) {
+        unawaited(_autoPlay());
+      }
     }
   }
 
@@ -684,19 +693,24 @@ class _ReelPageState extends State<_ReelPage> {
               ),
             ),
           ),
-        // Scrims
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0x66000000),
-                Color(0x00000000),
-                Color(0x00000000),
-                Color(0xE6000000),
-              ],
-              stops: [0.0, 0.25, 0.55, 1.0],
+        // Scrims — IgnorePointer is critical: without it the gradient
+        // DecoratedBox absorbs every tap (hitTestSelf == true) and the
+        // video's play/unmute tap handler never fires, leaving reels
+        // permanently silent.
+        IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x66000000),
+                  Color(0x00000000),
+                  Color(0x00000000),
+                  Color(0xE6000000),
+                ],
+                stops: [0.0, 0.25, 0.55, 1.0],
+              ),
             ),
           ),
         ),

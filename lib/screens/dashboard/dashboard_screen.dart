@@ -136,7 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const _HomeTab(),
                   TrendingTab(onOpenReels: () => _onSelected(3)),
                   const _SearchTab(),
-                  const ReelsTab(),
+                  ReelsTab(active: _currentIndex == 3),
                   const _ProfileTab(),
                 ],
               ),
@@ -197,7 +197,9 @@ class _HomeTabState extends State<_HomeTab> {
   Widget build(BuildContext context) {
     return ListView(
       key: const PageStorageKey<String>('home_feed'),
-      physics: const BouncingScrollPhysics(),
+      // BouncingScrollPhysics triggers an Android overscroll bug that snaps
+      // the list back to the top when dragged past the end — use clamping.
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 130),
       children: [
         const SizedBox(height: 10),
@@ -230,7 +232,7 @@ class _HomeTabState extends State<_HomeTab> {
                 key: const PageStorageKey<String>('home_communities_rail'),
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 itemCount: preview.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, i) => _CompactCommunityCard(
@@ -281,7 +283,7 @@ class _HomeTabState extends State<_HomeTab> {
                         ),
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        physics: const BouncingScrollPhysics(),
+                        physics: const ClampingScrollPhysics(),
                         itemCount: recommendations.length,
                         separatorBuilder: (_, _) => const SizedBox(width: 14),
                         itemBuilder: (context, i) {
@@ -370,7 +372,7 @@ class _HomeTabState extends State<_HomeTab> {
                     key: const PageStorageKey<String>('home_events_rail'),
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    physics: const BouncingScrollPhysics(),
+                    physics: const ClampingScrollPhysics(),
                     itemCount: events.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 14),
                     itemBuilder: (context, i) =>
@@ -404,7 +406,7 @@ class _HomeTabState extends State<_HomeTab> {
                     key: const PageStorageKey<String>('home_merch_rail'),
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    physics: const BouncingScrollPhysics(),
+                    physics: const ClampingScrollPhysics(),
                     itemCount: merch.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 14),
                     itemBuilder: (context, i) => _MerchCardDoc(item: merch[i]),
@@ -937,29 +939,34 @@ class _PosterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final image = item.imageUrl?.trim() ?? '';
+    final hasImage = image.isNotEmpty;
+
     return GestureDetector(
       onTap: item.onTap,
-      child: LiquidGlass(
-        radius: 18,
-        blur: 0,
-        borderColor: Colors.white.withValues(alpha: 0.16),
-        boxShadow: [
-          BoxShadow(
-            color: item.colors.first.withValues(alpha: 0.4),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        child: SizedBox(
-          width: width,
+      child: Container(
+        width: width,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // Gradient + glyph fallback sits behind the image while it
+              // loads — and is the whole look when a doc has no artwork.
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -972,26 +979,55 @@ class _PosterCard extends StatelessWidget {
                   child: item.emoji?.isNotEmpty == true
                       ? Text(
                           item.emoji!,
-                          style: const TextStyle(fontSize: 40),
+                          style: const TextStyle(fontSize: 38),
                         )
                       : Icon(
                           item.icon ?? Icons.grid_view_rounded,
                           color: Colors.white,
-                          size: 40,
+                          size: 38,
                         ),
                 ),
               ),
+              if (hasImage)
+                item.isCircular
+                    // Square avatars (communities) read better as a centered
+                    // circle than stretched edge-to-edge.
+                    ? Center(
+                        child: Container(
+                          width: 92,
+                          height: 92,
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              width: 2,
+                            ),
+                          ),
+                          child: Image.network(
+                            image,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                        ),
+                      )
+                    : Image.network(
+                        image,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(10, 28, 10, 10),
+                  padding: const EdgeInsets.fromLTRB(12, 30, 12, 11),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xE6000000)],
+                      colors: [Colors.transparent, Color(0xCC000000)],
                     ),
                   ),
                   child: Column(
@@ -1003,12 +1039,12 @@ class _PosterCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w800,
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         item.tag,
                         maxLines: 1,
@@ -1046,6 +1082,8 @@ class _SearchHit {
     required this.onTap,
     this.emoji,
     this.icon,
+    this.imageUrl,
+    this.isCircular = false,
   });
 
   final String title;
@@ -1053,6 +1091,14 @@ class _SearchHit {
   final List<Color> colors;
   final String? emoji;
   final IconData? icon;
+
+  /// Real artwork (cover / product photo / post image) shown over the
+  /// gradient fallback so search reads like a visual discovery feed.
+  final String? imageUrl;
+
+  /// Render [imageUrl] as a centered circular avatar instead of a full-bleed
+  /// cover (square community profile images).
+  final bool isCircular;
   final VoidCallback onTap;
 }
 
@@ -1248,7 +1294,7 @@ class _SearchTabState extends State<_SearchTab> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             itemCount: _filters.length,
             separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, i) {
@@ -1399,7 +1445,7 @@ class _SearchTabState extends State<_SearchTab> {
     if (sections.isNotEmpty) {
       return ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         itemCount: sections.length,
         itemBuilder: (context, index) =>
             _SearchSectionView(section: sections[index]),
@@ -1487,6 +1533,7 @@ class _SearchTabState extends State<_SearchTab> {
             tag: tag,
             colors: _contentColors(item.type),
             icon: item.type.icon,
+            imageUrl: item.coverImageUrl,
             onTap: () => Navigator.pushNamed(
               context,
               AppRoutes.contentDetail,
@@ -1528,6 +1575,8 @@ class _SearchTabState extends State<_SearchTab> {
                 '${item.memberCount == 1 ? 'member' : 'members'}',
             colors: [item.color, item.color.withValues(alpha: 0.22)],
             icon: item.icon,
+            imageUrl: item.profileImageUrl ?? item.coverImageUrl,
+            isCircular: true,
             onTap: () => Navigator.pushNamed(
               context,
               AppRoutes.communityDetail,
@@ -1570,6 +1619,7 @@ class _SearchTabState extends State<_SearchTab> {
             tag: tag,
             colors: [item.color, item.color.withValues(alpha: 0.22)],
             icon: item.icon,
+            imageUrl: item.coverImageUrl,
             onTap: () => Navigator.pushNamed(
               context,
               AppRoutes.eventDetail,
@@ -1603,6 +1653,7 @@ class _SearchTabState extends State<_SearchTab> {
             tag: formatPkrPrice(item.priceLabel),
             colors: [item.color, item.color.withValues(alpha: 0.22)],
             emoji: item.emoji,
+            imageUrl: item.imageUrl,
             onTap: () => Navigator.pushNamed(
               context,
               AppRoutes.product,
@@ -1644,6 +1695,7 @@ class _SearchTabState extends State<_SearchTab> {
             tag: tag,
             colors: const [Color(0xFFA855F7), Color(0xFF1E0B33)],
             icon: Icons.forum_rounded,
+            imageUrl: item.imageUrl,
             onTap: () {
               if (communityId.isEmpty) {
                 Navigator.pushNamed(context, AppRoutes.feed);
@@ -1949,15 +2001,24 @@ class _FeedPromoCard extends StatelessWidget {
 
 /* --------------------------------- PROFILE -------------------------------- */
 
-class _ProfileTab extends StatelessWidget {
+class _ProfileTab extends StatefulWidget {
   const _ProfileTab();
+
+  @override
+  State<_ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<_ProfileTab> {
+  final _user = StreamCache<UserProfile?>(
+    () => UserService.instance.watchCurrent(),
+  );
 
   @override
   Widget build(BuildContext context) {
     final user = AuthService.instance.currentUser;
 
     return StreamBuilder<UserProfile?>(
-      stream: UserService.instance.watchCurrent(),
+      stream: _user(),
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final name = profile?.name.isNotEmpty == true
@@ -1966,7 +2027,7 @@ class _ProfileTab extends StatelessWidget {
         final role = profile?.role ?? UserRole.fan;
 
         return ListView(
-          physics: const BouncingScrollPhysics(),
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 130),
           children: [
             Center(
