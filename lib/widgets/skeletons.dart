@@ -121,7 +121,14 @@ class ContentListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    // A ListView (instead of a Column) keeps this skeleton safe in both
+    // tight, bounded parents and unbounded ones: inside tight constraints it
+    // lays out at the given size and clips the extra rows instead of
+    // asserting a RenderFlex overflow, while `shrinkWrap` sizes it to its
+    // content when the parent height is unbounded.
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         for (var i = 0; i < count; i++)
           Padding(

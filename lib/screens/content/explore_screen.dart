@@ -4,6 +4,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
 import '../../services/content_service.dart';
+import '../../services/stream_cache.dart';
 import '../../services/taxonomy_service.dart';
 import '../../widgets/content_widgets.dart';
 import '../../widgets/skeletons.dart';
@@ -38,6 +39,16 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   final TextEditingController _query = TextEditingController();
+
+  final _fandoms = StreamCache<List<FandomDoc>>(
+    () => TaxonomyService.instance.watchFandoms(),
+  );
+  final _categories = StreamCache<List<ContentCategoryDoc>>(
+    () => TaxonomyService.instance.watchCategories(),
+  );
+  final _published = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchPublished(),
+  );
 
   ContentType? _type;
   String? _fandomId;
@@ -281,11 +292,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
           constraints: const BoxConstraints(maxWidth: 440),
           child: SafeArea(
             child: StreamBuilder<List<FandomDoc>>(
-              stream: TaxonomyService.instance.watchFandoms(),
+              stream: _fandoms(),
               builder: (context, fandomSnap) {
                 final fandoms = fandomSnap.data ?? const <FandomDoc>[];
                 return StreamBuilder<List<ContentCategoryDoc>>(
-                  stream: TaxonomyService.instance.watchCategories(),
+                  stream: _categories(),
                   builder: (context, catSnap) {
                     final categories =
                         catSnap.data ?? const <ContentCategoryDoc>[];
@@ -435,7 +446,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         const SizedBox(height: 16),
         Expanded(
           child: StreamBuilder<List<ContentDoc>>(
-            stream: ContentService.instance.watchPublished(),
+            stream: _published(),
             builder: (context, snap) {
               if (snap.hasError) {
                 return ContentErrorState(
@@ -463,6 +474,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 );
               }
               return ListView(
+                key: const PageStorageKey<String>('explore_results'),
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                 children: [

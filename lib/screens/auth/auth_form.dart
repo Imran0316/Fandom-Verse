@@ -347,6 +347,7 @@ class _AuthFormState extends State<AuthForm>
                 const SizedBox(height: 12),
                 GlassButton(
                   label: _isSignIn ? 'Sign In' : 'Create Account',
+                  variant: GlassButtonVariant.sleek,
                   isLoading: _loading,
                   onPressed: _submit,
                 ),

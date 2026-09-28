@@ -92,7 +92,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: LiquidGlass(
                     radius: 16,
-                    blur: 20,
+                    blur: 0,
                     padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
                     child: Row(
                       children: [
@@ -156,65 +156,82 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: StreamBuilder<List<PostDoc>>(
                     stream: _posts(),
                     builder: (context, snap) {
-                      if (snap.connectionState == ConnectionState.waiting &&
-                          snap.data == null) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      }
+                      final waiting =
+                          snap.connectionState == ConnectionState.waiting &&
+                              snap.data == null;
                       final posts = snap.data ?? const <PostDoc>[];
-                      if (posts.isEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 36),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                LiquidGlass(
-                                  radius: 24,
-                                  blur: 20,
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.primary.withValues(alpha: 0.25),
-                                      Colors.white.withValues(alpha: 0.05),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.all(20),
-                                  child: const Icon(
-                                    Icons.bolt_rounded,
-                                    color: Colors.white,
-                                    size: 32,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Feed is quiet',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Post the first take — hot takes welcome.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white60,
-                                    fontSize: 13.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
+                      final showEmpty = !waiting && posts.isEmpty;
+                      final placeholder = waiting || showEmpty;
                       return ListView.separated(
+                        key: const PageStorageKey<String>('feed_posts'),
                         physics: const BouncingScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                        itemCount: posts.length,
+                        itemCount: placeholder ? 1 : posts.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),
                         itemBuilder: (context, i) {
+                          if (waiting) {
+                            return SizedBox(
+                              height: MediaQuery.sizeOf(context).height * 0.45,
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+                          if (posts.isEmpty) {
+                            return SizedBox(
+                              height: MediaQuery.sizeOf(context).height * 0.45,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 36,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      LiquidGlass(
+                                        radius: 24,
+                                        blur: 0,
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            AppColors.primary.withValues(
+                                              alpha: 0.25,
+                                            ),
+                                            Colors.white.withValues(
+                                              alpha: 0.05,
+                                            ),
+                                          ],
+                                        ),
+                                        padding: const EdgeInsets.all(20),
+                                        child: const Icon(
+                                          Icons.bolt_rounded,
+                                          color: Colors.white,
+                                          size: 32,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Feed is quiet',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      const Text(
+                                        'Post the first take — hot takes welcome.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 13.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
                           final p = posts[i];
                           return FadeSlideIn(
                             key: ValueKey(p.id),

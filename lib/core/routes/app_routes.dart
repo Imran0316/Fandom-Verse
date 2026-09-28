@@ -28,6 +28,7 @@ class AppRoutes {
   static const String events = '/events';
   static const String eventMap = '/events/map';
   static const String eventDetail = '/events/detail';
+  static const String createReel = '/reels/create';
 
   // ---- AI ----
   static const String fanHelper = '/fan-helper';

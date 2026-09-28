@@ -86,6 +86,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _clearAll() async {
+    try {
+      await NotificationService.instance.clearAll();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Notifications cleared.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   void _open(NotificationDoc n) {
     NotificationService.instance.markRead(n.id);
     if (n.kind == NotificationKind.followRequested) {
@@ -175,6 +188,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ),
                               ),
                             ),
+                          if (items.isNotEmpty)
+                            TextButton(
+                              onPressed: _clearAll,
+                              child: const Text(
+                                'Clear',
+                                style: TextStyle(
+                                  color: Color(0xFFFF6B6B),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -182,6 +207,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       child: items.isEmpty
                           ? _empty()
                           : ListView.separated(
+                              key: const PageStorageKey<String>(
+                                'notifications_list',
+                              ),
                               physics: const BouncingScrollPhysics(),
                               padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
                               itemCount: items.length,

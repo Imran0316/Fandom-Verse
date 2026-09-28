@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
 import '../../services/bookmark_service.dart';
 import '../../services/content_service.dart';
+import '../../widgets/article_video.dart';
 import '../../widgets/content_widgets.dart';
 import '../../widgets/glass_button.dart';
 import 'content_deep_dive.dart';
@@ -19,9 +20,16 @@ class ContentDetailArgs {
 }
 
 class ContentDetailScreen extends StatelessWidget {
-  const ContentDetailScreen({super.key, required this.args});
+  const ContentDetailScreen({
+    super.key,
+    required this.args,
+    this.contentStream,
+  });
 
   final ContentDetailArgs args;
+
+  /// Test seam: defaults to the live content stream.
+  final Stream<ContentDoc?>? contentStream;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +39,8 @@ class ContentDetailScreen extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: StreamBuilder<ContentDoc?>(
-            stream: ContentService.instance.watchById(args.contentId),
+            stream: contentStream ??
+                ContentService.instance.watchById(args.contentId),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting &&
                   !snap.hasData) {
@@ -78,6 +87,7 @@ class _DetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final videoUrl = content.videoUrl?.trim();
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -193,6 +203,10 @@ class _DetailBody extends StatelessWidget {
                 const SizedBox(height: 20),
                 const Divider(color: Color(0x1FFFFFFF), height: 1),
                 const SizedBox(height: 22),
+                if (videoUrl != null && videoUrl.isNotEmpty) ...[
+                  ArticleVideo(url: videoUrl, posterUrl: content.coverImageUrl),
+                  const SizedBox(height: 24),
+                ],
                 _ContentBody(content: content),
                 if (content.tags.isNotEmpty) ...[
                   const SizedBox(height: 26),
@@ -474,6 +488,16 @@ class _BookmarkButtonState extends State<_BookmarkButton> {
             content: Text(
               saved ? 'Saved to your library' : 'Removed from saved',
             ),
+          ),
+        );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xE616161F),
+            content: Text(e.message),
           ),
         );
     } catch (_) {

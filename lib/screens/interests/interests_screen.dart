@@ -122,6 +122,7 @@ class _InterestsScreenState extends State<InterestsScreen> {
                     const SizedBox(height: 28),
                     GlassButton(
                       label: 'Continue',
+                      variant: GlassButtonVariant.sleek,
                       isLoading: _saving,
                       onPressed: _selected.isEmpty ? null : _continue,
                     ),

@@ -19,7 +19,8 @@ class AdminGate extends StatelessWidget {
     return StreamBuilder<UserProfile?>(
       stream: UserService.instance.watchCurrent(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            snapshot.data == null) {
           return const Scaffold(
             backgroundColor: AppColors.backgroundDeep,
             body: Center(child: CircularProgressIndicator()),

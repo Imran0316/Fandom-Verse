@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -28,6 +29,12 @@ class MerchExploreScreen extends StatefulWidget {
 class _MerchExploreScreenState extends State<MerchExploreScreen> {
   final TextEditingController _searchController = TextEditingController();
   MerchExploreSort _sort = MerchExploreSort.topSales;
+  final _merch = StreamCache<List<MerchProductDoc>>(
+    () => CatalogService.instance.watchMerch(),
+  );
+  final _cartCount = StreamCache<int>(
+    () => CartService.instance.watchCartCount(),
+  );
 
   static double _parsedPrice(MerchProductDoc product) {
     final digits = product.priceLabel.replaceAll(RegExp(r'[^0-9.]'), '');
@@ -89,7 +96,7 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
               child: StreamBuilder<List<MerchProductDoc>>(
-                stream: CatalogService.instance.watchMerch(),
+                stream: _merch(),
                 builder: (context, snapshot) {
                   final items = _applyFilters(snapshot.data ?? const []);
                   return Column(
@@ -120,7 +127,7 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                           ),
                           // Header action: open the cart (live item count).
                           StreamBuilder<int>(
-                            stream: CartService.instance.watchCartCount(),
+                            stream: _cartCount(),
                             builder: (context, snap) {
                               final count = snap.data ?? 0;
                               return IconButton(
@@ -285,6 +292,9 @@ class _MerchExploreScreenState extends State<MerchExploreScreen> {
                                 ),
                               )
                             : GridView.builder(
+                                key: const PageStorageKey<String>(
+                                  'merch_explore_grid',
+                                ),
                                 padding: EdgeInsets.zero,
                                 physics: const BouncingScrollPhysics(),
                                 itemCount: items.length,
@@ -352,7 +362,7 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
       ),
       child: LiquidGlass(
         radius: 22,
-        blur: 22,
+        blur: 0,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

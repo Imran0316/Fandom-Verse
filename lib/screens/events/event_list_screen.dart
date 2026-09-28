@@ -12,7 +12,10 @@ import '../../widgets/liquid_glass.dart';
 enum _EventsView { list, calendar }
 
 class EventListScreen extends StatefulWidget {
-  const EventListScreen({super.key});
+  const EventListScreen({super.key, this.eventsStream});
+
+  /// Test seam: defaults to the live upcoming-events stream.
+  final Stream<List<FandomEventDoc>>? eventsStream;
 
   @override
   State<EventListScreen> createState() => _EventListScreenState();
@@ -36,7 +39,8 @@ class _EventListScreenState extends State<EventListScreen> {
   @override
   void initState() {
     super.initState();
-    _eventsStream = EventService.instance.watchUpcoming();
+    _eventsStream =
+        widget.eventsStream ?? EventService.instance.watchUpcoming();
     _requestLocation();
   }
 
@@ -526,7 +530,13 @@ class _CalendarEvents extends StatelessWidget {
           (selectedDate == null || _sameDate(date, selectedDate!));
     }).toList();
 
-    return Column(
+    // The month card is intrinsically tall (~300px at 360w). Built as a
+    // plain Column it was forced into the screen's tight Expanded, so the
+    // space left for the day list / empty state could be far smaller than
+    // their content and the Column asserted a RenderFlex overflow. The whole
+    // calendar now lives in one scroll view: nothing is squeezed into a fixed
+    // slot, and in tall enough layouts it simply renders without scrolling.
+    final content = Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -652,31 +662,34 @@ class _CalendarEvents extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(
-          child: visibleEvents.isEmpty
-              ? ContentEmptyState(
-                  icon: Icons.event_available_outlined,
-                  title: selectedDate == null
-                      ? 'No events this month'
-                      : 'No events on this date',
-                  message: 'Choose another date or browse a different month.',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: visibleEvents.length,
-                  itemBuilder: (context, index) => _EventListItem(
-                    event: visibleEvents[index],
-                    distanceKm: distanceFor(visibleEvents[index]),
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      '/events/detail',
-                      arguments: visibleEvents[index],
-                    ),
-                  ),
-                ),
-        ),
+        if (visibleEvents.isEmpty)
+          ContentEmptyState(
+            icon: Icons.event_available_outlined,
+            title: selectedDate == null
+                ? 'No events this month'
+                : 'No events on this date',
+            message: 'Choose another date or browse a different month.',
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: visibleEvents.length,
+            itemBuilder: (context, index) => _EventListItem(
+              event: visibleEvents[index],
+              distanceKm: distanceFor(visibleEvents[index]),
+              onTap: () => Navigator.pushNamed(
+                context,
+                '/events/detail',
+                arguments: visibleEvents[index],
+              ),
+            ),
+          ),
       ],
     );
+
+    return SingleChildScrollView(child: content);
   }
 }
 
@@ -718,7 +731,10 @@ class _EventListItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: LiquidGlass(
         radius: 18,
-        blur: 16,
+        // The list sits on a flat background where a backdrop blur is a
+        // visual no-op but re-reads the screen for every card every frame —
+        // the main source of scroll jank on this page.
+        blur: 0,
         gradient: LinearGradient(
           colors: [
             event.color.withValues(alpha: 0.25),
@@ -762,29 +778,35 @@ class _EventListItem extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (event.hasLocation) ...[
-                            const SizedBox(width: 8),
+                        ],
+                      ),
+                      if (event.hasLocation) ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
                             const Icon(
                               Icons.location_on_rounded,
                               color: Colors.white54,
                               size: 12,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              event.locationLabel.isEmpty
-                                  ? event.city
-                                  : event.locationLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                            Flexible(
+                              child: Text(
+                                event.locationLabel.isEmpty
+                                    ? event.city
+                                    : event.locationLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],
-                        ],
-                      ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Text(
                         event.title,

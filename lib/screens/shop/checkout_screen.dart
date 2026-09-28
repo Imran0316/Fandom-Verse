@@ -242,7 +242,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             const _SectionLabel('Deliver to'),
                             LiquidGlass(
                               radius: 18,
-                              blur: 20,
+                              blur: 0,
                               padding: const EdgeInsets.all(14),
                               gradient: LinearGradient(
                                 colors: [
@@ -330,7 +330,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             const _SectionLabel('Order summary'),
                             LiquidGlass(
                               radius: 18,
-                              blur: 20,
+                              blur: 0,
                               padding: const EdgeInsets.all(14),
                               gradient: LinearGradient(
                                 colors: [
@@ -412,7 +412,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             const _SectionLabel('Payment method'),
                             LiquidGlass(
                               radius: 18,
-                              blur: 20,
+                              blur: 0,
                               padding: const EdgeInsets.all(8),
                               gradient: LinearGradient(
                                 colors: [

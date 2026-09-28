@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -20,6 +21,15 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _qty = 1;
   bool _busy = false;
+  final _cartCount = StreamCache<int>(
+    () => CartService.instance.watchCartCount(),
+  );
+  late final _product = StreamCache<MerchProductDoc?>(
+    () => CatalogService.instance.watchMerchProduct(widget.product.id),
+  );
+  late final _reviews = StreamCache<List<ProductReviewDoc>>(
+    () => CatalogService.instance.watchReviews(widget.product.id),
+  );
 
   Future<void> _addToCart({bool goCheckout = false}) async {
     if (_busy) return;
@@ -72,72 +82,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: SafeArea(
             child: Stack(
               children: [
-                Positioned(
-                  top: 4,
-                  left: 8,
-                  right: 16,
-                  height: 54,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.55),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(
-                              alpha: 0.4,
-                            ),
-                            foregroundColor: Colors.white,
-                          ),
-                          icon: const Icon(Icons.arrow_back_rounded),
-                        ),
-                        const Spacer(),
-                        StreamBuilder<int>(
-                          stream: CartService.instance.watchCartCount(),
-                          builder: (context, countSnap) {
-                            final n = countSnap.data ?? 0;
-                            return IconButton(
-                              onPressed: () =>
-                                  Navigator.pushNamed(context, AppRoutes.cart),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.black.withValues(
-                                  alpha: 0.4,
-                                ),
-                                foregroundColor: Colors.white,
-                              ),
-                              icon: Badge(
-                                isLabelVisible: n > 0,
-                                label: Text(
-                                  '$n',
-                                  style: const TextStyle(
-                                    fontSize: 9.5,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                child: const Icon(Icons.shopping_bag_outlined),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 Column(
                   children: [
                     Expanded(
                       child: StreamBuilder<MerchProductDoc?>(
-                        stream: CatalogService.instance.watchMerchProduct(p.id),
+                        stream: _product(),
                         builder: (context, snap) {
                           final p = snap.data ?? widget.product;
                           return ListView(
@@ -410,8 +359,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     ),
                                     const SizedBox(height: 12),
                                     StreamBuilder<List<ProductReviewDoc>>(
-                                      stream: CatalogService.instance
-                                          .watchReviews(p.id),
+                                      stream: _reviews(),
                                       builder: (context, reviewSnap) {
                                         if (reviewSnap.hasError) {
                                           return const Text(
@@ -616,6 +564,78 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   ],
+                ),
+                Positioned(
+                  top: 4,
+                  left: 8,
+                  right: 16,
+                  height: 54,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.55),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        LiquidGlassPill(
+                          child: IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: IconButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.all(9),
+                              minimumSize: const Size(38, 38),
+                              iconSize: 20,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.arrow_back_rounded),
+                          ),
+                        ),
+                        const Spacer(),
+                        StreamBuilder<int>(
+                          stream: _cartCount(),
+                          builder: (context, countSnap) {
+                            final n = countSnap.data ?? 0;
+                            return LiquidGlassPill(
+                              child: IconButton(
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.cart,
+                                ),
+                                style: IconButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.all(9),
+                                  minimumSize: const Size(38, 38),
+                                  iconSize: 20,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: Badge(
+                                  isLabelVisible: n > 0,
+                                  label: Text(
+                                    '$n',
+                                    style: const TextStyle(
+                                      fontSize: 9.5,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.shopping_bag_outlined,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

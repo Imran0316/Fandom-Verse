@@ -87,6 +87,51 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
     }
   }
 
+  Future<void> _deleteCommunity(CommunityDoc community) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        title: const Text(
+          'Delete community?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'This cannot be undone.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Color(0xFFFF6B6B)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await CommunityService.instance.deleteCommunity(community.id);
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      final text = e.toString();
+      final friendly = text.contains('permission')
+          ? 'Not allowed — publish updated firestore.rules and try again.'
+          : text;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendly)),
+      );
+    }
+  }
+
   Future<void> _pickPostImage() async {
     if (_uploadingImage) return;
     setState(() => _uploadingImage = true);
@@ -207,6 +252,10 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
   /* -------------------------------- Header -------------------------------- */
 
   Widget _header(CommunityDoc community, bool isMember, bool isOwner) {
+    final uid = AuthService.instance.currentUser?.uid;
+    final canDelete = uid != null &&
+        community.ownerUid.isNotEmpty &&
+        community.ownerUid == uid;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -260,6 +309,12 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
                     const _OwnerBadge(),
                     const SizedBox(width: 6),
                     _EditButton(community: community),
+                  ],
+                  if (canDelete) ...[
+                    const SizedBox(width: 6),
+                    _DeleteButton(
+                      onTap: () => _deleteCommunity(community),
+                    ),
                   ],
                 ],
               ),
@@ -606,6 +661,24 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
               ),
               const SizedBox(width: 6),
               GestureDetector(
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.createReel,
+                  arguments: community,
+                ),
+                child: const LiquidGlassPill(
+                  radius: 999,
+                  blur: 14,
+                  padding: EdgeInsets.all(9),
+                  child: Icon(
+                    Icons.video_call_outlined,
+                    size: 19,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              GestureDetector(
                 onTap: _posting ? null : () => _submitPost(community),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -782,6 +855,34 @@ class _EditButton extends StatelessWidget {
           Icons.edit_rounded,
           size: 16,
           color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFFFF6B6B).withValues(alpha: 0.14),
+          border: Border.all(
+            color: const Color(0xFFFF6B6B).withValues(alpha: 0.5),
+          ),
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          size: 16,
+          color: Color(0xFFFF6B6B),
         ),
       ),
     );

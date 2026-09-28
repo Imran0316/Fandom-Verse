@@ -55,11 +55,17 @@ class ContactScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                   children: [
                     Center(
-                      child: LottieView(
+                      child: Image.asset(
+                        'lib/assets/images/fanVerseLogo.png',
                         width: 88,
                         height: 88,
-                        asset: 'lib/assets/lottie/sparkle.json',
-                        fallback: const PulseDot(size: 72),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => LottieView(
+                          width: 88,
+                          height: 88,
+                          asset: 'lib/assets/lottie/sparkle.json',
+                          fallback: const PulseDot(size: 72),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),

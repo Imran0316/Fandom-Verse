@@ -53,6 +53,14 @@ service cloud.firestore {
         && counterOnly('replyCount');
     }
 
+    // Reel counters: likes / comments bump by ±1 (reels have no reposts).
+    function validReelCounters() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['likeCount', 'commentCount'])
+        && counterOnly('likeCount')
+        && counterOnly('commentCount');
+    }
+
     // Follow counters on any user's profile (accept / unfollow bumps).
     function validFollowCounters() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
@@ -315,6 +323,35 @@ service cloud.firestore {
         allow read: if signedIn();
         allow create: if signedIn() && repostUid == request.auth.uid;
         allow delete: if signedIn() && repostUid == request.auth.uid;
+      }
+    }
+
+    // ---- Community reels: Cloudinary video + Firestore metadata ----
+    match /reels/{reelId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAdmin()
+        || resource.data.authorUid == request.auth.uid
+        // Anyone signed-in may bump like/comment counters (±1).
+        || (signedIn() && validReelCounters());
+      allow delete: if isAdmin()
+        || resource.data.authorUid == request.auth.uid;
+
+      match /likes/{likeUid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && likeUid == request.auth.uid;
+        allow delete: if signedIn() && likeUid == request.auth.uid;
+      }
+
+      match /comments/{commentId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.authorUid == request.auth.uid;
+        allow update: if isAdmin()
+          || resource.data.authorUid == request.auth.uid;
+        allow delete: if isAdmin()
+          || resource.data.authorUid == request.auth.uid;
       }
     }
 

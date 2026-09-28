@@ -28,6 +28,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
   late final TextEditingController _answer;
   late final TextEditingController _explanation;
   final TextEditingController _tagInput = TextEditingController();
+  late final TextEditingController _videoUrl;
 
   late ContentType _type;
   late ContentStatus _status;
@@ -65,6 +66,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
     _question = TextEditingController(text: e?.question ?? '');
     _answer = TextEditingController(text: e?.answer ?? '');
     _explanation = TextEditingController(text: e?.explanation ?? '');
+    _videoUrl = TextEditingController(text: e?.videoUrl ?? '');
   }
 
   @override
@@ -76,6 +78,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
     _answer.dispose();
     _explanation.dispose();
     _tagInput.dispose();
+    _videoUrl.dispose();
     super.dispose();
   }
 
@@ -147,6 +150,8 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
     final status = forcePublish == null
         ? _status
         : (forcePublish ? ContentStatus.published : ContentStatus.draft);
+    // An emptied field clears the video on the saved doc.
+    final videoUrl = _videoUrl.text.trim();
 
     setState(() => _saving = true);
     try {
@@ -169,6 +174,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
           isFeatured: _isFeatured,
           isTrending: _isTrending,
           coverImageUrl: _coverUrl,
+          videoUrl: videoUrl.isEmpty ? null : videoUrl,
           existingPublishedAt: widget.existing!.publishedAt,
         );
       } else {
@@ -189,6 +195,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
           isFeatured: _isFeatured,
           isTrending: _isTrending,
           coverImageUrl: _coverUrl,
+          videoUrl: videoUrl.isEmpty ? null : videoUrl,
         );
       }
       if (!mounted) return;
@@ -254,6 +261,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
                           onRemove: () => setState(() => _coverUrl = null),
                           onUrlSubmitted: (url) =>
                               setState(() => _coverUrl = url),
+                          videoUrl: _videoUrl,
                         ),
                         const SizedBox(height: 26),
                         _SectionD(
@@ -646,6 +654,7 @@ class _SectionMedia extends StatefulWidget {
     required this.onPick,
     required this.onRemove,
     required this.onUrlSubmitted,
+    required this.videoUrl,
   });
 
   final String? coverUrl;
@@ -653,6 +662,7 @@ class _SectionMedia extends StatefulWidget {
   final VoidCallback onPick;
   final VoidCallback onRemove;
   final ValueChanged<String> onUrlSubmitted;
+  final TextEditingController videoUrl;
 
   @override
   State<_SectionMedia> createState() => _SectionMediaState();
@@ -782,6 +792,22 @@ class _SectionMediaState extends State<_SectionMedia> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 18),
+        _EditorField(
+          controller: widget.videoUrl,
+          label: 'Video URL',
+          hint: 'https://example.com/clips/highlight.mp4',
+          keyboardType: TextInputType.url,
+          validator: _videoUrlValidator,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Optional — a muted clip plays above the article text. Clear it to remove.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.42),
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -1006,6 +1032,17 @@ InputDecoration _decoration(String hint) {
   );
 }
 
+/// Optional field: empty is valid, anything else must be an http(s) link.
+String? _videoUrlValidator(String? raw) {
+  final value = (raw ?? '').trim();
+  if (value.isEmpty) return null;
+  final uri = Uri.tryParse(value);
+  final valid = uri != null &&
+      (uri.isScheme('http') || uri.isScheme('https')) &&
+      uri.host.isNotEmpty;
+  return valid ? null : 'Enter a full link starting with https://';
+}
+
 class _EditorField extends StatelessWidget {
   const _EditorField({
     required this.controller,
@@ -1013,6 +1050,7 @@ class _EditorField extends StatelessWidget {
     this.hint,
     this.maxLines = 1,
     this.validator,
+    this.keyboardType,
   });
 
   final TextEditingController controller;
@@ -1020,6 +1058,7 @@ class _EditorField extends StatelessWidget {
   final String? hint;
   final int maxLines;
   final String? Function(String?)? validator;
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -1027,6 +1066,7 @@ class _EditorField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       validator: validator,
+      keyboardType: keyboardType,
       style: const TextStyle(
         color: Colors.white,
         fontSize: 15,

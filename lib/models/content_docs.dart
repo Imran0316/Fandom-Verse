@@ -62,6 +62,7 @@ class ContentDoc {
     this.answer = '',
     this.explanation = '',
     this.coverImageUrl,
+    this.videoUrl,
     this.fandomId = '',
     this.fandomName = '',
     this.categoryId = '',
@@ -90,6 +91,9 @@ class ContentDoc {
   final String explanation;
 
   final String? coverImageUrl;
+
+  /// Optional inline video shown between the article header and the body.
+  final String? videoUrl;
 
   final String fandomId;
   final String fandomName;
@@ -152,6 +156,7 @@ class ContentDoc {
       answer: (data['answer'] as String?) ?? '',
       explanation: (data['explanation'] as String?) ?? '',
       coverImageUrl: _cleanUrl(data['coverImageUrl'] as String?),
+      videoUrl: _cleanUrl(data['videoUrl'] as String?),
       fandomId: (data['fandomId'] as String?) ?? '',
       fandomName: (data['fandomName'] as String?) ?? '',
       categoryId: (data['categoryId'] as String?) ?? '',
@@ -178,6 +183,7 @@ class ContentDoc {
         'coverImageUrl': (coverImageUrl ?? '').trim().isEmpty
             ? null
             : coverImageUrl!.trim(),
+        if ((videoUrl ?? '').trim().isNotEmpty) 'videoUrl': videoUrl!.trim(),
         'fandomId': fandomId,
         'fandomName': fandomName,
         'categoryId': categoryId,

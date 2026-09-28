@@ -27,6 +27,7 @@ import '../communities/post_card.dart';
 import '../content/content_detail_screen.dart';
 import '../content/discovery_sections.dart';
 import '../reels/reels_tab.dart';
+import 'trending_tab.dart';
 
 String _normalizeFandomKey(String? value) => (value ?? '').trim().toLowerCase();
 
@@ -129,16 +130,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               SafeArea(
                 bottom: false,
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: const [
-                    _HomeTab(),
-                    _TrendingTab(),
-                    _SearchTab(),
-                    ReelsTab(),
-                    _ProfileTab(),
-                  ],
-                ),
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  const _HomeTab(),
+                  TrendingTab(onOpenReels: () => _onSelected(3)),
+                  const _SearchTab(),
+                  const ReelsTab(),
+                  const _ProfileTab(),
+                ],
+              ),
               ),
               Positioned(
                 left: 0,
@@ -185,10 +186,17 @@ class _HomeTabState extends State<_HomeTab> {
   final _notifications = StreamCache<List<NotificationDoc>>(
     () => NotificationService.instance.watch(),
   );
+  final _events = StreamCache<List<FandomEventDoc>>(
+    () => CatalogService.instance.watchUpcomingEvents(),
+  );
+  final _merch = StreamCache<List<MerchProductDoc>>(
+    () => CatalogService.instance.watchMerch(),
+  );
 
   @override
   Widget build(BuildContext context) {
     return ListView(
+      key: const PageStorageKey<String>('home_feed'),
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 130),
       children: [
@@ -219,6 +227,7 @@ class _HomeTabState extends State<_HomeTab> {
             return SizedBox(
               height: 122,
               child: ListView.separated(
+                key: const PageStorageKey<String>('home_communities_rail'),
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 physics: const BouncingScrollPhysics(),
@@ -267,6 +276,9 @@ class _HomeTabState extends State<_HomeTab> {
                     SizedBox(
                       height: 214,
                       child: ListView.separated(
+                        key: const PageStorageKey<String>(
+                          'home_recommended_rail',
+                        ),
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         physics: const BouncingScrollPhysics(),
@@ -337,7 +349,7 @@ class _HomeTabState extends State<_HomeTab> {
         LatestDiscoveriesSection(stream: _published()),
         const SizedBox(height: 34),
         StreamBuilder<List<FandomEventDoc>>(
-          stream: CatalogService.instance.watchUpcomingEvents(),
+          stream: _events(),
           builder: (context, snap) {
             final events = (snap.data ?? const <FandomEventDoc>[])
                 .take(6)
@@ -355,6 +367,7 @@ class _HomeTabState extends State<_HomeTab> {
                 SizedBox(
                   height: 150,
                   child: ListView.separated(
+                    key: const PageStorageKey<String>('home_events_rail'),
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     physics: const BouncingScrollPhysics(),
@@ -370,7 +383,7 @@ class _HomeTabState extends State<_HomeTab> {
         ),
         const SizedBox(height: 34),
         StreamBuilder<List<MerchProductDoc>>(
-          stream: CatalogService.instance.watchMerch(),
+          stream: _merch(),
           builder: (context, snap) {
             final merch = (snap.data ?? const <MerchProductDoc>[])
                 .take(8)
@@ -388,6 +401,7 @@ class _HomeTabState extends State<_HomeTab> {
                 SizedBox(
                   height: 238,
                   child: ListView.separated(
+                    key: const PageStorageKey<String>('home_merch_rail'),
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     physics: const BouncingScrollPhysics(),
@@ -477,7 +491,7 @@ class _TopBarAction extends StatelessWidget {
         children: [
           LiquidGlass(
             radius: 16,
-            blur: 20,
+            blur: 0,
             padding: const EdgeInsets.all(10),
             gradient: LinearGradient(
               colors: [
@@ -539,7 +553,7 @@ class _EventCardDoc extends StatelessWidget {
           Navigator.pushNamed(context, AppRoutes.eventDetail, arguments: event),
       child: LiquidGlass(
         radius: 20,
-        blur: 26,
+        blur: 0,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -650,6 +664,14 @@ class _EventCardDoc extends StatelessWidget {
   }
 }
 
+/// Normalises a seller-entered [MerchProductDoc.priceLabel] (`$59`,
+/// `Rs 1,200`, `PKR 999`) into a PKR label. Any currency symbol/prefix is
+/// stripped first so the amount is never double-prefixed.
+String formatPkrPrice(String raw) {
+  final amount = raw.replaceAll(RegExp(r'[^0-9.,]'), '').trim();
+  return 'PKR ${amount.isEmpty ? '0' : amount}';
+}
+
 class _MerchCardDoc extends StatelessWidget {
   const _MerchCardDoc({required this.item});
 
@@ -669,7 +691,7 @@ class _MerchCardDoc extends StatelessWidget {
         width: 162,
         child: LiquidGlass(
           radius: 24,
-          blur: 26,
+          blur: 0,
           padding: const EdgeInsets.all(7),
           gradient: LinearGradient(
             colors: [
@@ -680,160 +702,156 @@ class _MerchCardDoc extends StatelessWidget {
           borderColor: Colors.white.withValues(alpha: 0.16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
+              color: Colors.black.withValues(alpha: 0.34),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
             child: SizedBox(
               height: 224,
-              child: Stack(
-                fit: StackFit.expand,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ColoredBox(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    child: const Center(
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.white24,
-                        size: 34,
-                      ),
-                    ),
-                  ),
-                  if (item.imageUrl?.isNotEmpty == true)
-                    Image.network(
-                      item.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                    ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.3),
-                            Colors.transparent,
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.84),
-                          ],
-                          stops: const [0, 0.32, 0.5, 1],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (hasRating)
-                    Positioned(
-                      top: 9,
-                      right: 9,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(9),
-                          color: Colors.black.withValues(alpha: 0.55),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
+                  Expanded(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const ColoredBox(
+                          color: Color(0x0DFFFFFF),
+                          child: Center(
+                            child: Icon(
+                              Icons.inventory_2_outlined,
+                              color: Colors.white24,
+                              size: 38,
+                            ),
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star_rounded,
-                              color: Color(0xFFFFD166),
-                              size: 11,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              item.rating.toStringAsFixed(1),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
+                        if (item.imageUrl?.isNotEmpty == true)
+                          Image.network(
+                            item.imageUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.5),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (out || lowStock)
-                    Positioned(
-                      top: 9,
-                      left: 9,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(9),
-                          color: Colors.black.withValues(alpha: 0.55),
-                          border: Border.all(
-                            color:
-                                (out
-                                        ? const Color(0xFFFF6B6B)
-                                        : const Color(0xFFFFD166))
-                                    .withValues(alpha: 0.45),
+                            child: const SizedBox(height: 54),
                           ),
                         ),
-                        child: Text(
-                          out ? 'Sold out' : 'Only $stock left',
-                          style: TextStyle(
-                            color: out
-                                ? const Color(0xFFFF6B6B)
-                                : const Color(0xFFFFD166),
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
+                        if (hasRating)
+                          Positioned(
+                            top: 9,
+                            right: 9,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(9),
+                                color: Colors.black.withValues(alpha: 0.55),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    color: Color(0xFFFFD166),
+                                    size: 11,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    item.rating.toStringAsFixed(1),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        if (out || lowStock)
+                          Positioned(
+                            top: 9,
+                            left: 9,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(9),
+                                color: Colors.black.withValues(alpha: 0.55),
+                                border: Border.all(
+                                  color:
+                                      (out
+                                              ? const Color(0xFFFF6B6B)
+                                              : const Color(0xFFFFD166))
+                                          .withValues(alpha: 0.45),
+                                ),
+                              ),
+                              child: Text(
+                                out ? 'Sold out' : 'Only $stock left',
+                                style: TextStyle(
+                                  color: out
+                                      ? const Color(0xFFFF6B6B)
+                                      : const Color(0xFFFFD166),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           item.name,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
-                            shadows: [
-                              Shadow(color: Colors.black54, blurRadius: 6),
-                            ],
+                            height: 1.2,
                           ),
                         ),
-                        const SizedBox(height: 7),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            color: AppColors.accent.withValues(alpha: 0.2),
-                            border: Border.all(
-                              color: AppColors.accent.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Text(
-                            item.priceLabel,
-                            style: const TextStyle(
-                              color: AppColors.accent,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                            ),
+                        const SizedBox(height: 8),
+                        Text(
+                          formatPkrPrice(item.priceLabel),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.accent,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.2,
                           ),
                         ),
                       ],
@@ -920,23 +938,18 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _PosterCard extends StatelessWidget {
-  const _PosterCard({
-    required this.item,
-    required this.width,
-    required this.onTap,
-  });
+  const _PosterCard({required this.item, required this.width});
 
-  final MediaTitle item;
+  final _SearchHit item;
   final double width;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: item.onTap,
       child: LiquidGlass(
         radius: 18,
-        blur: 18,
+        blur: 0,
         borderColor: Colors.white.withValues(alpha: 0.16),
         boxShadow: [
           BoxShadow(
@@ -964,7 +977,16 @@ class _PosterCard extends StatelessWidget {
                   ),
                 ),
                 child: Center(
-                  child: Text(item.emoji, style: const TextStyle(fontSize: 40)),
+                  child: item.emoji?.isNotEmpty == true
+                      ? Text(
+                          item.emoji!,
+                          style: const TextStyle(fontSize: 40),
+                        )
+                      : Icon(
+                          item.icon ?? Icons.grid_view_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ),
                 ),
               ),
               Positioned(
@@ -997,6 +1019,8 @@ class _PosterCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         item.tag,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.accent,
                           fontSize: 11,
@@ -1017,75 +1041,53 @@ class _PosterCard extends StatelessWidget {
 
 /* -------------------------------- TRENDING -------------------------------- */
 
-class _TrendingTab extends StatelessWidget {
-  const _TrendingTab();
+/* --------------------------------- SEARCH --------------------------------- */
 
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ...MockCatalog.recommended,
-      ...MockCatalog.trending.map(
-        (t) => MediaTitle(
-          title: t.title,
-          tag: t.category,
-          colors: t.colors,
-          emoji: t.emoji,
-        ),
-      ),
-    ];
+/// One search result. Rendered by [_PosterCard]; [onTap] is the route the
+/// tile opens (detail screens for live hits, a preview for suggestions).
+class _SearchHit {
+  const _SearchHit({
+    required this.title,
+    required this.tag,
+    required this.colors,
+    required this.onTap,
+    this.emoji,
+    this.icon,
+  });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-          child: Text(
-            'Trending Now',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Text(
-            'What the verse is buzzing about this week',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-          ),
-        ),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final cols = constraints.maxWidth > 360 ? 2 : 2;
-              return GridView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
-                physics: const BouncingScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: cols,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 0.7,
-                ),
-                itemCount: items.length,
-                itemBuilder: (context, i) => _PosterCard(
-                  item: items[i],
-                  width: double.infinity,
-                  onTap: () => ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(items[i].title))),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
+  final String title;
+  final String tag;
+  final List<Color> colors;
+  final String? emoji;
+  final IconData? icon;
+  final VoidCallback onTap;
 }
 
-/* --------------------------------- SEARCH --------------------------------- */
+/// A titled group of hits (Content, Communities, Events, Merch, Posts).
+class _SearchSection {
+  const _SearchSection({required this.title, required this.hits});
+
+  final String title;
+  final List<_SearchHit> hits;
+}
+
+/// Case-insensitive `contains` over every searchable field of a source doc.
+bool _hitsQuery(String query, List<String> fields) =>
+    fields.any((value) => value.toLowerCase().contains(query));
+
+/// `null` while a source is still connecting (so the tab can show a spinner),
+/// the last event otherwise — an errored source degrades to an empty list
+/// instead of spinning forever.
+List<T>? _sourceData<T>(AsyncSnapshot<List<T>> snapshot) =>
+    snapshot.data ?? (snapshot.hasError ? <T>[] : null);
+
+/// Poster gradients per content type — mirrors the MockCatalog palette.
+List<Color> _contentColors(ContentType type) => switch (type) {
+  ContentType.article => const [Color(0xFF1D4ED8), Color(0xFF030B1F)],
+  ContentType.news => const [Color(0xFFBE123C), Color(0xFF18040A)],
+  ContentType.trivia => const [Color(0xFFB45309), Color(0xFF1A0E03)],
+  ContentType.lore => const [Color(0xFF7C3AED), Color(0xFF0F061C)],
+};
 
 class _SearchTab extends StatefulWidget {
   const _SearchTab();
@@ -1097,6 +1099,27 @@ class _SearchTab extends StatefulWidget {
 class _SearchTabState extends State<_SearchTab> {
   final _controller = TextEditingController();
   String _query = '';
+
+  /// Live sources for the query. They are State-level [StreamCache]s so each
+  /// source is subscribed once per tab — never re-created by a keystroke.
+  final _searchContent = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchPublished(limit: 60),
+  );
+  final _searchCommunities = StreamCache<List<CommunityDoc>>(
+    () => CommunityService.instance.watchAll(),
+  );
+  final _searchEvents = StreamCache<List<FandomEventDoc>>(
+    () => CatalogService.instance.watchUpcomingEvents(),
+  );
+  final _searchMerch = StreamCache<List<MerchProductDoc>>(
+    () => CatalogService.instance.watchMerch(),
+  );
+  final _searchPosts = StreamCache<List<PostDoc>>(
+    () => PostService.instance.watchFeed(limit: 40),
+  );
+
+  /// Ceiling per section so a broad query can't build hundreds of tiles.
+  static const int _maxHitsPerSection = 12;
 
   static const _filters = [
     'All',
@@ -1119,23 +1142,7 @@ class _SearchTabState extends State<_SearchTab> {
 
   @override
   Widget build(BuildContext context) {
-    final all = [
-      ...MockCatalog.recommended,
-      ...MockCatalog.trending.map(
-        (t) => MediaTitle(
-          title: t.title,
-          tag: t.category,
-          colors: t.colors,
-          emoji: t.emoji,
-        ),
-      ),
-    ];
-    final results = all.where((m) {
-      if (_query.isEmpty) return true;
-      final q = _query.toLowerCase();
-      return m.title.toLowerCase().contains(q) ||
-          m.tag.toLowerCase().contains(q);
-    }).toList();
+    final query = _query.toLowerCase();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1155,7 +1162,7 @@ class _SearchTabState extends State<_SearchTab> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: LiquidGlass(
             radius: 16,
-            blur: 20,
+            blur: 0,
             child: TextField(
               controller: _controller,
               onChanged: (v) => setState(() => _query = v.trim()),
@@ -1238,30 +1245,443 @@ class _SearchTabState extends State<_SearchTab> {
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: results.isEmpty
-              ? const _EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'No matches',
-                  subtitle: 'Try another fandom keyword.',
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 0.7,
-                  ),
-                  itemCount: results.length,
-                  itemBuilder: (context, i) => _PosterCard(
-                    item: results[i],
-                    width: double.infinity,
-                    onTap: () => ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(SnackBar(content: Text(results[i].title))),
+          child: query.isEmpty ? _browse() : _liveResults(query),
+        ),
+      ],
+    );
+  }
+
+  /// Static browse grid shown before the user types, so the tab never opens
+  /// on an empty page while the live sources are still connecting.
+  Widget _browse() {
+    final suggestions = <_SearchHit>[
+      for (final item in MockCatalog.recommended)
+        _SearchHit(
+          title: item.title,
+          tag: item.tag,
+          colors: item.colors,
+          emoji: item.emoji,
+          onTap: () => _peek(item.title),
+        ),
+      for (final item in MockCatalog.trending)
+        _SearchHit(
+          title: item.title,
+          tag: item.category,
+          colors: item.colors,
+          emoji: item.emoji,
+          onTap: () => _peek(item.title),
+        ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Suggestions',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.only(bottom: 130),
+              physics: const BouncingScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
+                childAspectRatio: 0.7,
+              ),
+              itemCount: suggestions.length,
+              itemBuilder: (context, i) => _PosterCard(
+                item: suggestions[i],
+                width: double.infinity,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _peek(String title) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(title)));
+  }
+
+  /// One [StreamBuilder] per cached source; each layer hands its slice to
+  /// the next and the innermost layer groups the hits into sections.
+  Widget _liveResults(String query) {
+    return StreamBuilder<List<ContentDoc>>(
+      stream: _searchContent(),
+      builder: (context, snapshot) => _withCommunities(
+        query,
+        content: _sourceData(snapshot),
+      ),
+    );
+  }
+
+  Widget _withCommunities(String query, {List<ContentDoc>? content}) {
+    return StreamBuilder<List<CommunityDoc>>(
+      stream: _searchCommunities(),
+      builder: (context, snapshot) => _withEvents(
+        query,
+        content: content,
+        communities: _sourceData(snapshot),
+      ),
+    );
+  }
+
+  Widget _withEvents(
+    String query, {
+    List<ContentDoc>? content,
+    List<CommunityDoc>? communities,
+  }) {
+    return StreamBuilder<List<FandomEventDoc>>(
+      stream: _searchEvents(),
+      builder: (context, snapshot) => _withMerch(
+        query,
+        content: content,
+        communities: communities,
+        events: _sourceData(snapshot),
+      ),
+    );
+  }
+
+  Widget _withMerch(
+    String query, {
+    List<ContentDoc>? content,
+    List<CommunityDoc>? communities,
+    List<FandomEventDoc>? events,
+  }) {
+    return StreamBuilder<List<MerchProductDoc>>(
+      stream: _searchMerch(),
+      builder: (context, snapshot) => _withPosts(
+        query,
+        content: content,
+        communities: communities,
+        events: events,
+        merch: _sourceData(snapshot),
+      ),
+    );
+  }
+
+  Widget _withPosts(
+    String query, {
+    List<ContentDoc>? content,
+    List<CommunityDoc>? communities,
+    List<FandomEventDoc>? events,
+    List<MerchProductDoc>? merch,
+  }) {
+    return StreamBuilder<List<PostDoc>>(
+      stream: _searchPosts(),
+      builder: (context, snapshot) => _buildResults(
+        query,
+        content: content,
+        communities: communities,
+        events: events,
+        merch: merch,
+        posts: _sourceData(snapshot),
+      ),
+    );
+  }
+
+  Widget _buildResults(
+    String query, {
+    required List<ContentDoc>? content,
+    required List<CommunityDoc>? communities,
+    required List<FandomEventDoc>? events,
+    required List<MerchProductDoc>? merch,
+    required List<PostDoc>? posts,
+  }) {
+    final sections = _sections(
+      query,
+      content: content,
+      communities: communities,
+      events: events,
+      merch: merch,
+      posts: posts,
+    );
+
+    if (sections.isNotEmpty) {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
+        physics: const BouncingScrollPhysics(),
+        itemCount: sections.length,
+        itemBuilder: (context, index) =>
+            _SearchSectionView(section: sections[index]),
+      );
+    }
+
+    final connecting = content == null ||
+        communities == null ||
+        events == null ||
+        merch == null ||
+        posts == null;
+    if (connecting) {
+      return const Center(
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            color: AppColors.accent,
+          ),
+        ),
+      );
+    }
+
+    return ContentEmptyState(
+      icon: Icons.search_off_rounded,
+      title: 'No matches',
+      message:
+          'Nothing in the verse matches “$_query”. Try a fandom, a story, '
+          'an event or some merch.',
+    );
+  }
+
+  List<_SearchSection> _sections(
+    String query, {
+    required List<ContentDoc>? content,
+    required List<CommunityDoc>? communities,
+    required List<FandomEventDoc>? events,
+    required List<MerchProductDoc>? merch,
+    required List<PostDoc>? posts,
+  }) {
+    final sections = <_SearchSection>[];
+
+    final contentHits = <_SearchHit>[];
+    for (final item in content ?? const <ContentDoc>[]) {
+      if (item.title.trim().isEmpty) continue;
+      final fields = [
+        item.title,
+        item.summary,
+        item.fandomName,
+        item.categoryName,
+        item.tags.join(' '),
+      ];
+      if (!_hitsQuery(query, fields)) continue;
+
+      var tag = item.type.label;
+      if (item.categoryName.trim().isNotEmpty) tag = item.categoryName;
+      if (item.fandomName.trim().isNotEmpty) tag = item.fandomName;
+
+      contentHits.add(
+        _SearchHit(
+          title: item.title,
+          tag: tag,
+          colors: _contentColors(item.type),
+          icon: item.type.icon,
+          onTap: () => Navigator.pushNamed(
+            context,
+            AppRoutes.contentDetail,
+            arguments: ContentDetailArgs(contentId: item.id),
+          ),
+        ),
+      );
+      if (contentHits.length >= _maxHitsPerSection) break;
+    }
+    if (contentHits.isNotEmpty) {
+      sections.add(_SearchSection(title: 'Content', hits: contentHits));
+    }
+
+    final communityHits = <_SearchHit>[];
+    for (final item in communities ?? const <CommunityDoc>[]) {
+      if (item.name.trim().isEmpty) continue;
+      if (!_hitsQuery(query, [item.name, item.description])) continue;
+
+      communityHits.add(
+        _SearchHit(
+          title: item.name,
+          tag: '${item.memberCount} '
+              '${item.memberCount == 1 ? 'member' : 'members'}',
+          colors: [item.color, item.color.withValues(alpha: 0.22)],
+          icon: item.icon,
+          onTap: () => Navigator.pushNamed(
+            context,
+            AppRoutes.communityDetail,
+            arguments: item.id,
+          ),
+        ),
+      );
+      if (communityHits.length >= _maxHitsPerSection) break;
+    }
+    if (communityHits.isNotEmpty) {
+      sections.add(_SearchSection(title: 'Communities', hits: communityHits));
+    }
+
+    final eventHits = <_SearchHit>[];
+    for (final item in events ?? const <FandomEventDoc>[]) {
+      if (item.title.trim().isEmpty) continue;
+      final fields = [item.title, item.description, item.city, item.eventType];
+      if (!_hitsQuery(query, fields)) continue;
+
+      var tag = item.dateLabel;
+      if (tag.trim().isEmpty) tag = item.city;
+      if (tag.trim().isEmpty) tag = item.eventType;
+
+      eventHits.add(
+        _SearchHit(
+          title: item.title,
+          tag: tag,
+          colors: [item.color, item.color.withValues(alpha: 0.22)],
+          icon: item.icon,
+          onTap: () => Navigator.pushNamed(
+            context,
+            AppRoutes.eventDetail,
+            arguments: item,
+          ),
+        ),
+      );
+      if (eventHits.length >= _maxHitsPerSection) break;
+    }
+    if (eventHits.isNotEmpty) {
+      sections.add(_SearchSection(title: 'Events', hits: eventHits));
+    }
+
+    final merchHits = <_SearchHit>[];
+    for (final item in merch ?? const <MerchProductDoc>[]) {
+      if (item.name.trim().isEmpty) continue;
+      final fields = [item.name, item.description, item.sellerName];
+      if (!_hitsQuery(query, fields)) continue;
+
+      merchHits.add(
+        _SearchHit(
+          title: item.name,
+          tag: formatPkrPrice(item.priceLabel),
+          colors: [item.color, item.color.withValues(alpha: 0.22)],
+          emoji: item.emoji,
+          onTap: () => Navigator.pushNamed(
+            context,
+            AppRoutes.product,
+            arguments: item,
+          ),
+        ),
+      );
+      if (merchHits.length >= _maxHitsPerSection) break;
+    }
+    if (merchHits.isNotEmpty) {
+      sections.add(_SearchSection(title: 'Merch', hits: merchHits));
+    }
+
+    final postHits = <_SearchHit>[];
+    for (final item in posts ?? const <PostDoc>[]) {
+      if (item.body.trim().isEmpty) continue;
+      final fields = [item.body, item.authorName, item.communityName ?? ''];
+      if (!_hitsQuery(query, fields)) continue;
+
+      var tag = 'Fan post';
+      if (item.communityName?.trim().isNotEmpty ?? false) {
+        tag = item.communityName!;
+      }
+      if (item.authorName.trim().isNotEmpty) tag = item.authorName;
+
+      final communityId = item.communityId ?? '';
+      postHits.add(
+        _SearchHit(
+          title: _postTitle(item),
+          tag: tag,
+          colors: const [Color(0xFFA855F7), Color(0xFF1E0B33)],
+          icon: Icons.forum_rounded,
+          onTap: () {
+            if (communityId.isEmpty) {
+              Navigator.pushNamed(context, AppRoutes.feed);
+            } else {
+              Navigator.pushNamed(
+                context,
+                AppRoutes.communityDetail,
+                arguments: communityId,
+              );
+            }
+          },
+        ),
+      );
+      if (postHits.length >= _maxHitsPerSection) break;
+    }
+    if (postHits.isNotEmpty) {
+      sections.add(_SearchSection(title: 'Posts', hits: postHits));
+    }
+
+    return sections;
+  }
+
+  static String _postTitle(PostDoc post) {
+    final line = post.body.trim().split('\n').first.trim();
+    if (line.length <= 64) return line;
+    return '${line.substring(0, 64).trimRight()}…';
+  }
+}
+
+/// Section header + the poster grid for one group of hits. Sections only
+/// ever contain matches, so an empty group is never rendered.
+class _SearchSectionView extends StatelessWidget {
+  const _SearchSectionView({required this.section});
+
+  final _SearchSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 12),
+          child: Row(
+            children: [
+              Text(
+                section.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14),
                   ),
                 ),
+                child: Text(
+                  '${section.hits.length}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            childAspectRatio: 0.7,
+          ),
+          itemCount: section.hits.length,
+          itemBuilder: (context, index) => _PosterCard(
+            item: section.hits[index],
+            width: double.infinity,
+          ),
         ),
       ],
     );
@@ -1282,7 +1702,7 @@ class _CompactCommunityCard extends StatelessWidget {
         width: 112,
         child: LiquidGlass(
           radius: 20,
-          blur: 20,
+          blur: 0,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           gradient: LinearGradient(
             colors: [
@@ -1459,63 +1879,6 @@ class _FeedPromoCard extends StatelessWidget {
               ),
             ),
             Icon(Icons.chevron_right_rounded, color: Colors.white54),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LiquidGlass(
-              radius: 24,
-              blur: 20,
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.25),
-                  Colors.white.withValues(alpha: 0.06),
-                ],
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Icon(icon, color: Colors.white, size: 32),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 13.5,
-                height: 1.4,
-              ),
-            ),
           ],
         ),
       ),
@@ -1938,7 +2301,7 @@ class _ProfileTab extends StatelessWidget {
                               },
                         child: LiquidGlass(
                           radius: 16,
-                          blur: 18,
+                          blur: 0,
                           gradient: const LinearGradient(
                             colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
                           ),
@@ -2064,7 +2427,7 @@ class _SignOutButtonState extends State<_SignOutButton> {
         opacity: _busy ? 0.7 : 1,
         child: LiquidGlass(
           radius: 16,
-          blur: 20,
+          blur: 0,
           gradient: LinearGradient(
             colors: [
               AppColors.primary.withValues(alpha: 0.35),
@@ -2181,7 +2544,7 @@ class _SellerUpgradeCard extends StatelessWidget {
       onTap: onUpgrade,
       child: LiquidGlass(
         radius: 20,
-        blur: 26,
+        blur: 0,
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -2331,7 +2694,7 @@ class _ProfileTile extends StatelessWidget {
         onTap: onTap,
         child: LiquidGlass(
           radius: 16,
-          blur: 22,
+          blur: 0,
           gradient: LinearGradient(
             colors: [
               Colors.white.withValues(alpha: 0.12),

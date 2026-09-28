@@ -90,7 +90,8 @@ class PostService {
     batch.set(ref, {
       'authorUid': uid,
       'authorName': authorName ?? AuthService.instance.greetingName,
-      'authorAvatarUrl': authorAvatarUrl,
+      'authorAvatarUrl':
+          authorAvatarUrl ?? AuthService.instance.currentUser?.photoURL,
       'body': text,
       'communityId': communityId,
       'communityName': communityName,
@@ -106,6 +107,21 @@ class PostService {
       });
     }
     await batch.commit();
+  }
+
+  Future<void> updatePost(String postId, String body) async {
+    final uid = _uid;
+    if (!_ready || uid == null) throw StateError('Sign in required.');
+    final text = body.trim();
+    final snap = await _doc(postId).get();
+    final imageUrl = snap.data()?['imageUrl'] as String?;
+    if (text.isEmpty && (imageUrl == null || imageUrl.isEmpty)) {
+      throw ArgumentError('Post cannot be empty.');
+    }
+    await _doc(postId).update({
+      'body': text,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> deletePost(String postId) async {

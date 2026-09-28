@@ -29,7 +29,7 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
   );
 
   Future<void> _openCreate() async {
-    final created = await Navigator.pushNamed<bool>(
+    final created = await Navigator.pushNamed(
       context,
       AppRoutes.createCommunity,
     );
@@ -118,6 +118,7 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                       if (items.isEmpty) {
                         return _EmptyCommunities(
                           joinedOnly: _joinedOnly,
+                          onCreate: _openCreate,
                           onBrowseAll: _joinedOnly
                               ? () => setState(() => _joinedOnly = false)
                               : null,
@@ -203,7 +204,7 @@ class _CommunityTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlass(
       radius: 18,
-      blur: 22,
+      blur: 0,
       gradient: LinearGradient(
         colors: [
           community.color.withValues(alpha: 0.2),
@@ -310,10 +311,12 @@ class _CommunityTile extends StatelessWidget {
 class _EmptyCommunities extends StatelessWidget {
   const _EmptyCommunities({
     required this.joinedOnly,
+    required this.onCreate,
     this.onBrowseAll,
   });
 
   final bool joinedOnly;
+  final VoidCallback onCreate;
   final VoidCallback? onBrowseAll;
 
   @override
@@ -373,7 +376,7 @@ class _EmptyCommunities extends StatelessWidget {
                   if (joinedOnly) {
                     onBrowseAll?.call();
                   } else {
-                    Navigator.pushNamed(context, AppRoutes.createCommunity);
+                    onCreate();
                   }
                 },
               ),

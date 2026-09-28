@@ -330,4 +330,23 @@ class NotificationService {
       // Best effort — unread badges reconcile from the stream.
     }
   }
+
+  Future<void> clearAll() async {
+    final uid = _uid;
+    if (!_ready || uid == null) return;
+    final snap = await _for(uid).get();
+    if (snap.docs.isEmpty) return;
+    var batch = FirebaseFirestore.instance.batch();
+    var writes = 0;
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+      writes++;
+      if (writes == 400) {
+        await batch.commit();
+        batch = FirebaseFirestore.instance.batch();
+        writes = 0;
+      }
+    }
+    if (writes > 0) await batch.commit();
+  }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/routes/app_routes.dart';
@@ -122,13 +123,30 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted || _navigating) return;
     _navigating = true;
 
-    // Give Firebase a bounded window (~3s, usually already done) to finish
-    // initializing so we land on the right destination. Counts timer ticks
-    // instead of wall-clock time so it behaves under test fake-time too.
+    // Give Firebase a bounded window to finish initializing so we land on
+    // the right destination. Counts timer ticks instead of wall-clock time
+    // so it behaves under test fake-time too.
     int waitedMs = 0;
-    while (mounted && !AuthService.instance.isReady && waitedMs < 3000) {
+    while (mounted && !AuthService.instance.isReady && waitedMs < 8000) {
       await Future<void>.delayed(const Duration(milliseconds: 80));
       waitedMs += 80;
+    }
+    if (!mounted) return;
+
+    // The persisted session is restored asynchronously *after*  // initialization resolves (notably on web/Android), so reading
+    // `currentUser` right away can briefly look signed-out and bounce real
+    // users to onboarding on every relaunch or tab restore. Waiting for the
+    // first auth-state emission fixes that; it is bounded so a broken
+    // config can never strand the splash screen.
+    if (AuthService.instance.isReady) {
+      try {
+        await FirebaseAuth.instance
+            .authStateChanges()
+            .first
+            .timeout(const Duration(milliseconds: 2500));
+      } catch (_) {
+        // Not configured or timed out — fall through to signed-out routing.
+      }
     }
     if (!mounted) return;
 

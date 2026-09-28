@@ -21,26 +21,35 @@ class EventLocationService {
   static final EventLocationService instance = EventLocationService._();
 
   Future<Position> currentPosition({bool requestPermission = true}) async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      throw const EventLocationException(
-        'Location services are turned off. You can still browse by city.',
-        locationServiceDisabled: true,
-      );
-    }
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw const EventLocationException(
+          'Location services are turned off. You can still browse by city.',
+          locationServiceDisabled: true,
+        );
+      }
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied && requestPermission) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.deniedForever) {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied && requestPermission) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw const EventLocationException(
+          'Location access is blocked. Enable it in your device settings or browse by city.',
+          permanentlyDenied: true,
+        );
+      }
+      if (permission == LocationPermission.denied) {
+        throw const EventLocationException(
+          'Location permission was denied. You can still browse by city.',
+        );
+      }
+    } on EventLocationException {
+      rethrow;
+    } catch (_) {
+      // Missing plugin, unsupported web API, etc.
       throw const EventLocationException(
-        'Location access is blocked. Enable it in your device settings or browse by city.',
-        permanentlyDenied: true,
-      );
-    }
-    if (permission == LocationPermission.denied) {
-      throw const EventLocationException(
-        'Location permission was denied. You can still browse by city.',
+        'Your current location is unavailable. You can still browse by city.',
       );
     }
 

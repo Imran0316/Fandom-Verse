@@ -50,11 +50,17 @@ class AboutScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   children: [
                     Center(
-                      child: LottieView(
+                      child: Image.asset(
+                        'lib/assets/images/fanVerseLogo.png',
                         width: 96,
                         height: 96,
-                        asset: 'lib/assets/lottie/sparkle.json',
-                        fallback: const PulseDot(size: 80),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => LottieView(
+                          width: 96,
+                          height: 96,
+                          asset: 'lib/assets/lottie/sparkle.json',
+                          fallback: const PulseDot(size: 80),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),

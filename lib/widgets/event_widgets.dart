@@ -26,7 +26,7 @@ class EventChip extends StatelessWidget {
         width: width,
         child: LiquidGlass(
           radius: 20,
-          blur: 26,
+          blur: 0,
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
