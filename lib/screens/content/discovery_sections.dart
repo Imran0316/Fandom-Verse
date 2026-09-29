@@ -40,13 +40,11 @@ class DiscoveryFeatureSection extends StatelessWidget {
     return StreamBuilder<List<ContentDoc>>(
       stream: stream,
       builder: (context, snap) {
-        if (!snap.hasData) {
-          return const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: ContentRailSkeleton(height: 320),
-          );
-        }
-        if (snap.hasError) {
+        // Error first: an errored snapshot carries no data, so checking
+        // `!hasData` alone made the error branch unreachable and a failed
+        // stream sat on an endless skeleton with no message. Stale data from
+        // a dropped connection still renders below instead of an error.
+        if (snap.hasError && snap.data == null) {
           return const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: ContentErrorState(
@@ -54,6 +52,12 @@ class DiscoveryFeatureSection extends StatelessWidget {
                   'We couldn’t load discoveries right now. Pull the page again '
                   'in a moment.',
             ),
+          );
+        }
+        if (!snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: ContentRailSkeleton(height: 320),
           );
         }
 

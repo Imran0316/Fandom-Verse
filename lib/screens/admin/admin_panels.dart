@@ -13,8 +13,10 @@ import '../../services/catalog_service.dart';
 import '../../services/maps_config.dart';
 import '../../services/image_upload_service.dart';
 import '../../services/post_service.dart';
+import '../../services/stream_cache.dart';
 import '../../services/taxonomy_service.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -298,8 +300,17 @@ DropdownButtonFormField<String> colorDropdown({
 
 /* ================================ CATEGORIES =============================== */
 
-class CategoriesPanel extends StatelessWidget {
+class CategoriesPanel extends StatefulWidget {
   const CategoriesPanel({super.key});
+
+  @override
+  State<CategoriesPanel> createState() => _CategoriesPanelState();
+}
+
+class _CategoriesPanelState extends State<CategoriesPanel> {
+  final _fandoms = StreamCache<List<FandomDoc>>(
+    () => TaxonomyService.instance.watchFandoms(),
+  );
 
   void _edit(BuildContext context, FandomDoc? existing) {
     final name = TextEditingController(text: existing?.name ?? '');
@@ -337,18 +348,7 @@ class CategoriesPanel extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 child: AspectRatio(
                   aspectRatio: 2.4,
-                  child: Image.network(
-                    coverUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'Image preview unavailable',
-                        style: TextStyle(color: Colors.white60),
-                      ),
-                    ),
-                  ),
+                  child: CachedImage(url: coverUrl!, fit: BoxFit.cover),
                 ),
               ),
             if (coverUrl != null && coverUrl!.isNotEmpty)
@@ -435,7 +435,7 @@ class CategoriesPanel extends StatelessWidget {
         ),
         Expanded(
           child: StreamBuilder<List<FandomDoc>>(
-            stream: TaxonomyService.instance.watchFandoms(),
+            stream: _fandoms(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting &&
                   snap.data == null) {
@@ -558,8 +558,17 @@ class CategoriesPanel extends StatelessWidget {
 
 /* ================================= EVENTS ================================= */
 
-class EventsPanel extends StatelessWidget {
+class EventsPanel extends StatefulWidget {
   const EventsPanel({super.key});
+
+  @override
+  State<EventsPanel> createState() => _EventsPanelState();
+}
+
+class _EventsPanelState extends State<EventsPanel> {
+  final _events = StreamCache<List<FandomEventDoc>>(
+    () => CatalogService.instance.watchEvents(activeOnly: false),
+  );
 
   Future<void> _edit(BuildContext context, FandomEventDoc? existing) async {
     final title = TextEditingController(text: existing?.title ?? '');
@@ -784,18 +793,7 @@ class EventsPanel extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   child: AspectRatio(
                     aspectRatio: 2.4,
-                    child: Image.network(
-                      coverUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Image preview unavailable',
-                          style: TextStyle(color: Colors.white60),
-                        ),
-                      ),
-                    ),
+                    child: CachedImage(url: coverUrl!, fit: BoxFit.cover),
                   ),
                 ),
               if (coverUrl != null && coverUrl!.isNotEmpty)
@@ -936,7 +934,7 @@ class EventsPanel extends StatelessWidget {
         ),
         Expanded(
           child: StreamBuilder<List<FandomEventDoc>>(
-            stream: CatalogService.instance.watchEvents(activeOnly: false),
+            stream: _events(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting &&
                   snap.data == null) {
@@ -1243,10 +1241,19 @@ Future<String?> _reverseGeocodeEventLocation(LatLng location) async {
 
 /* ================================== MERCH ================================= */
 
-class MerchAdminPanel extends StatelessWidget {
+class MerchAdminPanel extends StatefulWidget {
   const MerchAdminPanel({super.key, this.showInactive = true});
 
   final bool showInactive;
+
+  @override
+  State<MerchAdminPanel> createState() => _MerchAdminPanelState();
+}
+
+class _MerchAdminPanelState extends State<MerchAdminPanel> {
+  final _merch = StreamCache<List<MerchProductDoc>>(
+    () => CatalogService.instance.watchMerch(activeOnly: false),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1259,7 +1266,7 @@ class MerchAdminPanel extends StatelessWidget {
         ),
         Expanded(
           child: StreamBuilder<List<MerchProductDoc>>(
-            stream: CatalogService.instance.watchMerch(activeOnly: false),
+            stream: _merch(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting &&
                   snap.data == null) {
@@ -1269,7 +1276,7 @@ class MerchAdminPanel extends StatelessWidget {
                 return AdminEmptyBox(message: 'Error: ${snap.error}');
               }
               final items = (snap.data ?? const [])
-                  .where((m) => showInactive || m.active)
+                  .where((m) => widget.showInactive || m.active)
                   .toList();
               if (items.isEmpty) {
                 return const AdminEmptyBox(
@@ -1315,18 +1322,11 @@ class MerchAdminPanel extends StatelessWidget {
                             ),
                             clipBehavior: Clip.antiAlias,
                             child: m.imageUrl?.isNotEmpty == true
-                                ? Image.network(
-                                    m.imageUrl!,
+                                ? CachedImage(
+                                    url: m.imageUrl!,
                                     fit: BoxFit.cover,
                                     width: 44,
                                     height: 44,
-                                    errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(
-                                        Icons.inventory_2_outlined,
-                                        color: Colors.white24,
-                                        size: 20,
-                                      ),
-                                    ),
                                   )
                                 : const Center(
                                     child: Icon(
@@ -1428,13 +1428,22 @@ class MerchAdminPanel extends StatelessWidget {
 
 /* ============================ CONTENT / REPORTS ============================ */
 
-class ContentModerationPanel extends StatelessWidget {
+class ContentModerationPanel extends StatefulWidget {
   const ContentModerationPanel({super.key});
+
+  @override
+  State<ContentModerationPanel> createState() => _ContentModerationPanelState();
+}
+
+class _ContentModerationPanelState extends State<ContentModerationPanel> {
+  final _feed = StreamCache<List<PostDoc>>(
+    () => PostService.instance.watchFeed(limit: 50),
+  );
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<PostDoc>>(
-      stream: PostService.instance.watchFeed(limit: 50),
+      stream: _feed(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting &&
             snap.data == null) {

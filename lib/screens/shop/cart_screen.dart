@@ -5,6 +5,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -358,18 +359,11 @@ class _CartRow extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: item.imageUrl?.isNotEmpty == true
-                ? Image.network(
-                    item.imageUrl!,
+                ? CachedImage(
+                    url: item.imageUrl,
                     fit: BoxFit.cover,
                     width: 56,
                     height: 56,
-                    errorBuilder: (_, _, _) => const Center(
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.white24,
-                        size: 24,
-                      ),
-                    ),
                   )
                 : const Center(
                     child: Icon(

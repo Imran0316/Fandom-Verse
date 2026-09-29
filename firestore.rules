@@ -190,7 +190,7 @@ service cloud.firestore {
       match /devices/{deviceId} {
         allow read: if isSelf(uid);
         allow create, update: if isSelf(uid)
-          && request.resource.data.platform in ['android', 'ios'];
+          && request.resource.data.platform in ['android', 'ios', 'web'];
         allow delete: if isSelf(uid);
       }
     }

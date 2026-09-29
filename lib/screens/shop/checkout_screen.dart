@@ -5,6 +5,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -593,18 +594,11 @@ class _Thumb extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: url?.isNotEmpty == true
-          ? Image.network(
-              url!,
+          ? CachedImage(
+              url: url,
               fit: BoxFit.cover,
               width: 34,
               height: 34,
-              errorBuilder: (_, _, _) => const Center(
-                child: Icon(
-                  Icons.inventory_2_outlined,
-                  color: Colors.white24,
-                  size: 16,
-                ),
-              ),
             )
           : const Center(
               child: Icon(

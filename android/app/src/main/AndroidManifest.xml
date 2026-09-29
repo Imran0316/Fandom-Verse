@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
-        android:label="fandom_verse"
+        android:label="FanVerse"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <meta-data

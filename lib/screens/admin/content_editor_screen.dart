@@ -4,7 +4,9 @@ import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
 import '../../services/content_service.dart';
 import '../../services/image_upload_service.dart';
+import '../../services/stream_cache.dart';
 import '../../services/taxonomy_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 
 /// Create / edit a fandom discovery. Organised into Basic Information,
@@ -499,7 +501,7 @@ class _SectionA extends StatelessWidget {
 
 /* ------------------------------- Section B ------------------------------- */
 
-class _SectionB extends StatelessWidget {
+class _SectionB extends StatefulWidget {
   const _SectionB({
     required this.fandomId,
     required this.categoryId,
@@ -521,13 +523,25 @@ class _SectionB extends StatelessWidget {
   final ValueChanged<String> onRemoveTag;
 
   @override
+  State<_SectionB> createState() => _SectionBState();
+}
+
+class _SectionBState extends State<_SectionB> {
+  final _fandoms = StreamCache<List<FandomDoc>>(
+    () => TaxonomyService.instance.watchFandoms(),
+  );
+  final _categories = StreamCache<List<ContentCategoryDoc>>(
+    () => TaxonomyService.instance.watchCategories(),
+  );
+
+  @override
   Widget build(BuildContext context) {
     return _Section(
       title: 'Classification',
       subtitle: 'Help fans find this discovery',
       children: [
         StreamBuilder<List<FandomDoc>>(
-          stream: TaxonomyService.instance.watchFandoms(),
+          stream: _fandoms(),
           builder: (context, snap) {
             final fandoms = snap.data ?? const <FandomDoc>[];
             if (snap.hasError) {
@@ -538,11 +552,11 @@ class _SectionB extends StatelessWidget {
             if (!snap.hasData) {
               return const _FieldSkeleton(label: 'Fandom *');
             }
-            final hasCurrent = fandoms.any((f) => f.id == fandomId);
+            final hasCurrent = fandoms.any((f) => f.id == widget.fandomId);
             return _DropdownField(
-              key: ValueKey('fandom-$fandomId-${fandoms.length}'),
+              key: ValueKey('fandom-${widget.fandomId}-${fandoms.length}'),
               label: 'Fandom *',
-              value: hasCurrent ? fandomId : null,
+              value: hasCurrent ? widget.fandomId : null,
               hint: fandoms.isEmpty
                   ? 'No fandoms yet — add one in Categories'
                   : 'Select a fandom',
@@ -552,24 +566,26 @@ class _SectionB extends StatelessWidget {
               ],
               onChanged: (id) {
                 final f = fandoms.firstWhere((e) => e.id == id);
-                onFandomChanged(f.id, f.name);
+                widget.onFandomChanged(f.id, f.name);
               },
             );
           },
         ),
         const SizedBox(height: 16),
         StreamBuilder<List<ContentCategoryDoc>>(
-          stream: TaxonomyService.instance.watchCategories(),
+          stream: _categories(),
           builder: (context, snap) {
             final categories = snap.data ?? const <ContentCategoryDoc>[];
             if (!snap.hasData) {
               return const _FieldSkeleton(label: 'Category *');
             }
-            final hasCurrent = categories.any((c) => c.id == categoryId);
+            final hasCurrent = categories.any((c) => c.id == widget.categoryId);
             return _DropdownField(
-              key: ValueKey('category-$categoryId-${categories.length}'),
+              key: ValueKey(
+                'category-${widget.categoryId}-${categories.length}',
+              ),
               label: 'Category *',
-              value: hasCurrent ? categoryId : null,
+              value: hasCurrent ? widget.categoryId : null,
               hint: 'Select a category',
               items: [
                 for (final c in categories)
@@ -577,7 +593,7 @@ class _SectionB extends StatelessWidget {
               ],
               onChanged: (id) {
                 final c = categories.firstWhere((e) => e.id == id);
-                onCategoryChanged(c.id, c.name);
+                widget.onCategoryChanged(c.id, c.name);
               },
             );
           },
@@ -588,17 +604,17 @@ class _SectionB extends StatelessWidget {
           children: [
             Expanded(
               child: TextField(
-                controller: tagInput,
+                controller: widget.tagInput,
                 style: const TextStyle(color: Colors.white, fontSize: 14.5),
                 cursorColor: AppColors.accent,
                 textInputAction: TextInputAction.done,
-                onSubmitted: onAddTag,
+                onSubmitted: widget.onAddTag,
                 decoration: _decoration('Add a tag and press enter'),
               ),
             ),
             const SizedBox(width: 10),
             GestureDetector(
-              onTap: () => onAddTag(tagInput.text),
+              onTap: () => widget.onAddTag(widget.tagInput.text),
               child: Container(
                 width: 52,
                 height: 52,
@@ -614,13 +630,13 @@ class _SectionB extends StatelessWidget {
             ),
           ],
         ),
-        if (tags.isNotEmpty) ...[
+        if (widget.tags.isNotEmpty) ...[
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final tag in tags)
+              for (final tag in widget.tags)
                 Chip(
                   label: Text('#$tag'),
                   labelStyle: const TextStyle(
@@ -635,7 +651,7 @@ class _SectionB extends StatelessWidget {
                     size: 15,
                     color: Colors.white54,
                   ),
-                  onDeleted: () => onRemoveTag(tag),
+                  onDeleted: () => widget.onRemoveTag(tag),
                 ),
             ],
           ),
@@ -703,13 +719,7 @@ class _SectionMediaState extends State<_SectionMedia> {
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: hasCover
-                ? Image.network(
-                    coverUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _coverPlaceholder(
-                      'Image unavailable',
-                    ),
-                  )
+                ? CachedImage(url: coverUrl, fit: BoxFit.cover)
                 : widget.uploading
                     ? const Center(
                         child: CircularProgressIndicator(strokeWidth: 2.4),

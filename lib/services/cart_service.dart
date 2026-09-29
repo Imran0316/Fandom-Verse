@@ -107,10 +107,19 @@ class CartService {
   Stream<List<OrderDoc>> watchMyOrders() {
     final uid = _uid;
     if (!_ready || uid == null) return Stream.value(const []);
-    // Avoid composite index (buyerUid + createdAt) — filter client-side.
-    return _orders.orderBy('createdAt', descending: true).snapshots().map((s) {
+    // Firestore only evaluates security rules against what the query itself
+    // constrains: a bare `orderBy` over the whole collection is denied (a
+    // buyer may only read their own docs), which made this list come back
+    // empty. Filtering on buyerUid makes the query provable; sorting happens
+    // client-side so no composite (buyerUid + createdAt) index is needed.
+    return _orders.where('buyerUid', isEqualTo: uid).snapshots().map((s) {
       final items = s.docs.map(OrderDoc.fromDoc).toList();
-      return items.where((o) => o.buyerUid == uid).toList();
+      items.sort((a, b) {
+        final aMs = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final bMs = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        return bMs.compareTo(aMs);
+      });
+      return items;
     });
   }
 

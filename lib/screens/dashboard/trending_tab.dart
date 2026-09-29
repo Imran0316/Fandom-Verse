@@ -633,10 +633,9 @@ class _ReelMiniCard extends StatelessWidget {
                 ),
               ),
               if (reel.thumbnailUrl != null && reel.thumbnailUrl!.isNotEmpty)
-                Image.network(
-                  reel.thumbnailUrl!,
+                CachedImage(
+                  url: reel.thumbnailUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               const DecoratedBox(
                 decoration: BoxDecoration(

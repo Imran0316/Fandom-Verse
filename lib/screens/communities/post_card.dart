@@ -493,18 +493,9 @@ class _PostCardState extends State<PostCard> {
                             child: SizedBox(
                               width: 44,
                               height: 44,
-                              child: Image.network(
-                                _commentImageUrl!,
+                              child: CachedImage(
+                                url: _commentImageUrl,
                                 fit: BoxFit.cover,
-                                gaplessPlayback: true,
-                                errorBuilder: (_, _, _) => Container(
-                                  color: Colors.white.withValues(alpha: 0.08),
-                                  child: const Icon(
-                                    Icons.broken_image_outlined,
-                                    color: Colors.white38,
-                                    size: 18,
-                                  ),
-                                ),
                               ),
                             ),
                           ),
@@ -1008,20 +999,9 @@ class _CommentTileState extends State<_CommentTile> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: c.authorAvatarUrl?.isNotEmpty == true
-                      ? Image.network(
-                          c.authorAvatarUrl!,
+                      ? CachedImage(
+                          url: c.authorAvatarUrl,
                           fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          errorBuilder: (_, _, _) => Center(
-                            child: Text(
-                              initial,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
                         )
                       : Center(
                           child: Text(
@@ -1070,18 +1050,9 @@ class _CommentTileState extends State<_CommentTile> {
                           child: SizedBox(
                             width: 190,
                             height: 140,
-                            child: Image.network(
-                              c.imageUrl!,
+                            child: CachedImage(
+                              url: c.imageUrl,
                               fit: BoxFit.cover,
-                              gaplessPlayback: true,
-                              errorBuilder: (_, _, _) => Container(
-                                color: Colors.white.withValues(alpha: 0.06),
-                                child: const Icon(
-                                  Icons.broken_image_outlined,
-                                  color: Colors.white30,
-                                  size: 26,
-                                ),
-                              ),
                             ),
                           ),
                         ),
@@ -1264,17 +1235,9 @@ class _CommentTileState extends State<_CommentTile> {
                                           child: r.authorAvatarUrl
                                                       ?.isNotEmpty ==
                                                   true
-                                              ? Image.network(
-                                                  r.authorAvatarUrl!,
+                                              ? CachedImage(
+                                                  url: r.authorAvatarUrl,
                                                   fit: BoxFit.cover,
-                                                  gaplessPlayback: true,
-                                                  errorBuilder:
-                                                      (_, _, _) =>
-                                                          const Icon(
-                                                    Icons.person_rounded,
-                                                    size: 12,
-                                                    color: Colors.white54,
-                                                  ),
                                                 )
                                               : const Icon(
                                                   Icons.person_rounded,
@@ -1342,17 +1305,9 @@ class _CommentTileState extends State<_CommentTile> {
                                                   child: SizedBox(
                                                     width: 150,
                                                     height: 110,
-                                                    child: Image.network(
-                                                      r.imageUrl!,
+                                                    child: CachedImage(
+                                                      url: r.imageUrl,
                                                       fit: BoxFit.cover,
-                                                      gaplessPlayback: true,
-                                                      errorBuilder:
-                                                          (_, _, _) =>
-                                                              Container(
-                                                        color: Colors.white
-                                                            .withValues(
-                                                                alpha: 0.06),
-                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -1640,15 +1595,9 @@ class _AuthorAvatarImageState extends State<_AuthorAvatarImage> {
       builder: (context, snap) {
         final avatar = snap.data?.avatarUrl;
         if (avatar == null || avatar.isEmpty) return _initial();
-        return Image.network(
-          avatar,
+        return CachedImage(
+          url: avatar,
           fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (_, _, _) => const Icon(
-            Icons.person_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
         );
       },
     );

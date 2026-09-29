@@ -10,6 +10,7 @@ import '../../services/image_upload_service.dart';
 import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -172,21 +173,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                                       clipBehavior: Clip.antiAlias,
                                       child:
                                           m.imageUrl?.isNotEmpty == true
-                                              ? Image.network(
-                                                  m.imageUrl!,
+                                              ? CachedImage(
+                                                  url: m.imageUrl,
                                                   width: 52,
                                                   height: 52,
                                                   fit: BoxFit.cover,
-                                                  errorBuilder:
-                                                      (_, _, _) => const Center(
-                                                        child: Icon(
-                                                          Icons
-                                                              .inventory_2_outlined,
-                                                          color:
-                                                              Colors.white24,
-                                                          size: 24,
-                                                        ),
-                                                      ),
                                                 )
                                               : const Center(
                                                   child: Icon(
@@ -427,21 +418,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.network(
-                                imageUrl!,
+                              child: CachedImage(
+                                url: imageUrl,
                                 width: 64,
                                 height: 64,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Container(
-                                  width: 64,
-                                  height: 64,
-                                  color:
-                                      Colors.white.withValues(alpha: 0.06),
-                                  child: const Icon(
-                                    Icons.image_outlined,
-                                    color: Colors.white24,
-                                  ),
-                                ),
                               ),
                             ),
                             const SizedBox(width: 12),

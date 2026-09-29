@@ -68,10 +68,11 @@ void main() {
     }
     expect(find.text('Follow'), findsOneWidget);
 
-    // Tapping without a session must not crash — it reverts and explains.
+    // Tapping without a session must not crash — it reverts and opens the
+    // sign-in popup instead of following anyone.
     await tester.tap(find.text('Follow'));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.textContaining('Sign in'), findsOneWidget);
+    expect(find.text('Sign In'), findsWidgets);
     expect(find.text('Follow'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

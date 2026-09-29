@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
 import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/liquid_glass.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -270,18 +271,11 @@ class _OrderCard extends StatelessWidget {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: i.imageUrl?.isNotEmpty == true
-                        ? Image.network(
-                            i.imageUrl!,
+                        ? CachedImage(
+                            url: i.imageUrl,
                             fit: BoxFit.cover,
                             width: 30,
                             height: 30,
-                            errorBuilder: (_, _, _) => const Center(
-                              child: Icon(
-                                Icons.inventory_2_outlined,
-                                size: 16,
-                                color: Colors.white24,
-                              ),
-                            ),
                           )
                         : const Center(
                             child: Icon(

@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import '../core/routes/app_routes.dart';
 import '../core/streams.dart';
 import '../models/notification_docs.dart';
+import '../screens/content/content_detail_screen.dart';
 import 'auth_service.dart';
 
 /// Notification center for Fandom Verse.
@@ -15,6 +19,8 @@ class NotificationService {
   NotificationService._();
 
   static final NotificationService instance = NotificationService._();
+
+  StreamSubscription<User?>? _authSubscription;
 
   bool get _ready => AuthService.firebaseReady;
 
@@ -33,6 +39,103 @@ class NotificationService {
     String? id,
   }) => id == null ? _for(recipientUid).doc() : _for(recipientUid).doc(id);
 
+  /// Global navigator key for notification navigation.
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
+  /// Route to the screen a notification points at.
+  ///
+  /// Used by the FCM deep-link handler only — the in-app notification list
+  /// marks a row read instead of navigating. Post activity opens the
+  /// community feed (a post id is not a content id), content opens the
+  /// content detail, and anything unresolvable falls back to the dashboard
+  /// instead of a screen that cannot show the target.
+  static void openTarget(
+    BuildContext context,
+    NotificationDoc n, {
+    bool markRead = true,
+  }) {
+    if (markRead && n.id.isNotEmpty) {
+      instance.markRead(n.id);
+    }
+    final nav = Navigator.of(context);
+    final communityId = n.communityId;
+    final hasCommunity = communityId != null && communityId.isNotEmpty;
+
+    switch (n.notificationType) {
+      case NotificationType.followRequested:
+        nav.pushNamed(AppRoutes.followRequests);
+        return;
+      case NotificationType.postLiked:
+      case NotificationType.postCommented:
+      case NotificationType.commentReplied:
+        if (hasCommunity) {
+          nav.pushNamed(AppRoutes.communityDetail, arguments: communityId);
+        } else {
+          nav.pushNamed(AppRoutes.feed);
+        }
+        return;
+      case NotificationType.communityAnnouncement:
+        if (hasCommunity) {
+          nav.pushNamed(AppRoutes.communityDetail, arguments: communityId);
+          return;
+        }
+        nav.pushNamed(AppRoutes.dashboard);
+        return;
+      case NotificationType.contentPublished:
+      case NotificationType.fandomContent:
+        final contentId = n.contentId ?? n.targetId;
+        if (contentId != null && contentId.isNotEmpty) {
+          nav.pushNamed(
+            AppRoutes.contentDetail,
+            arguments: ContentDetailArgs(contentId: contentId),
+          );
+          return;
+        }
+        if (hasCommunity) {
+          nav.pushNamed(AppRoutes.communityDetail, arguments: communityId);
+          return;
+        }
+        nav.pushNamed(AppRoutes.dashboard);
+        return;
+      case NotificationType.adminAnnouncement:
+      case NotificationType.system:
+      case NotificationType.unknown:
+        break;
+    }
+
+    // Legacy payloads: honour an explicit content target, but never a bare
+    // postId — `NotificationDoc.contentId` falls back to it and the content
+    // detail screen would just show "Discovery unavailable".
+    final contentId = (n.data['contentId'] as String?) ?? n.targetId;
+    if (n.targetType == NotificationTargetType.content &&
+        contentId != null &&
+        contentId.isNotEmpty) {
+      nav.pushNamed(
+        AppRoutes.contentDetail,
+        arguments: ContentDetailArgs(contentId: contentId),
+      );
+      return;
+    }
+    if (hasCommunity) {
+      nav.pushNamed(AppRoutes.communityDetail, arguments: communityId);
+      return;
+    }
+    nav.pushNamed(AppRoutes.dashboard);
+  }
+
+  /// Navigate based on notification data payload.
+  void _navigateFromNotification(Map<String, dynamic> data) {
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
+    final doc = NotificationDoc.fromMap(
+      data,
+      id: (data['notificationId'] as String?) ?? '',
+    );
+    openTarget(context, doc, markRead: doc.id.isNotEmpty);
+  }
+
   Future<void> initialize() async {
     if (!_ready) return;
     try {
@@ -42,17 +145,56 @@ class NotificationService {
       if (token != null && _uid != null) {
         await _registerDeviceToken(token);
       }
+      // Auth restore usually finishes after this call, so keep the token in
+      // sync for whichever user ends up signed in — otherwise the device is
+      // never registered and no push can ever be delivered to it.
+      _authSubscription ??= FirebaseAuth.instance.authStateChanges().listen((
+        user,
+      ) async {
+        if (user == null) return;
+        try {
+          final fresh = await FirebaseMessaging.instance.getToken();
+          if (fresh != null) await _registerDeviceToken(fresh);
+        } catch (error) {
+          debugPrint('NotificationService: token registration failed: $error');
+        }
+      });
+      messaging.onTokenRefresh.listen((fresh) async {
+        try {
+          await _registerDeviceToken(fresh);
+        } catch (error) {
+          debugPrint('NotificationService: token refresh failed: $error');
+        }
+      });
       FirebaseMessaging.onMessage.listen((message) {
         debugPrint('FCM foreground message received: ${message.messageId}');
+        final title = message.notification?.title ?? 'Fandom Verse';
+        final body = message.notification?.body ?? '';
+        final context = navigatorKey.currentContext;
+        if (context == null || !context.mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(body.isEmpty ? title : '$title — $body'),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Open',
+                onPressed: () => _navigateFromNotification(message.data),
+              ),
+            ),
+          );
       });
       FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
         debugPrint('FCM app opened via notification: ${message.data}');
+        _navigateFromNotification(message.data);
       });
       final initialMessage = await FirebaseMessaging.instance
           .getInitialMessage();
       if (initialMessage != null) {
         debugPrint('Initial FCM message: ${initialMessage.data}');
+        _navigateFromNotification(initialMessage.data);
       }
     } catch (error) {
       debugPrint('NotificationService.initialize failed: $error');
@@ -66,15 +208,23 @@ class NotificationService {
   Future<void> _registerDeviceToken(String token) async {
     final uid = _uid;
     if (uid == null || !_ready) return;
-    final deviceId = 'android';
-    final ref = FirebaseFirestore.instance
+    final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final deviceId = kIsWeb ? 'web' : (isIOS ? 'ios' : 'android');
+    final devices = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
-        .collection('devices')
-        .doc(deviceId);
-    await ref.set({
+        .collection('devices');
+    try {
+      final dupes = await devices.where('token', isEqualTo: token).get();
+      for (final dupe in dupes.docs) {
+        if (dupe.id != deviceId) await dupe.reference.delete();
+      }
+    } catch (_) {
+      // Older rows may be unroutable (rules) — the active doc still wins.
+    }
+    await devices.doc(deviceId).set({
       'token': token,
-      'platform': 'android',
+      'platform': kIsWeb ? 'web' : (isIOS ? 'ios' : 'android'),
       'isActive': true,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),

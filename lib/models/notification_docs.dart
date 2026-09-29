@@ -177,8 +177,15 @@ class NotificationDoc {
     }
   }
 
-  factory NotificationDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? const {};
+  factory NotificationDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) =>
+      NotificationDoc.fromMap(doc.data() ?? const {}, id: doc.id);
+
+  /// Same parsing for FCM data payloads, where the document id may arrive
+  /// separately (or not at all).
+  factory NotificationDoc.fromMap(
+    Map<String, dynamic> data, {
+    String id = '',
+  }) {
     final created = data['createdAt'];
     final rawType = data['targetType'] ?? data['type'];
     final rawTargetType = data['targetType'] as String?;
@@ -201,7 +208,7 @@ class NotificationDoc {
     }
 
     return NotificationDoc(
-      id: doc.id,
+      id: id,
       recipientUid: (data['recipientUid'] as String?) ?? '',
       actorUid: (data['actorUid'] as String?) ?? '',
       actorName: (data['actorName'] as String?) ?? '',

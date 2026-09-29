@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/catalog_docs.dart';
 import '../../services/event_service.dart';
 import '../../services/event_location_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/content_widgets.dart';
@@ -345,10 +346,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           fit: StackFit.expand,
           children: [
             if (event.coverImageUrl?.isNotEmpty == true)
-              Image.network(
-                event.coverImageUrl!,
+              CachedImage(
+                url: event.coverImageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _eventImageFallback(event),
               )
             else
               _eventImageFallback(event),

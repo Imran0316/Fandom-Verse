@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../services/post_service.dart';
 import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/follow_button.dart';
 import '../../widgets/liquid_glass.dart';
 import '../communities/post_card.dart';
@@ -372,20 +373,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: profile.avatarUrl?.isNotEmpty == true
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(26),
-                child: Image.network(
-                  profile.avatarUrl!,
+                child: CachedImage(
+                  url: profile.avatarUrl,
                   fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, _, _) => Center(
-                    child: Text(
-                      _initial(profile),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
                 ),
               )
             : Center(

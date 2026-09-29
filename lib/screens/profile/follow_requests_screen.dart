@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/follow_docs.dart';
 import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
+import '../../widgets/cached_image.dart';
 
 /// Inbox for pending inbound follow requests: accept writes both edge
 /// mirrors + counters, decline just drops the request doc. The list is
@@ -280,19 +281,9 @@ class _FollowRequestsScreenState extends State<FollowRequestsScreen> {
         ),
       ),
       child: request.avatarUrl?.isNotEmpty == true
-          ? Image.network(
-              request.avatarUrl!,
+          ? CachedImage(
+              url: request.avatarUrl,
               fit: BoxFit.cover,
-              gaplessPlayback: true,
-              errorBuilder: (_, _, _) => Center(
-                child: Text(
-                  initial,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
             )
           : Center(
               child: Text(
