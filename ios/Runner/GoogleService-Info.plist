@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>248265494952-6h9k5f7t9v8p8j5k8s7d8f9g0h1i2j3.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.248265494952-6h9k5f7t9v8p8j5k8s7d8f9g0h1i2j3</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCduB7jWiAK0yxPnWa6SKfOQ-uXvBfZBLM</string>
+	<key>GCM_SENDER_ID</key>
+	<string>248265494952</string>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:248265494952:ios:f97115d694b0f133400d9d</string>
+	<key>PROJECT_ID</key>
+	<string>fandomverse-cfe67</string>
+	<key>STORAGE_BUCKET</key>
+	<string>fandomverse-cfe67.firebasestorage.app</string>
+</dict>
+</plist>

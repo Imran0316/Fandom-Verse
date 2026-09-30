@@ -1,1 +1,73 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"fandomverse-cfe67","appId":"1:248265494952:android:4d671cbfa03cab9e400d9d","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"fandomverse-cfe67","configurations":{"android":"1:248265494952:android:4d671cbfa03cab9e400d9d","ios":"1:248265494952:ios:f97115d694b0f133400d9d","web":"1:248265494952:web:74de429d20d67792400d9d","windows":"1:248265494952:web:3c4d2471b3a6d903400d9d"}}}}}}
+{
+  "functions": {
+    "source": "functions"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "fandomverse-cfe67",
+          "appId": "1:248265494952:android:4d671cbfa03cab9e400d9d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "fandomverse-cfe67",
+          "configurations": {
+            "android": "1:248265494952:android:4d671cbfa03cab9e400d9d",
+            "ios": "1:248265494952:ios:f97115d694b0f133400d9d",
+            "web": "1:248265494952:web:74de429d20d67792400d9d",
+            "windows": "1:248265494952:web:3c4d2471b3a6d903400d9d"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-popup"
+          },
+          {
+            "key": "Cross-Origin-Embedder-Policy",
+            "value": "require-corp"
+          },
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|js|css|eot|otf|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000"
+          }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 
-import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/notification_docs.dart';
 import '../../services/notification_service.dart';
 import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
-import '../content/content_detail_screen.dart';
+import '../../widgets/cached_image.dart';
 
 /// Real activity feed: likes, comments and replies on your posts, plus
 /// follow requests (accept / decline inline). Rows are live; tapping a
 /// row marks it read and jumps to the content it came from.
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  const NotificationsScreen({super.key, this.items});
+
+  final Stream<List<NotificationDoc>>? items;
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final _items = StreamCache<List<NotificationDoc>>(
+  final _cache = StreamCache<List<NotificationDoc>>(
     () => NotificationService.instance.watch(),
   );
+
+  Stream<List<NotificationDoc>> _items() => widget.items ?? _cache();
   final Set<String> _busyIds = {};
 
   String _timeLabel(DateTime? at) {
@@ -101,37 +104,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _open(NotificationDoc n) {
     NotificationService.instance.markRead(n.id);
-    if (n.kind == NotificationKind.followRequested) {
-      Navigator.pushNamed(context, AppRoutes.followRequests);
-      return;
-    }
-    if ((n.targetType ?? NotificationTargetType.system) ==
-            NotificationTargetType.content ||
-        n.contentId != null && n.contentId!.isNotEmpty) {
-      final contentId = n.contentId ?? n.targetId;
-      if (contentId != null && contentId.isNotEmpty) {
-        Navigator.pushNamed(
-          context,
-          AppRoutes.contentDetail,
-          arguments: ContentDetailArgs(contentId: contentId),
-        );
-        return;
-      }
-    }
-    if (n.communityId != null && n.communityId!.isNotEmpty) {
-      Navigator.pushNamed(
-        context,
-        AppRoutes.communityDetail,
-        arguments: n.communityId,
-      );
-      return;
-    }
-    if (n.targetType == NotificationTargetType.announcement ||
-        n.notificationType == NotificationType.adminAnnouncement) {
-      Navigator.pushNamed(context, AppRoutes.dashboard);
-      return;
-    }
-    Navigator.pushNamed(context, AppRoutes.dashboard);
   }
 
   @override
@@ -395,9 +367,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _avatar(NotificationDoc n) {
-    final initial = n.actorName.isNotEmpty
-        ? n.actorName.characters.first.toUpperCase()
-        : '?';
     final icon = switch (n.notificationType) {
       NotificationType.contentPublished => Icons.new_releases_rounded,
       NotificationType.fandomContent => Icons.explore_rounded,
@@ -427,20 +396,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ? Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  n.actorAvatarUrl!,
+                CachedImage(
+                  url: n.actorAvatarUrl,
                   fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, _, _) => Center(
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
                 ),
                 Positioned(
                   right: 0,

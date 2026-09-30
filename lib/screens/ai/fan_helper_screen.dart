@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
-import '../../services/gemini_service.dart';
+import '../../services/groq_service.dart';
 import '../../widgets/liquid_glass.dart';
 
-/// Fan Helper — an AI chat companion built on Google Gemini that helps fans
+/// Fan Helper — an AI chat companion built on Groq that helps fans
 /// discover content, understand lore, and find their next favourite thing.
 class FanHelperScreen extends StatefulWidget {
   const FanHelperScreen({super.key});
@@ -82,7 +82,7 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
     _scrollToBottom();
 
     try {
-      final reply = await GeminiService.instance.sendMessage(_messages);
+      final reply = await GroqService.instance.sendMessage(_messages);
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessage(role: ChatRole.model, text: reply));
@@ -92,8 +92,8 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        if (!GeminiService.isConfigured) {
-          _error = 'Fan Helper isn\'t configured yet. Add your Gemini API key to '
+        if (!GroqService.isConfigured) {
+          _error = 'Fan Helper isn\'t configured yet. Add your Groq API key to '
               'enable chatting.';
         } else if (e is StateError && e.message.trim().isNotEmpty) {
           // Surface the real API error (bad key, quota, retired model, …)

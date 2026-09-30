@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../core/theme/app_colors.dart';
+import 'cached_image.dart';
 
 /// Inline 16:9 video block shown between an article's header and its body.
 ///
@@ -241,10 +242,9 @@ class _ArticleVideoState extends State<ArticleVideo> {
               ),
             ),
             if (poster.isNotEmpty)
-              Image.network(
-                poster,
+              CachedImage(
+                url: poster,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             if (showHint) ...[
               const DecoratedBox(

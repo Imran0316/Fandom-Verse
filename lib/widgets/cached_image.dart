@@ -1,9 +1,23 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart'
+    show ImageRenderMethodForWeb;
 import 'package:flutter/material.dart';
 
 /// Disk-cached network image used across the app so covers, avatars and
 /// merch photos stay visible offline (the requirement's "data shows even
-/// without a connection"). Falls back to [errorWidget] on bad URLs.
+/// without a connection"). Falls back to [_Missing] on bad URLs.
+///
+/// Two things this widget exists to guarantee:
+///
+/// * On web the bytes are fetched over HTTP and decoded from memory
+///   ([ImageRenderMethodForWeb.HttpGet]) instead of the default
+///   `HtmlImage` `<img>` element. An `<img>`-backed texture taints the
+///   CanvasKit surface, so every later draw throws
+///   `SecurityError: The image element contains cross-origin data` and the
+///   whole feed blanks out.
+/// * The widget tree always contains a real [Image] once a URL is present,
+///   so semantics and widget tests see the image even while it is loading
+///   or when the network is unavailable.
 ///
 /// [circular] clips the image to a circle (avatars).
 class CachedImage extends StatelessWidget {
@@ -16,6 +30,7 @@ class CachedImage extends StatelessWidget {
     this.borderRadius,
     this.circular = false,
     this.memCacheWidth,
+    this.memCacheHeight,
   });
 
   final String? url;
@@ -25,31 +40,39 @@ class CachedImage extends StatelessWidget {
   final BorderRadius? borderRadius;
   final bool circular;
   final int? memCacheWidth;
+  final int? memCacheHeight;
 
   @override
   Widget build(BuildContext context) {
     final src = (url ?? '').trim();
     if (src.isEmpty) return const _Missing();
 
-    final Widget image;
-    try {
-      image = CachedNetworkImage(
-        imageUrl: src,
-        fit: fit,
-        width: width,
-        height: height,
-        memCacheWidth: memCacheWidth,
-        fadeInDuration: Duration.zero,
-        placeholder: (_, _) => const _Missing(),
-        errorWidget: (_, _, _) => const _Missing(),
+    ImageProvider provider = CachedNetworkImageProvider(
+      src,
+      imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
+    );
+    if (memCacheWidth != null || memCacheHeight != null) {
+      provider = ResizeImage(
+        provider,
+        width: memCacheWidth,
+        height: memCacheHeight,
       );
-    } catch (_) {
-      return const _Missing();
     }
 
-    if (circular) {
-      return ClipOval(child: image);
-    }
+    final Widget image = Image(
+      image: provider,
+      fit: fit,
+      width: width,
+      height: height,
+      gaplessPlayback: true,
+      // Neutral block until the first frame decodes, and the same block for
+      // a dead URL — never a broken-image glyph.
+      frameBuilder: (context, child, frame, wasSyncLoaded) =>
+          (wasSyncLoaded || frame != null) ? child : const _Missing(),
+      errorBuilder: (_, _, _) => const _Missing(),
+    );
+
+    if (circular) return ClipOval(child: image);
     if (borderRadius != null) {
       return ClipRRect(borderRadius: borderRadius!, child: image);
     }

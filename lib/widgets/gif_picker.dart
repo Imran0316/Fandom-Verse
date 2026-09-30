@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/theme/app_colors.dart';
 import '../services/image_upload_service.dart';
+import 'cached_image.dart';
 
 /// GIF picker for comment composers.
 ///
@@ -295,22 +296,9 @@ class _GifPickerSheetState extends State<_GifPickerSheet> {
                   onTap: () => Navigator.of(context).pop(_urls[i]),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      _urls[i],
+                    child: CachedImage(
+                      url: _urls[i],
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) => progress ==
-                              null
-                          ? child
-                          : Container(
-                              color: Colors.white.withValues(alpha: 0.06),
-                            ),
-                      errorBuilder: (_, _, _) => Container(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        child: const Icon(
-                          Icons.gif_box_outlined,
-                          color: Colors.white30,
-                        ),
-                      ),
                     ),
                   ),
                 ),

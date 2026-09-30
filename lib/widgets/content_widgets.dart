@@ -428,10 +428,10 @@ class FeaturedSpotlight extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withValues(alpha: 0.25),
-                        Colors.black.withValues(alpha: 0.88),
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.black.withValues(alpha: 0.94),
                       ],
-                      stops: const [0.25, 0.55, 1],
+                      stops: const [0.18, 0.42, 1],
                     ),
                   ),
                 ),

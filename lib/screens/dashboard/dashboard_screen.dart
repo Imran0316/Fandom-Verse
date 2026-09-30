@@ -14,11 +14,13 @@ import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/content_service.dart';
 import '../../services/community_service.dart';
+import '../../services/explore_prompt_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/post_service.dart';
 import '../../services/stream_cache.dart';
 import '../../services/taxonomy_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/auth_popup.dart';
 import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_floating_nav.dart';
@@ -99,6 +101,33 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // If Firebase finishes initializing after this screen (and its cached
+    // tab streams) were built, rebuild so every tab re-subscribes with live
+    // Firestore streams instead of the empty not-ready fallbacks.
+    AuthService.readyListenable.addListener(_onFirebaseReadyChanged);
+    // Start the explore prompt timer for signed-out users.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ExplorePromptService.setContext(context);
+        ExplorePromptService.instance.start();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    AuthService.readyListenable.removeListener(_onFirebaseReadyChanged);
+    ExplorePromptService.clearContext();
+    super.dispose();
+  }
+
+  void _onFirebaseReadyChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _onSelected(int index) {
     if (index == _currentIndex) return;
     setState(() => _currentIndex = index);
@@ -131,16 +160,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               SafeArea(
                 bottom: false,
-              child: IndexedStack(
-                index: _currentIndex,
-                children: [
-                  const _HomeTab(),
-                  TrendingTab(onOpenReels: () => _onSelected(3)),
-                  const _SearchTab(),
-                  ReelsTab(active: _currentIndex == 3),
-                  const _ProfileTab(),
-                ],
-              ),
+                child: IndexedStack(
+                  index: _currentIndex,
+                  // Deliberately non-const: a const child is canonicalized,
+                  // so Element.updateChild skips it on parent rebuilds and
+                  // the tab would keep the streams of its first build
+                  // forever. Fresh instances let a readiness flip (or a
+                  // tab switch) re-run each tab's build and re-subscribe.
+                  children: [
+                    _HomeTab(),
+                    TrendingTab(onOpenReels: () => _onSelected(3)),
+                    _SearchTab(),
+                    ReelsTab(active: _currentIndex == 3),
+                    _ProfileTab(),
+                  ],
+                ),
               ),
               Positioned(
                 left: 0,
@@ -402,7 +436,7 @@ class _HomeTabState extends State<_HomeTab> {
                       Navigator.pushNamed(context, AppRoutes.merchExplore),
                 ),
                 SizedBox(
-                  height: 238,
+                  height: 244,
                   child: ListView.separated(
                     key: const PageStorageKey<String>('home_merch_rail'),
                     scrollDirection: Axis.horizontal,
@@ -569,7 +603,11 @@ class _EventCardDoc extends StatelessWidget {
             children: [
               if (event.coverImageUrl?.isNotEmpty == true)
                 Positioned.fill(
-                  child: CachedImage(url: event.coverImageUrl),
+                  child: CachedImage(
+                    url: event.coverImageUrl,
+                    memCacheWidth: 448,
+                    memCacheHeight: 300,
+                  ),
                 ),
               if (event.coverImageUrl?.isNotEmpty == true)
                 Positioned.fill(
@@ -720,7 +758,11 @@ class _MerchCardDoc extends StatelessWidget {
                           ),
                         ),
                         if (item.imageUrl?.isNotEmpty == true)
-                          CachedImage(url: item.imageUrl),
+                          CachedImage(
+                            url: item.imageUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
                         Positioned(
                           left: 0,
                           right: 0,
@@ -930,34 +972,29 @@ class _PosterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = item.imageUrl?.trim() ?? '';
-    final hasImage = image.isNotEmpty;
-
     return GestureDetector(
       onTap: item.onTap,
-      child: Container(
-        width: width,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        foregroundDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+      child: LiquidGlass(
+        radius: 18,
+        blur: 0,
+        borderColor: Colors.white.withValues(alpha: 0.16),
+        boxShadow: [
+          BoxShadow(
+            color: item.colors.first.withValues(alpha: 0.4),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        child: SizedBox(
+          width: width,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Gradient + glyph fallback sits behind the image while it
-              // loads — and is the whole look when a doc has no artwork.
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -968,21 +1005,16 @@ class _PosterCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: item.emoji?.isNotEmpty == true
-                      ? Text(
-                          item.emoji!,
-                          style: const TextStyle(fontSize: 38),
-                        )
+                      ? Text(item.emoji!, style: const TextStyle(fontSize: 40))
                       : Icon(
                           item.icon ?? Icons.grid_view_rounded,
                           color: Colors.white,
-                          size: 38,
+                          size: 40,
                         ),
                 ),
               ),
-              if (hasImage)
+              if (item.imageUrl?.trim().isNotEmpty == true)
                 item.isCircular
-                    // Square avatars (communities) read better as a centered
-                    // circle than stretched edge-to-edge.
                     ? Center(
                         child: Container(
                           width: 92,
@@ -995,24 +1027,21 @@ class _PosterCard extends StatelessWidget {
                               width: 2,
                             ),
                           ),
-                          child: CachedImage(url: image),
+                          child: CachedImage(url: item.imageUrl),
                         ),
                       )
-                    : CachedImage(
-                        url: image,
-                        fit: BoxFit.cover,
-                      ),
+                    : CachedImage(url: item.imageUrl),
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(12, 30, 12, 11),
+                  padding: const EdgeInsets.fromLTRB(10, 28, 10, 10),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xCC000000)],
+                      colors: [Colors.transparent, Color(0xE6000000)],
                     ),
                   ),
                   child: Column(
@@ -1024,12 +1053,12 @@ class _PosterCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(
                         item.tag,
                         maxLines: 1,
@@ -1212,6 +1241,8 @@ class _SearchTabState extends State<_SearchTab> {
 
   @override
   void dispose() {
+    ExplorePromptService.instance.stop();
+    ExplorePromptService.clearContext();
     _controller.dispose();
     super.dispose();
   }
@@ -1320,9 +1351,7 @@ class _SearchTabState extends State<_SearchTab> {
           ),
         ),
         const SizedBox(height: 16),
-        Expanded(
-          child: query.isEmpty ? _browse() : _liveResults(query),
-        ),
+        Expanded(child: query.isEmpty ? _browse() : _liveResults(query)),
       ],
     );
   }
@@ -1338,10 +1367,8 @@ class _SearchTabState extends State<_SearchTab> {
   Widget _liveResults(String query) {
     return StreamBuilder<List<ContentDoc>>(
       stream: _searchContent(),
-      builder: (context, snapshot) => _withCommunities(
-        query,
-        content: _sourceData(snapshot),
-      ),
+      builder: (context, snapshot) =>
+          _withCommunities(query, content: _sourceData(snapshot)),
     );
   }
 
@@ -1437,7 +1464,8 @@ class _SearchTabState extends State<_SearchTab> {
       );
     }
 
-    final connecting = content == null ||
+    final connecting =
+        content == null ||
         communities == null ||
         events == null ||
         merch == null ||
@@ -1464,9 +1492,9 @@ class _SearchTabState extends State<_SearchTab> {
             : 'Nothing in the verse yet',
         message: filtered
             ? 'No live picks match this chip right now. Try another one, '
-                'or tap All to see everything.'
+                  'or tap All to see everything.'
             : 'Fresh stories, communities, events and merch show up here '
-                'the moment they drop.',
+                  'the moment they drop.',
       );
     }
 
@@ -1556,7 +1584,8 @@ class _SearchTabState extends State<_SearchTab> {
         communityHits.add(
           _SearchHit(
             title: item.name,
-            tag: '${item.memberCount} '
+            tag:
+                '${item.memberCount} '
                 '${item.memberCount == 1 ? 'member' : 'members'}',
             colors: [item.color, item.color.withValues(alpha: 0.22)],
             icon: item.icon,
@@ -1743,10 +1772,7 @@ class _SearchSectionView extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
@@ -1776,10 +1802,8 @@ class _SearchSectionView extends StatelessWidget {
             childAspectRatio: 0.7,
           ),
           itemCount: section.hits.length,
-          itemBuilder: (context, index) => _PosterCard(
-            item: section.hits[index],
-            width: double.infinity,
-          ),
+          itemBuilder: (context, index) =>
+              _PosterCard(item: section.hits[index], width: double.infinity),
         ),
       ],
     );
@@ -1983,6 +2007,67 @@ class _FeedPromoCard extends StatelessWidget {
 
 /* --------------------------------- PROFILE -------------------------------- */
 
+class _SignInPrompt extends StatelessWidget {
+  const _SignInPrompt();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
+                ),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  color: Colors.white54,
+                  size: 36,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Sign in to view your profile',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Access your profile, fandom interests, saved discoveries and more.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 13.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            GlassButton(
+              label: 'Sign In',
+              variant: GlassButtonVariant.sleek,
+              icon: Icons.login_rounded,
+              onPressed: () => showAuthPopup(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileTab extends StatefulWidget {
   const _ProfileTab();
 
@@ -1999,68 +2084,8 @@ class _ProfileTabState extends State<_ProfileTab> {
   Widget build(BuildContext context) {
     final user = AuthService.instance.currentUser;
 
-    // Explore mode: signed-out visitors get a sign-in prompt instead of a
-    // profile (their data isn't readable per the security rules).
     if (user == null) {
-      return ListView(
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 48, 20, 130),
-        children: [
-          const SizedBox(height: 40),
-          Center(
-            child: Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFC1121F), Color(0xFF7F1D1D)],
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.25),
-                ),
-              ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                color: Colors.white,
-                size: 46,
-              ),
-            ),
-          ),
-          const SizedBox(height: 22),
-          const Center(
-            child: Text(
-              'You are exploring as a guest',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Center(
-            child: Text(
-              'Create a free account to post, like, save discoveries '
-              'and shop merch. Everything you can see now stays browsable.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13.5,
-                height: 1.45,
-              ),
-            ),
-          ),
-          const SizedBox(height: 26),
-          GlassButton(
-            label: 'Get Started',
-            variant: GlassButtonVariant.sleek,
-            icon: Icons.arrow_forward_rounded,
-            onPressed: () =>
-                Navigator.pushNamed(context, AppRoutes.getStarted),
-          ),
-        ],
-      );
+      return const _SignInPrompt();
     }
 
     return StreamBuilder<UserProfile?>(
@@ -2108,23 +2133,41 @@ class _ProfileTabState extends State<_ProfileTab> {
                             ),
                           ],
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(27),
-                          child: profile?.avatarUrl?.isNotEmpty == true
-                              ? CachedImage(url: profile!.avatarUrl)
-                              : Center(
-                                  child: Text(
-                                    name.isNotEmpty
-                                        ? name.characters.first.toUpperCase()
-                                        : 'F',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w800,
+                        child: profile?.avatarUrl?.isNotEmpty == true
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(27),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Center(
+                                      child: Text(
+                                        name.isNotEmpty
+                                            ? name.characters.first
+                                                  .toUpperCase()
+                                            : 'F',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
                                     ),
+                                    CachedImage(url: profile!.avatarUrl),
+                                  ],
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  name.isNotEmpty
+                                      ? name.characters.first.toUpperCase()
+                                      : 'F',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                        ),
+                              ),
                       ),
                     ),
                   ),
@@ -2208,12 +2251,13 @@ class _ProfileTabState extends State<_ProfileTab> {
               child: _ProfileTile(
                 icon: Icons.person_outline_rounded,
                 label: 'My profile',
-                onTap: () {
+                onTap: () async {
                   final uid = AuthService.instance.currentUser?.uid;
                   if (uid == null || uid.isEmpty) {
-                    _toast(context, 'Sign in to view your profile');
+                    await showAuthPopup(context);
                     return;
                   }
+                  if (!context.mounted) return;
                   Navigator.pushNamed(
                     context,
                     AppRoutes.userProfile,
@@ -2230,9 +2274,10 @@ class _ProfileTabState extends State<_ProfileTab> {
                 onTap: () async {
                   final uid = AuthService.instance.currentUser?.uid;
                   if (uid == null) {
-                    _toast(context, 'Sign in to edit your profile');
+                    await showAuthPopup(context);
                     return;
                   }
+                  if (!context.mounted) return;
                   final current =
                       profile ?? await UserService.instance.fetch(uid);
                   if (!context.mounted) return;

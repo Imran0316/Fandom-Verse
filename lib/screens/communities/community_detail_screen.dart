@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/animations/app_transitions.dart';
+import '../../core/auth_gate.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/community_docs.dart';
@@ -10,6 +11,7 @@ import '../../services/community_service.dart';
 import '../../services/image_upload_service.dart';
 import '../../services/post_service.dart';
 import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/expandable_text.dart';
 import '../../widgets/liquid_glass.dart';
 import 'post_card.dart';
@@ -48,13 +50,7 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
     CommunityDoc community, {
     required bool isMember,
   }) async {
-    final uid = AuthService.instance.currentUser?.uid;
-    if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to join communities.')),
-      );
-      return;
-    }
+    if (!requireSignIn(context)) return;
     try {
       if (isMember) {
         await CommunityService.instance.leave(community.id);
@@ -450,10 +446,9 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
             ),
           ),
           if (coverUrl != null && coverUrl.isNotEmpty)
-            Image.network(
-              coverUrl,
+            CachedImage(
+              url: coverUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           DecoratedBox(
             decoration: BoxDecoration(
@@ -496,11 +491,9 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
         ],
       ),
       child: profileUrl != null && profileUrl.isNotEmpty
-          ? Image.network(
-              profileUrl,
+          ? CachedImage(
+              url: profileUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  Icon(community.icon, color: Colors.white, size: 34),
             )
           : Icon(community.icon, color: Colors.white, size: 34),
     );
@@ -587,17 +580,9 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
                     child: SizedBox(
                       width: 56,
                       height: 56,
-                      child: Image.network(
-                        _postImageUrl!,
+                      child: CachedImage(
+                        url: _postImageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          child: const Icon(
-                            Icons.broken_image_outlined,
-                            color: Colors.white38,
-                            size: 22,
-                          ),
-                        ),
                       ),
                     ),
                   ),

@@ -3,7 +3,12 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show
+        TargetPlatform,
+        ValueListenable,
+        ValueNotifier,
+        defaultTargetPlatform,
+        kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'user_service.dart';
@@ -14,7 +19,19 @@ class AuthService with WidgetsBindingObserver {
   static final AuthService instance = AuthService._();
 
   /// Set to true in main() once Firebase.initializeApp() succeeds.
-  static bool firebaseReady = false;
+  ///
+  /// Backed by a [ValueNotifier] so screens that are already on stage when
+  /// initialization finishes (the dashboard tabs cache their Firestore
+  /// streams on first build) can rebuild themselves via [readyListenable]
+  /// instead of staying frozen on the empty "not ready" fallback streams.
+  /// Reads and writes of [firebaseReady] behave exactly like a plain field.
+  static final ValueNotifier<bool> _firebaseReady = ValueNotifier<bool>(false);
+
+  static bool get firebaseReady => _firebaseReady.value;
+  static set firebaseReady(bool value) => _firebaseReady.value = value;
+
+  /// Notifies when [firebaseReady] flips, in either direction.
+  static ValueListenable<bool> get readyListenable => _firebaseReady;
 
   bool get isReady => firebaseReady;
 

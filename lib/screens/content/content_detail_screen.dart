@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/auth_gate.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
@@ -484,6 +485,9 @@ class _BookmarkButtonState extends State<_BookmarkButton> {
 
   Future<void> _toggle() async {
     if (_busy) return;
+    if (!requireSignIn(context, reason: 'Sign in to save discoveries.')) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       final saved = await BookmarkService.instance.toggle(widget.contentId);

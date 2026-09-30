@@ -5,6 +5,7 @@ import '../../models/community_docs.dart';
 import '../../services/community_service.dart';
 import '../../services/image_upload_service.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 
 /// Owner-only form to update a community's name, description, cover image
@@ -231,13 +232,9 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                             ? Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  Image.network(
-                                    _coverUrl!,
+                                  CachedImage(
+                                    url: _coverUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(Icons.broken_image_outlined,
-                                          color: Colors.white38),
-                                    ),
                                   ),
                                   Positioned(
                                     top: 8,
@@ -330,13 +327,9 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                                 ),
                               )
                             : _profileUrl != null
-                                ? Image.network(
-                                    _profileUrl!,
+                                ? CachedImage(
+                                    url: _profileUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(Icons.broken_image_outlined,
-                                          color: Colors.white38),
-                                    ),
                                   )
                                 : Icon(
                                     Icons.add_a_photo_outlined,

@@ -36,6 +36,7 @@ import 'screens/shop/merch_explore_screen.dart';
 import 'screens/shop/orders_screen.dart';
 import 'screens/shop/product_detail_screen.dart';
 import 'screens/splash/splash_screen.dart';
+import 'services/notification_service.dart';
 
 class FandomVerseApp extends StatelessWidget {
   const FandomVerseApp({super.key});
@@ -45,6 +46,7 @@ class FandomVerseApp extends StatelessWidget {
     return MaterialApp(
       title: 'FandomVerse',
       debugShowCheckedModeBanner: false,
+      navigatorKey: NotificationService.navigatorKey,
       theme: AppTheme.dark,
       onGenerateRoute: (settings) {
         final name = settings.name ?? AppRoutes.getStarted;

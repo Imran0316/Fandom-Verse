@@ -8,6 +8,7 @@ import '../../models/catalog_docs.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -110,17 +111,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: p.imageUrl?.isNotEmpty == true
-                                    ? Image.network(
-                                        p.imageUrl!,
+                                    ? CachedImage(
+                                        url: p.imageUrl,
                                         fit: BoxFit.cover,
                                         width: double.infinity,
-                                        errorBuilder: (_, _, _) => const Center(
-                                          child: Icon(
-                                            Icons.inventory_2_outlined,
-                                            color: Colors.white24,
-                                            size: 64,
-                                          ),
-                                        ),
                                       )
                                     : const Center(
                                         child: Icon(

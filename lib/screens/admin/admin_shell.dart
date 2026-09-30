@@ -5,19 +5,30 @@ import '../../core/theme/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/stream_cache.dart';
 import '../../services/user_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/liquid_glass.dart';
 import 'admin_panels.dart';
 import 'content_management.dart';
 
 /// Blocks non-admins and shows a lightweight admin console.
-class AdminGate extends StatelessWidget {
+class AdminGate extends StatefulWidget {
   const AdminGate({super.key});
+
+  @override
+  State<AdminGate> createState() => _AdminGateState();
+}
+
+class _AdminGateState extends State<AdminGate> {
+  final _currentProfile = StreamCache<UserProfile?>(
+    () => UserService.instance.watchCurrent(),
+  );
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<UserProfile?>(
-      stream: UserService.instance.watchCurrent(),
+      stream: _currentProfile(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             snapshot.data == null) {
@@ -524,6 +535,10 @@ class _UsersPanel extends StatefulWidget {
 }
 
 class _UsersPanelState extends State<_UsersPanel> {
+  final _users = StreamCache<List<UserProfile>>(
+    () => UserService.instance.watchAll(),
+  );
+
   String _query = '';
   UserRole? _filter;
   bool _busy = false;
@@ -770,7 +785,7 @@ class _UsersPanelState extends State<_UsersPanel> {
         const SizedBox(height: 12),
         Expanded(
           child: StreamBuilder<List<UserProfile>>(
-            stream: UserService.instance.watchAll(),
+            stream: _users(),
             builder: (context, snap) {
               if (snap.hasError) {
                 return _GlassCard(
@@ -833,13 +848,14 @@ class _UsersPanelState extends State<_UsersPanel> {
                           CircleAvatar(
                             radius: 20,
                             backgroundColor: const Color(0xFF7F1D1D),
-                            backgroundImage: (u.avatarUrl != null &&
-                                    u.avatarUrl!.isNotEmpty)
-                                ? NetworkImage(u.avatarUrl!)
-                                : null,
-                            child: (u.avatarUrl == null ||
-                                    u.avatarUrl!.isEmpty)
-                                ? Text(
+                            child: u.avatarUrl?.isNotEmpty == true
+                                ? CachedImage(
+                                    url: u.avatarUrl,
+                                    width: 40,
+                                    height: 40,
+                                    circular: true,
+                                  )
+                                : Text(
                                     u.name.isNotEmpty
                                         ? u.name.characters.first
                                             .toUpperCase()
@@ -848,8 +864,7 @@ class _UsersPanelState extends State<_UsersPanel> {
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
                                     ),
-                                  )
-                                : null,
+                                  ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(

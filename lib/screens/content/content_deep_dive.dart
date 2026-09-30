@@ -7,6 +7,7 @@ import '../../models/post_docs.dart';
 import '../../services/entities/deep_dive_models.dart';
 import '../../services/entities/deep_dive_registry.dart';
 import '../../services/post_service.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/skeletons.dart';
 
@@ -543,7 +544,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
         if (anchor.id != media.id || anchor.kind != media.kind) anchor,
     ];
     return SizedBox(
-      height: 262,
+      height: 268,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -610,7 +611,7 @@ class _ContentDeepDiveState extends State<ContentDeepDive> {
   Widget _worksRail() {
     final items = _visibleWorks;
     return SizedBox(
-      height: 262,
+      height: 268,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -713,10 +714,9 @@ class _MediaCard extends StatelessWidget {
                       ),
                     ),
                     if (media.imageUrl?.isNotEmpty == true)
-                      Image.network(
-                        media.imageUrl!,
+                      CachedImage(
+                        url: media.imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                     if (media.score != null)
                       Positioned(
@@ -831,10 +831,9 @@ class _CharacterCard extends StatelessWidget {
                       ),
                     ),
                     if (member.character.imageUrl?.isNotEmpty == true)
-                      Image.network(
-                        member.character.imageUrl!,
+                      CachedImage(
+                        url: member.character.imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                     if (role.isNotEmpty)
                       Positioned(
@@ -933,14 +932,9 @@ class _PersonCard extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: person.imageUrl?.isNotEmpty == true
-                  ? Image.network(
-                      person.imageUrl!,
+                  ? CachedImage(
+                      url: person.imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.person_outline_rounded,
-                        color: Colors.white30,
-                        size: 34,
-                      ),
                     )
                   : const Icon(
                       Icons.person_outline_rounded,
@@ -1020,19 +1014,9 @@ class _PostMiniCard extends StatelessWidget {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: post.authorAvatarUrl?.isNotEmpty == true
-                        ? Image.network(
-                            post.authorAvatarUrl!,
+                        ? CachedImage(
+                            url: post.authorAvatarUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Center(
-                              child: Text(
-                                initial,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
                           )
                         : Center(
                             child: Text(
