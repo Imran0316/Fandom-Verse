@@ -238,10 +238,9 @@ class CatalogService {
 
   Stream<List<MerchProductDoc>> watchMerch({bool activeOnly = true}) {
     if (!_ready) return Stream.value(const []);
-    Query<Map<String, dynamic>> q = _merch.orderBy(
-      'createdAt',
-      descending: true,
-    );
+    Query<Map<String, dynamic>> q = _merch
+        .orderBy('createdAt', descending: true)
+        .limit(40);
     // Firestore can't combine orderBy + where cheaply without index;
     // filter active in memory for simplicity on small catalogs.
     return q.snapshots().map((s) {

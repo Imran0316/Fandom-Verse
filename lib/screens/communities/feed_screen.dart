@@ -238,9 +238,6 @@ class _FeedScreenState extends State<FeedScreen> {
                           final p = posts[i];
                           return FadeSlideIn(
                             key: ValueKey(p.id),
-                            delay: Duration(
-                              milliseconds: 35 * i.clamp(0, 8),
-                            ),
                             child: PostCard(post: p),
                           );
                         },

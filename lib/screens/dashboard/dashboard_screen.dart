@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/animations/app_transitions.dart';
@@ -101,6 +103,8 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
+  final Set<int> _builtTabs = <int>{0};
+
   @override
   void initState() {
     super.initState();
@@ -130,7 +134,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onSelected(int index) {
     if (index == _currentIndex) return;
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+      _builtTabs.add(index);
+    });
   }
 
   @override
@@ -167,12 +174,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   // the tab would keep the streams of its first build
                   // forever. Fresh instances let a readiness flip (or a
                   // tab switch) re-run each tab's build and re-subscribe.
+                  // Unvisited slots stay as placeholders so tab indexes
+                  // never shift.
                   children: [
-                    _HomeTab(),
-                    TrendingTab(onOpenReels: () => _onSelected(3)),
-                    _SearchTab(),
-                    ReelsTab(active: _currentIndex == 3),
-                    _ProfileTab(),
+                    if (_builtTabs.contains(0))
+                      _HomeTab()
+                    else
+                      const SizedBox.shrink(),
+                    if (_builtTabs.contains(1))
+                      TrendingTab(onOpenReels: () => _onSelected(3))
+                    else
+                      const SizedBox.shrink(),
+                    if (_builtTabs.contains(2))
+                      _SearchTab()
+                    else
+                      const SizedBox.shrink(),
+                    if (_builtTabs.contains(3))
+                      ReelsTab(active: _currentIndex == 3)
+                    else
+                      const SizedBox.shrink(),
+                    if (_builtTabs.contains(4))
+                      _ProfileTab()
+                    else
+                      const SizedBox.shrink(),
                   ],
                 ),
               ),
@@ -1152,6 +1176,7 @@ class _SearchTab extends StatefulWidget {
 class _SearchTabState extends State<_SearchTab> {
   final _controller = TextEditingController();
   String _query = '';
+  Timer? _queryDebounce;
 
   /// Live sources for the query. They are State-level [StreamCache]s so each
   /// source is subscribed once per tab — never re-created by a keystroke.
@@ -1241,10 +1266,19 @@ class _SearchTabState extends State<_SearchTab> {
 
   @override
   void dispose() {
+    _queryDebounce?.cancel();
     ExplorePromptService.instance.stop();
     ExplorePromptService.clearContext();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    _queryDebounce?.cancel();
+    _queryDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() => _query = value.trim());
+    });
   }
 
   @override
@@ -1272,7 +1306,7 @@ class _SearchTabState extends State<_SearchTab> {
             blur: 0,
             child: TextField(
               controller: _controller,
-              onChanged: (v) => setState(() => _query = v.trim()),
+              onChanged: _onQueryChanged,
               style: const TextStyle(color: Colors.white),
               cursorColor: AppColors.accent,
               decoration: InputDecoration(
@@ -1292,6 +1326,7 @@ class _SearchTabState extends State<_SearchTab> {
                     ? null
                     : IconButton(
                         onPressed: () {
+                          _queryDebounce?.cancel();
                           _controller.clear();
                           setState(() => _query = '');
                         },
@@ -2238,7 +2273,6 @@ class _ProfileTabState extends State<_ProfileTab> {
             ],
             if (role == UserRole.admin)
               FadeSlideIn(
-                delay: const Duration(milliseconds: 40),
                 child: _ProfileTile(
                   icon: Icons.admin_panel_settings_rounded,
                   label: 'Admin Console',
@@ -2247,7 +2281,6 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
               ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 60),
               child: _ProfileTile(
                 icon: Icons.person_outline_rounded,
                 label: 'My profile',
@@ -2267,7 +2300,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 90),
               child: _ProfileTile(
                 icon: Icons.edit_outlined,
                 label: 'Edit profile',
@@ -2290,7 +2322,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 120),
               child: _ProfileTile(
                 icon: Icons.favorite_outline_rounded,
                 label: 'My fandom interests',
@@ -2302,7 +2333,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 132),
               child: _ProfileTile(
                 icon: Icons.auto_awesome_rounded,
                 label: 'Fan Helper AI',
@@ -2311,7 +2341,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 138),
               child: _ProfileTile(
                 icon: Icons.bookmark_border_rounded,
                 label: 'Saved discoveries',
@@ -2319,7 +2348,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 144),
               child: _ProfileTile(
                 icon: Icons.travel_explore_rounded,
                 label: 'Explore fandoms',
@@ -2327,7 +2355,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 150),
               child: _ProfileTile(
                 icon: Icons.shopping_cart_outlined,
                 label: 'Cart',
@@ -2335,7 +2362,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 165),
               child: _ProfileTile(
                 icon: Icons.receipt_long_outlined,
                 label: 'My orders',
@@ -2343,7 +2369,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 180),
               child: _ProfileTile(
                 icon: Icons.notifications_none_rounded,
                 label: 'Notifications',
@@ -2352,7 +2377,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 240),
               child: _ProfileTile(
                 icon: Icons.mail_outline_rounded,
                 label: 'Contact Us',
@@ -2360,7 +2384,6 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
             ),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 270),
               child: _ProfileTile(
                 icon: Icons.info_outline_rounded,
                 label: 'About Us',

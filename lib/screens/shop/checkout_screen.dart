@@ -5,6 +5,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
+import '../../services/stream_cache.dart';
 import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
@@ -20,6 +21,9 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  final _cart = StreamCache<List<CartItemDoc>>(
+    () => CartService.instance.watchCart(),
+  );
   final _address = TextEditingController();
   final _addressFocus = FocusNode();
   bool _placing = false;
@@ -132,7 +136,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: StreamBuilder<List<CartItemDoc>>(
-            stream: widget.cartStream ?? CartService.instance.watchCart(),
+            stream: widget.cartStream ?? _cart(),
             builder: (context, snap) {
               final items = snap.data ?? const <CartItemDoc>[];
               final total = _total(items);

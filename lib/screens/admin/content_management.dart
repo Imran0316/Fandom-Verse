@@ -181,12 +181,12 @@ class _ContentManagementPanelState extends State<ContentManagementPanel> {
   }
 
   Future<void> _openFilters(List<FandomDoc> fandoms) async {
+    String? fandom = _fandomId;
+    String? category = _categoryId;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        String? fandom = _fandomId;
-        String? category = _categoryId;
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             return Container(

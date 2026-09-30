@@ -25,9 +25,11 @@ class CommunityService {
 
   Stream<List<CommunityDoc>> watchAll() {
     if (!_ready) return onceStream(const []);
-    return _col.orderBy('createdAt', descending: true).snapshots().map(
-          (s) => s.docs.map(CommunityDoc.fromDoc).toList(),
-        );
+    return _col
+        .orderBy('createdAt', descending: true)
+        .limit(40)
+        .snapshots()
+        .map((s) => s.docs.map(CommunityDoc.fromDoc).toList());
   }
 
   Stream<CommunityDoc?> watch(String communityId) {

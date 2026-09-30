@@ -136,6 +136,10 @@ class AdminShell extends StatefulWidget {
 class _AdminShellState extends State<AdminShell> {
   int _section = 0;
 
+  final _profile = StreamCache<UserProfile?>(
+    () => UserService.instance.watchCurrent(),
+  );
+
   static const _sections = [
     (label: 'Overview', icon: Icons.insights_rounded),
     (label: 'Content', icon: Icons.auto_stories_rounded),
@@ -149,7 +153,7 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = UserService.instance.watchCurrent();
+    final profileAsync = _profile();
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDeep,
