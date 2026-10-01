@@ -176,8 +176,8 @@ class _ArticleVideoState extends State<ArticleVideo> {
                         iconSize: 18,
                         padding: const EdgeInsets.all(8),
                         constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
+                          minWidth: 44,
+                          minHeight: 44,
                         ),
                         color: Colors.white,
                         icon: Icon(

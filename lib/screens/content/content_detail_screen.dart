@@ -21,7 +21,7 @@ class ContentDetailArgs {
   final bool preview;
 }
 
-class ContentDetailScreen extends StatelessWidget {
+class ContentDetailScreen extends StatefulWidget {
   const ContentDetailScreen({
     super.key,
     required this.args,
@@ -34,6 +34,15 @@ class ContentDetailScreen extends StatelessWidget {
   final Stream<ContentDoc?>? contentStream;
 
   @override
+  State<ContentDetailScreen> createState() => _ContentDetailScreenState();
+}
+
+class _ContentDetailScreenState extends State<ContentDetailScreen> {
+  late final _content = StreamCache<ContentDoc?>(
+    () => ContentService.instance.watchById(widget.args.contentId),
+  );
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundDeep,
@@ -41,8 +50,7 @@ class ContentDetailScreen extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: StreamBuilder<ContentDoc?>(
-            stream: contentStream ??
-                ContentService.instance.watchById(args.contentId),
+            stream: widget.contentStream ?? _content(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting &&
                   !snap.hasData) {
@@ -50,7 +58,7 @@ class ContentDetailScreen extends StatelessWidget {
               }
               if (snap.hasError) {
                 return _DetailError(
-                  preview: args.preview,
+                  preview: widget.args.preview,
                   message:
                       'This discovery isn’t available right now. It may have been unpublished.',
                 );
@@ -58,13 +66,16 @@ class ContentDetailScreen extends StatelessWidget {
               final content = snap.data;
               if (content == null) {
                 return _DetailError(
-                  preview: args.preview,
-                  message: args.preview
+                  preview: widget.args.preview,
+                  message: widget.args.preview
                       ? 'This content could not be loaded for preview.'
                       : 'This discovery may have been removed by the curators.',
                 );
               }
-              return _DetailBody(content: content, preview: args.preview);
+              return _DetailBody(
+                content: content,
+                preview: widget.args.preview,
+              );
             },
           ),
         ),

@@ -60,15 +60,18 @@ class _ExpandableTextState extends State<ExpandableText> {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => setState(() => _expanded = !_expanded),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: Text(
-                    _expanded ? 'See Less' : 'See More',
-                    style: TextStyle(
-                      color: widget.toggleColor,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 40),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 3, bottom: 12),
+                    child: Text(
+                      _expanded ? 'See Less' : 'See More',
+                      style: TextStyle(
+                        color: widget.toggleColor,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
                     ),
                   ),
                 ),

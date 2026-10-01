@@ -42,6 +42,8 @@ class CachedImage extends StatelessWidget {
   final int? memCacheWidth;
   final int? memCacheHeight;
 
+  static const int _maxDecodeWidth = 1280;
+
   @override
   Widget build(BuildContext context) {
     final src = (url ?? '').trim();
@@ -57,6 +59,8 @@ class CachedImage extends StatelessWidget {
         width: memCacheWidth,
         height: memCacheHeight,
       );
+    } else {
+      provider = ResizeImage(provider, width: _maxDecodeWidth);
     }
 
     final Widget image = Image(

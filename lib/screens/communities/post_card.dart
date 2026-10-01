@@ -1320,16 +1320,22 @@ class _CommentTileState extends State<_CommentTile> {
                                         GestureDetector(
                                           behavior: HitTestBehavior.opaque,
                                           onTap: () => _deleteReply(r),
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 6,
-                                              top: 2,
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              minWidth: 40,
+                                              minHeight: 40,
                                             ),
-                                            child: Icon(
-                                              Icons.delete_outline_rounded,
-                                              size: 13,
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.45),
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 6,
+                                                top: 2,
+                                              ),
+                                              child: Icon(
+                                                Icons.delete_outline_rounded,
+                                                size: 13,
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.45),
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -1440,12 +1446,18 @@ class _CommentTileState extends State<_CommentTile> {
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: _deleteComment,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 6, top: 4),
-                    child: Icon(
-                      Icons.delete_outline_rounded,
-                      size: 15,
-                      color: Colors.white.withValues(alpha: 0.45),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 6, top: 4),
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        size: 15,
+                        color: Colors.white.withValues(alpha: 0.45),
+                      ),
                     ),
                   ),
                 ),
@@ -1479,20 +1491,24 @@ class _CommentAction extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -22,7 +22,7 @@ class TaxonomyService {
 
   Stream<List<FandomDoc>> watchFandoms() {
     if (!_ready) return Stream.value(const []);
-    return _fandoms.orderBy('sortOrder').snapshots().map(
+    return _fandoms.orderBy('sortOrder').limit(60).snapshots().map(
           (s) => s.docs.map(FandomDoc.fromDoc).toList(),
         );
   }

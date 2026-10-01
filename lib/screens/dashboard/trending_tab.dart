@@ -193,7 +193,6 @@ class _TrendingTabState extends State<TrendingTab> {
                 children: [
                   for (var i = 0; i < top.length; i++)
                     FadeSlideIn(
-                      delay: Duration(milliseconds: 40 * i.clamp(0, 6)),
                       child: _HotPostCard(
                         rank: i + 1,
                         post: top[i],
@@ -242,7 +241,6 @@ class _TrendingTabState extends State<TrendingTab> {
                 itemCount: reels.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, i) => FadeSlideIn(
-                  delay: Duration(milliseconds: 40 * i.clamp(0, 6)),
                   child: _ReelMiniCard(
                     reel: reels[i],
                     onTap: widget.onOpenReels ?? () {},
@@ -287,7 +285,6 @@ class _TrendingTabState extends State<TrendingTab> {
                 itemCount: top.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, i) => FadeSlideIn(
-                  delay: Duration(milliseconds: 40 * i.clamp(0, 6)),
                   child: _RisingCommunityCard(
                     rank: i + 1,
                     community: top[i],
@@ -331,7 +328,6 @@ class _TrendingTabState extends State<TrendingTab> {
                 children: [
                   for (var i = 0; i < events.length; i++)
                     FadeSlideIn(
-                      delay: Duration(milliseconds: 40 * i.clamp(0, 6)),
                       child: _EventTrendRow(
                         event: events[i],
                         onTap: () => Navigator.pushNamed(

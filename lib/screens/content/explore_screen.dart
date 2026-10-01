@@ -130,13 +130,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _openFilters(List<FandomDoc> fandoms,
       List<ContentCategoryDoc> categories) async {
+    String? fandom = _fandomId;
+    String? category = _categoryId;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (sheetContext) {
-        String? fandom = _fandomId;
-        String? category = _categoryId;
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             return Container(
@@ -473,31 +473,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   actionLabel: 'Reset filters',
                 );
               }
-              return ListView(
+              return ListView.builder(
                 key: const PageStorageKey<String>('explore_results'),
                 physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      '${results.length} ${results.length == 1 ? 'discovery' : 'discoveries'} found',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  for (final c in results)
-                    Padding(
+                itemCount: results.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: ContentRow(
-                        content: c,
-                        onTap: () => _openContent(c),
+                      child: Text(
+                        '${results.length} ${results.length == 1 ? 'discovery' : 'discoveries'} found',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
+                    );
+                  }
+                  final c = results[index - 1];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: ContentRow(
+                      content: c,
+                      onTap: () => _openContent(c),
                     ),
-                ],
+                  );
+                },
               );
             },
           ),

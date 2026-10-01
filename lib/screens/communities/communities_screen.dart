@@ -134,7 +134,6 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                           final c = items[i];
                           return FadeSlideIn(
                             key: ValueKey(c.id),
-                            delay: Duration(milliseconds: 40 * i.clamp(0, 8)),
                             child: _CommunityTile(community: c),
                           );
                         },

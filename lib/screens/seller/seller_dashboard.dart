@@ -320,6 +320,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     final stock = TextEditingController(
       text: existing?.stock?.toString() ?? '',
     );
+    final formKey = GlobalKey<FormState>();
+    var loading = false;
+    var uploadingImage = false;
+    String? imageUrl = existing?.imageUrl;
     UserProfile? profile;
     try {
       profile = await UserService.instance.fetch(uid);
@@ -346,11 +350,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (sheetContext) {
-        final formKey = GlobalKey<FormState>();
-        var loading = false;
-        var uploadingImage = false;
-        String? imageUrl = existing?.imageUrl;
-
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             return Padding(
@@ -359,6 +358,9 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               ),
               child: Container(
                 margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.88,
+                ),
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
                 decoration: BoxDecoration(
                   color: const Color(0xF2101018),
@@ -394,143 +396,158 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      AppTextField(
-                        controller: name,
-                        label: 'Product name',
-                        prefixIcon: Icons.inventory_2_outlined,
-                        validator: (v) => (v == null || v.trim().length < 2)
-                            ? 'Name required'
-                            : null,
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        controller: price,
-                        label: 'Price (e.g. PKR 2900)',
-                        prefixIcon: Icons.attach_money_rounded,
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Price required'
-                                : null,
-                      ),
-                      const SizedBox(height: 14),
-                      if (imageUrl != null) ...[
-                        Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: CachedImage(
-                                url: imageUrl,
-                                width: 64,
-                                height: 64,
-                                fit: BoxFit.cover,
+                      Flexible(
+                        child: SingleChildScrollView(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              AppTextField(
+                                controller: name,
+                                label: 'Product name',
+                                prefixIcon: Icons.inventory_2_outlined,
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 2)
+                                        ? 'Name required'
+                                        : null,
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text(
-                                'Image attached',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              const SizedBox(height: 14),
+                              AppTextField(
+                                controller: price,
+                                label: 'Price (e.g. PKR 2900)',
+                                prefixIcon: Icons.attach_money_rounded,
+                                validator: (v) => (v == null || v.trim().isEmpty)
+                                    ? 'Price required'
+                                    : null,
                               ),
-                            ),
-                            TextButton(
-                              onPressed: () =>
-                                  setSheetState(() => imageUrl = null),
-                              child: const Text(
-                                'Remove',
-                                style: TextStyle(color: Color(0xFFFF6B6B)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      OutlinedButton.icon(
-                        onPressed: uploadingImage
-                            ? null
-                            : () async {
-                                setSheetState(() => uploadingImage = true);
-                                try {
-                                  final url = await ImageUploadService
-                                      .instance
-                                      .pickAndUpload(name: 'product');
-                                  if (url != null) {
-                                    imageUrl = url;
-                                  }
-                                } catch (e) {
-                                  if (sheetContext.mounted) {
-                                    ScaffoldMessenger.of(sheetContext)
-                                        .showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          ImageUploadService.friendlyMessage(e),
+                              const SizedBox(height: 14),
+                              if (imageUrl != null) ...[
+                                Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: CachedImage(
+                                        url: imageUrl,
+                                        width: 64,
+                                        height: 64,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Expanded(
+                                      child: Text(
+                                        'Image attached',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    );
-                                  }
-                                } finally {
-                                  if (sheetContext.mounted) {
-                                    setSheetState(
-                                      () => uploadingImage = false,
-                                    );
-                                  }
-                                }
-                              },
-                        icon: uploadingImage
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          setSheetState(() => imageUrl = null),
+                                      child: const Text(
+                                        'Remove',
+                                        style:
+                                            TextStyle(color: Color(0xFFFF6B6B)),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              )
-                            : Icon(
-                                imageUrl == null
-                                    ? Icons.image_outlined
-                                    : Icons.check_circle_outline_rounded,
+                                const SizedBox(height: 14),
+                              ],
+                              OutlinedButton.icon(
+                                onPressed: uploadingImage
+                                    ? null
+                                    : () async {
+                                        setSheetState(() => uploadingImage = true);
+                                        try {
+                                          final url = await ImageUploadService
+                                              .instance
+                                              .pickAndUpload(name: 'product');
+                                          if (url != null) {
+                                            imageUrl = url;
+                                          }
+                                        } catch (e) {
+                                          if (sheetContext.mounted) {
+                                            ScaffoldMessenger.of(sheetContext)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  ImageUploadService
+                                                      .friendlyMessage(e),
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        } finally {
+                                          if (sheetContext.mounted) {
+                                            setSheetState(
+                                              () => uploadingImage = false,
+                                            );
+                                          }
+                                        }
+                                      },
+                                icon: uploadingImage
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Icon(
+                                        imageUrl == null
+                                            ? Icons.image_outlined
+                                            : Icons.check_circle_outline_rounded,
+                                      ),
+                                label: Text(
+                                  uploadingImage
+                                      ? 'Uploading…'
+                                      : imageUrl == null
+                                          ? 'Upload product image'
+                                          : 'Replace image',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
                               ),
-                        label: Text(
-                          uploadingImage
-                              ? 'Uploading…'
-                              : imageUrl == null
-                                  ? 'Upload product image'
-                                  : 'Replace image',
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.2),
+                              const SizedBox(height: 14),
+                              AppTextField(
+                                controller: description,
+                                label: 'Description (optional)',
+                                prefixIcon: Icons.notes_rounded,
+                              ),
+                              const SizedBox(height: 14),
+                              AppTextField(
+                                controller: stock,
+                                label: 'Stock units (optional)',
+                                prefixIcon: Icons.inventory_2_outlined,
+                                keyboardType: TextInputType.number,
+                                validator: (v) {
+                                  final t = (v ?? '').trim();
+                                  if (t.isEmpty) return null;
+                                  final n = int.tryParse(t);
+                                  if (n == null || n < 0) {
+                                    return 'Enter a whole number 0 or more';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        controller: description,
-                        label: 'Description (optional)',
-                        prefixIcon: Icons.notes_rounded,
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        controller: stock,
-                        label: 'Stock units (optional)',
-                        prefixIcon: Icons.inventory_2_outlined,
-                        keyboardType: TextInputType.number,
-                        validator: (v) {
-                          final t = (v ?? '').trim();
-                          if (t.isEmpty) return null;
-                          final n = int.tryParse(t);
-                          if (n == null || n < 0) {
-                            return 'Enter a whole number 0 or more';
-                          }
-                          return null;
-                        },
                       ),
                       const SizedBox(height: 20),
                       GlassButton(
