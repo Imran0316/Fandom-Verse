@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/routes/app_routes.dart';
@@ -30,7 +29,7 @@ class _SplashScreenState extends State<SplashScreen>
       'lib/assets/images/splash/splashScreenLogo.png';
 
   /// Total length of the staged reveal. Fractions below map onto it.
-  static const Duration _sequenceDuration = Duration(milliseconds: 3000);
+  static const Duration _sequenceDuration = Duration(milliseconds: 1200);
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -57,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   late final Animation<double> _logoOpacity = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.24, 0.42, curve: Curves.easeOut),
+    curve: const Interval(0.26, 0.42, curve: Curves.easeOut),
   );
 
   late final Animation<double> _logoScale =
@@ -95,6 +94,7 @@ class _SplashScreenState extends State<SplashScreen>
       );
 
   Timer? _navigationTimer;
+  Timer? _pollTimer;
   bool _sequenceStarted = false;
   bool _navigating = false;
 
@@ -114,7 +114,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
     _navigationTimer = Timer(
-      const Duration(milliseconds: 2400),
+      const Duration(milliseconds: 600),
       _navigateWhenReady,
     );
   }
@@ -123,42 +123,36 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted || _navigating) return;
     _navigating = true;
 
-    // Give Firebase a bounded window to finish initializing so we land on
-    // the right destination. Counts timer ticks instead of wall-clock time
-    // so it behaves under test fake-time too.
-    int waitedMs = 0;
-    while (mounted && !AuthService.instance.isReady && waitedMs < 8000) {
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      waitedMs += 80;
-    }
-    if (!mounted) return;
-
-    // The persisted session is restored asynchronously *after*  // initialization resolves (notably on web/Android), so reading
-    // `currentUser` right away can briefly look signed-out and bounce real
-    // users to onboarding on every relaunch or tab restore. Waiting for the
-    // first auth-state emission fixes that; it is bounded so a broken
-    // config can never strand the splash screen.
-    if (AuthService.instance.isReady) {
-      try {
-        await FirebaseAuth.instance
-            .authStateChanges()
-            .first
-            .timeout(const Duration(milliseconds: 2500));
-      } catch (_) {
-        // Not configured or timed out — continue into explore mode.
-      }
+    // Give Firebase a bounded window to finish initializing so the
+    // dashboard builds its Firestore-backed sections (carousel, trending,
+    // events, merch…) with live streams instead of the empty
+    // "not ready" fallbacks they would otherwise cache forever. Counts
+    // timer ticks instead of wall-clock time so it behaves under test
+    // fake-time too, and the cap means a broken config can never strand
+    // this screen — after 3s we hand off anyway and the dashboard reacts
+    // to readiness changes itself.
+    var waitedMs = 0;
+    while (mounted && !AuthService.instance.isReady && waitedMs < 3000) {
+      final tick = Completer<void>();
+      _pollTimer = Timer(const Duration(milliseconds: 60), tick.complete);
+      await tick.future;
+      waitedMs += 60;
     }
     if (!mounted) return;
 
     // Explore-first: everyone lands on the dashboard, signed in or not.
     // The feed is publicly readable, and gated actions (like, comment,
     // cart…) route to the Get Started screen on tap.
+    //
+    // Firebase initialization runs independently in the background; if it
+    // finishes late the dashboard rebuilds itself when readiness flips.
     Navigator.of(context).pushReplacementNamed(AppRoutes.dashboard);
   }
 
   @override
   void dispose() {
     _navigationTimer?.cancel();
+    _pollTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

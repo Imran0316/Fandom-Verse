@@ -5,9 +5,9 @@ import 'package:fandom_verse/app.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
   await tester.pumpWidget(const FandomVerseApp());
-  // Splash timeline (fake time): reveal/nav timer 2.4s + bounded Firebase
-  // ready poll (8s, never ready in tests — auth restore wait is skipped
-  // when Firebase isn't ready) = ~10.4s, then the route transition.
+  // Splash timeline (fake time): reveal/nav timer 0.6s + bounded Firebase
+  // ready poll (3s, never ready in tests — auth restore wait is skipped
+  // when Firebase isn't ready) = ~3.6s, then the route transition.
   await tester.pump(const Duration(milliseconds: 12000));
   await tester.pump(const Duration(milliseconds: 600));
 }
@@ -31,7 +31,7 @@ void main() {
     expect(find.text('Join FandomVerse'), findsNothing);
   });
 
-  testWidgets('guest profile tab offers Get Started which opens auth', (
+  testWidgets('guest profile tab offers Sign In which opens auth', (
     WidgetTester tester,
   ) async {
     await _pumpApp(tester);
@@ -39,22 +39,13 @@ void main() {
     await tester.tap(find.text('Profile'));
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('You are exploring as a guest'), findsOneWidget);
+    expect(find.text('Sign in to view your profile'), findsOneWidget);
 
-    // Profile CTA pushes the GetStarted screen (landing first). Extra
-    // pumps let the fade transition fully settle before the next tap.
-    await tester.tap(find.text('Get Started').last);
+    // The profile CTA opens the auth popup straight away — no landing detour.
+    await tester.tap(find.text('Sign In').last);
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 500));
-    await tester.pump(const Duration(milliseconds: 100));
 
-    // Landing CTA opens the auth form.
-    await tester.tap(find.text('Get Started').last);
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.text('Join FandomVerse'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
   });

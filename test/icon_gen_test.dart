@@ -178,7 +178,7 @@ void main() {
     print('source $source: ${sw}x$sh');
     final aspect = sw / sh;
 
-    const bg = [0x00, 0x00, 0x00];
+    const bg = [0x05, 0x05, 0x08]; // AppColors.backgroundDeep
 
     // Adaptive-icon foreground: transparent canvas, emblem centred so its
     // outermost ink stays inside the maskable safe zone (radius 33/108).

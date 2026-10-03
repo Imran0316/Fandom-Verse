@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/auth_popup.dart';
@@ -27,8 +26,6 @@ class ExplorePromptService {
   Timer? _exploreTimer;
   DateTime? _lastDismissed;
   bool _promptVisible = false;
-  StreamSubscription<User?>? _authSubscription;
-  bool _listening = false;
 
   /// True if the user is currently signed out and exploring.
   bool get isExploring =>
@@ -40,10 +37,6 @@ class ExplorePromptService {
   void start() {
     if (!isExploring) return;
     if (_exploreTimer?.isActive ?? false) return;
-
-    // Listen to auth state changes to restart the timer on sign-out.
-    // TEMP-BISECT: subscription disabled to verify it causes the freeze.
-    // _startAuthListener();
 
     // If the prompt was recently dismissed, start the cooldown instead.
     if (_lastDismissed != null) {
@@ -58,30 +51,11 @@ class ExplorePromptService {
     _exploreTimer = Timer(exploreDelay, _showPrompt);
   }
 
-  void _startAuthListener() {
-    if (_listening) return;
-    if (!AuthService.instance.isReady) return;
-    _listening = true;
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user == null) {
-        // User signed out — restart the explore timer.
-        stop();
-        start();
-      } else {
-        // User signed in — stop the explore timer.
-        stop();
-      }
-    });
-  }
-
   /// Stop the explore timer. Called when the user signs in or the app is
   /// disposed.
   void stop() {
     _exploreTimer?.cancel();
     _exploreTimer = null;
-    _authSubscription?.cancel();
-    _authSubscription = null;
-    _listening = false;
   }
 
   /// Mark the prompt as dismissed by the user. Starts the cooldown so the

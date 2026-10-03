@@ -5,6 +5,8 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/cart_docs.dart';
 import '../../services/cart_service.dart';
+import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -19,6 +21,10 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  final _cart = StreamCache<List<CartItemDoc>>(
+    () => CartService.instance.watchCart(),
+  );
+
   int _total(List<CartItemDoc> items) {
     var t = 0;
     for (final i in items) {
@@ -41,7 +47,7 @@ class _CartScreenState extends State<CartScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: StreamBuilder<List<CartItemDoc>>(
-            stream: widget.cartStream ?? CartService.instance.watchCart(),
+            stream: widget.cartStream ?? _cart(),
             builder: (context, snap) {
               final items = snap.data ?? const <CartItemDoc>[];
               final total = _total(items);
@@ -358,18 +364,11 @@ class _CartRow extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: item.imageUrl?.isNotEmpty == true
-                ? Image.network(
-                    item.imageUrl!,
+                ? CachedImage(
+                    url: item.imageUrl,
                     fit: BoxFit.cover,
                     width: 56,
                     height: 56,
-                    errorBuilder: (_, _, _) => const Center(
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.white24,
-                        size: 24,
-                      ),
-                    ),
                   )
                 : const Center(
                     child: Icon(
@@ -468,15 +467,19 @@ class _TinyBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.1),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.1),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          ),
+          child: Icon(icon, size: 14, color: Colors.white),
         ),
-        child: Icon(icon, size: 14, color: Colors.white),
       ),
     );
   }

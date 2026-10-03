@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'cached_image.dart';
+
 /// Full-screen zoomable viewer for post / comment images.
 void openImageViewer(BuildContext context, String url) {
   Navigator.of(context).push<void>(
@@ -11,17 +13,9 @@ void openImageViewer(BuildContext context, String url) {
             Center(
               child: InteractiveViewer(
                 maxScale: 4,
-                child: Image.network(
-                  url,
+                child: CachedImage(
+                  url: url,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.white38,
-                      size: 56,
-                    ),
-                  ),
                 ),
               ),
             ),

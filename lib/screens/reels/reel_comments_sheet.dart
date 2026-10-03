@@ -6,6 +6,7 @@ import '../../models/reel_docs.dart';
 import '../../services/auth_service.dart';
 import '../../services/reel_service.dart';
 import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/liquid_glass.dart';
 
 /// Modal comments list + composer for a reel.
@@ -334,7 +335,7 @@ class _ReelCommentsSheetState extends State<_ReelCommentsSheet> {
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: url != null && url.isNotEmpty
-          ? Image.network(url, fit: BoxFit.cover, errorBuilder: (_, _, _) => _initial(name))
+          ? CachedImage(url: url, fit: BoxFit.cover)
           : _initial(name),
     );
   }

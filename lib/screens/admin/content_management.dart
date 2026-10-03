@@ -4,6 +4,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/content_docs.dart';
 import '../../services/content_service.dart';
+import '../../services/stream_cache.dart';
 import '../../services/taxonomy_service.dart';
 import '../../widgets/content_widgets.dart';
 import '../../widgets/skeletons.dart';
@@ -21,6 +22,16 @@ class ContentManagementPanel extends StatefulWidget {
 
 class _ContentManagementPanelState extends State<ContentManagementPanel> {
   final TextEditingController _search = TextEditingController();
+
+  final _fandoms = StreamCache<List<FandomDoc>>(
+    () => TaxonomyService.instance.watchFandoms(),
+  );
+  final _categories = StreamCache<List<ContentCategoryDoc>>(
+    () => TaxonomyService.instance.watchCategories(),
+  );
+  final _allContent = StreamCache<List<ContentDoc>>(
+    () => ContentService.instance.watchAll(),
+  );
 
   ContentStatus? _status;
   ContentType? _type;
@@ -170,12 +181,12 @@ class _ContentManagementPanelState extends State<ContentManagementPanel> {
   }
 
   Future<void> _openFilters(List<FandomDoc> fandoms) async {
+    String? fandom = _fandomId;
+    String? category = _categoryId;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        String? fandom = _fandomId;
-        String? category = _categoryId;
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             return Container(
@@ -206,7 +217,7 @@ class _ContentManagementPanelState extends State<ContentManagementPanel> {
                   Flexible(
                     child: SingleChildScrollView(
                       child: StreamBuilder<List<ContentCategoryDoc>>(
-                        stream: TaxonomyService.instance.watchCategories(),
+                        stream: _categories(),
                         builder: (context, catSnap) {
                           final categories =
                               catSnap.data ?? const <ContentCategoryDoc>[];
@@ -319,11 +330,11 @@ class _ContentManagementPanelState extends State<ContentManagementPanel> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<FandomDoc>>(
-      stream: TaxonomyService.instance.watchFandoms(),
+      stream: _fandoms(),
       builder: (context, fandomSnap) {
         final fandoms = fandomSnap.data ?? const <FandomDoc>[];
         return StreamBuilder<List<ContentDoc>>(
-          stream: ContentService.instance.watchAll(),
+          stream: _allContent(),
           builder: (context, snap) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

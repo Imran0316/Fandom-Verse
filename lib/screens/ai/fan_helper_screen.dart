@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../services/auth_service.dart';
-import '../../services/gemini_service.dart';
+import '../../services/groq_service.dart';
 import '../../widgets/liquid_glass.dart';
 
-/// Fan Helper — an AI chat companion built on Google Gemini that helps fans
+const String _botIdleAsset = 'lib/assets/images/ChatbotImage.png';
+const String _botTalkingAsset = 'lib/assets/images/ChatbotGIF.gif';
+
+/// Fan Helper — an AI chat companion built on Groq that helps fans
 /// discover content, understand lore, and find their next favourite thing.
 class FanHelperScreen extends StatefulWidget {
   const FanHelperScreen({super.key});
@@ -34,7 +36,11 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
   @override
   void initState() {
     super.initState();
-    _greet();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      precacheImage(const AssetImage(_botIdleAsset), context);
+      precacheImage(const AssetImage(_botTalkingAsset), context);
+    });
   }
 
   @override
@@ -44,19 +50,7 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
     super.dispose();
   }
 
-  void _greet() {
-    final name = AuthService.instance.greetingName.trim();
-    final who = name.isEmpty ? 'Fan' : name;
-    _messages.add(
-      ChatMessage(
-        role: ChatRole.model,
-        text:
-            'Hey $who! 👋 I\'m Fan Helper, your FandomVerse AI buddy. '
-            'Ask me for recommendations, lore breakdowns, merch ideas, or '
-            'just chat about the things you love.',
-      ),
-    );
-  }
+  bool get _landed => _messages.isNotEmpty;
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -82,7 +76,7 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
     _scrollToBottom();
 
     try {
-      final reply = await GeminiService.instance.sendMessage(_messages);
+      final reply = await GroqService.instance.sendMessage(_messages);
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessage(role: ChatRole.model, text: reply));
@@ -92,8 +86,8 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        if (!GeminiService.isConfigured) {
-          _error = 'Fan Helper isn\'t configured yet. Add your Gemini API key to '
+        if (!GroqService.isConfigured) {
+          _error = 'Fan Helper isn\'t configured yet. Add your Groq API key to '
               'enable chatting.';
         } else if (e is StateError && e.message.trim().isNotEmpty) {
           // Surface the real API error (bad key, quota, retired model, …)
@@ -136,7 +130,34 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
               Column(
                 children: [
                   SafeArea(bottom: false, child: _header()),
-                  Expanded(child: _messageList()),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 480),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: animation,
+                          alignment: Alignment.topLeft,
+                          child: child,
+                        ),
+                      ),
+                      child: _landed
+                          ? KeyedSubtree(
+                              key: const ValueKey<String>('chat'),
+                              child: _messageList(),
+                            )
+                          : KeyedSubtree(
+                              key: const ValueKey<String>('landing'),
+                              child: _LandingView(
+                                suggestions: _suggestions,
+                                onPick: _send,
+                              ),
+                            ),
+                    ),
+                  ),
                   if (_error != null) _errorBanner(_error!),
                   _composer(),
                 ],
@@ -158,64 +179,50 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
             onTap: () => Navigator.pop(context),
           ),
           const SizedBox(width: 12),
-          Image.asset(
-            'lib/assets/images/splash/splashScreenLogo.png',
-            width: 42,
-            height: 42,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFFF5C4D),
-                    Color(0xFFC1121F),
-                    Color(0xFF7F1D1D),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.5),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.auto_awesome_rounded,
-                color: Colors.white,
-                size: 22,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 420),
+            switchInCurve: Curves.easeOutBack,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: animation,
+                alignment: Alignment.topLeft,
+                child: child,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Fan Helper',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                SizedBox(height: 1),
-                Text(
-                  'Your AI fandom guide',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12.5,
-                  ),
-                ),
-              ],
-            ),
+            child: _landed
+                ? Row(
+                    key: const ValueKey<String>('identity'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _BotAvatar(talking: _sending, size: 42),
+                      const SizedBox(width: 12),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Fan Helper',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          SizedBox(height: 1),
+                          Text(
+                            'Your AI fandom guide',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(key: ValueKey<String>('none')),
           ),
         ],
       ),
@@ -225,50 +232,15 @@ class _FanHelperScreenState extends State<FanHelperScreen> {
   Widget _messageList() {
     return ListView.builder(
       controller: _scrollController,
-      physics: const BouncingScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      itemCount: _messages.length + (_sending ? 1 : 0) + 1,
+      itemCount: _messages.length + (_sending ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return _suggestionStrip();
-        }
-        final msgIndex = index - 1;
-        if (msgIndex >= _messages.length) {
+        if (index >= _messages.length) {
           return const _TypingBubble();
         }
-        return _MessageBubble(message: _messages[msgIndex]);
+        return _MessageBubble(message: _messages[index]);
       },
-    );
-  }
-
-  Widget _suggestionStrip() {
-    if (_messages.length > 1) return const SizedBox(height: 4);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              'Try asking',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.4,
-              ),
-            ),
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final s in _suggestions) _SuggestionChip(label: s, onTap: _send),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -379,7 +351,7 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = message.isUser;
     final bubble = Container(
-      constraints: const BoxConstraints(maxWidth: 300),
+      constraints: const BoxConstraints(maxWidth: 320),
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.only(
@@ -413,10 +385,6 @@ class _MessageBubble extends StatelessWidget {
             isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            const _BotAvatar(),
-            const SizedBox(width: 8),
-          ],
           if (isUser)
             bubble
           else
@@ -442,26 +410,168 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _BotAvatar extends StatelessWidget {
-  const _BotAvatar();
+  const _BotAvatar({this.talking = false, this.size = 36});
+
+  final bool talking;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 32,
-      height: 32,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFF5C4D), Color(0xFF7F1D1D)],
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.35),
+            blurRadius: size * 0.45,
+            spreadRadius: -size * 0.08,
+          ),
+        ],
       ),
-      child: const Icon(
-        Icons.auto_awesome_rounded,
-        color: Colors.white,
-        size: 16,
+      child: ClipOval(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOut,
+          child: Image.asset(
+            talking ? _botTalkingAsset : _botIdleAsset,
+            key: ValueKey<bool>(talking),
+            width: size - 4,
+            height: size - 4,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => Container(
+              width: size - 4,
+              height: size - 4,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFF5C4D), Color(0xFF7F1D1D)],
+                ),
+              ),
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                color: Colors.white,
+                size: size * 0.45,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/* -------------------------------- LANDING -------------------------------- */
+
+class _LandingView extends StatelessWidget {
+  const _LandingView({required this.suggestions, required this.onPick});
+
+  final List<String> suggestions;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _BotAvatar(size: 180),
+            const SizedBox(height: 24),
+            const Text(
+              'Fan Helper',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Explore ideas, lore recommendations, articles, news and more '
+              'with Fan Helper.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 30),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'TRY ASKING',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final s in suggestions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _SuggestionRow(label: s, onTap: onPick),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionRow extends StatelessWidget {
+  const _SuggestionRow({required this.label, required this.onTap});
+
+  final String label;
+  final ValueChanged<String> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onTap(label),
+      child: LiquidGlass(
+        radius: 16,
+        blur: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        borderColor: Colors.white.withValues(alpha: 0.1),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.08),
+            Colors.white.withValues(alpha: 0.03),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              color: AppColors.accent,
+              size: 17,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -475,21 +585,22 @@ class _TypingBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _BotAvatar(),
-          const SizedBox(width: 8),
-          LiquidGlass(
-            radius: 18,
-            blur: 20,
-            borderColor: Colors.white.withValues(alpha: 0.14),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.11),
-                Colors.white.withValues(alpha: 0.04),
-              ],
+          Flexible(
+            child: LiquidGlass(
+              radius: 18,
+              blur: 20,
+              borderColor: Colors.white.withValues(alpha: 0.14),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0.11),
+                  Colors.white.withValues(alpha: 0.04),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: const _TypingDots(),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: const _TypingDots(),
           ),
         ],
       ),
@@ -553,36 +664,6 @@ class _TypingDotsState extends State<_TypingDots>
 }
 
 /* -------------------------------- CONTROLS -------------------------------- */
-
-class _SuggestionChip extends StatelessWidget {
-  const _SuggestionChip({required this.label, required this.onTap});
-
-  final String label;
-  final ValueChanged<String> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onTap(label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          color: Colors.white.withValues(alpha: 0.07),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _SendButton extends StatelessWidget {
   const _SendButton({

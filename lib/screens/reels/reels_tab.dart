@@ -431,23 +431,28 @@ class _ReelPageState extends State<_ReelPage> {
   /// Guards overlapping auto-play attempts.
   bool _playing = false;
 
+  bool _initializing = false;
+
   bool get _hasVideo =>
       widget.reel.videoUrl.isNotEmpty && !_failed && _video != null;
 
   @override
   void initState() {
     super.initState();
-    _initVideo();
+    if (widget.active) _initVideo();
   }
 
   Future<void> _initVideo() async {
+    if (_initializing || _video != null) return;
     final url = widget.reel.videoUrl;
     if (url.isEmpty) return;
+    _initializing = true;
     final VideoPlayerController controller;
     try {
       controller = VideoPlayerController.networkUrl(Uri.parse(url));
       await controller.initialize();
     } catch (error) {
+      _initializing = false;
       debugPrint('ReelsTab: video init failed for ${widget.reel.id}: $error');
       if (mounted) {
         setState(() {
@@ -458,10 +463,12 @@ class _ReelPageState extends State<_ReelPage> {
       return;
     }
     if (!mounted) {
+      _initializing = false;
       unawaited(controller.dispose());
       return;
     }
     _video = controller;
+    _initializing = false;
     try {
       await controller.setLooping(true);
       // Muted autoplay needs no user gesture on the web; on mobile the feed
@@ -549,16 +556,21 @@ class _ReelPageState extends State<_ReelPage> {
   void didUpdateWidget(covariant _ReelPage old) {
     super.didUpdateWidget(old);
     final controller = _video;
-    if (controller == null || !controller.value.isInitialized) return;
     if (widget.active && !old.active) {
       _userPaused = false;
-      setState(() => _paused = false);
-      unawaited(_autoPlay());
-    } else if (!widget.active && old.active) {
+      if (controller == null) {
+        unawaited(_initVideo());
+      } else if (controller.value.isInitialized) {
+        setState(() => _paused = false);
+        unawaited(_autoPlay());
+      }
+    } else if (!widget.active && old.active && controller != null) {
       unawaited(controller.pause());
     }
     // Feed-wide mute toggle flipped.
-    if (widget.soundOn != old.soundOn) {
+    if (widget.soundOn != old.soundOn &&
+        controller != null &&
+        controller.value.isInitialized) {
       unawaited(
         controller.setVolume(widget.soundOn ? 1 : 0).catchError((_) {}),
       );

@@ -1,15 +1,18 @@
-/// Google Maps configuration driven by `--dart-define=GOOGLE_MAPS_API_KEY=...`.
+/// Google Maps configuration.
 ///
-/// Keep this key out of source control: pass it at build/run time instead of
-/// hardcoding it here. The default is intentionally empty so the app still
-/// builds without a key (maps views simply stay empty/placeholder).
+/// The key is resolved in this order:
+/// 1. `--dart-define=GOOGLE_MAPS_API_KEY=...` (overrides everything)
+/// 2. Hardcoded default (works out of the box for development)
 class MapsConfig {
   MapsConfig._();
 
   static const String _defineName = 'GOOGLE_MAPS_API_KEY';
 
+  /// Default key for development. Replace with your own for production.
+  static const String _defaultKey = 'AIzaSyD9Z_-A7FhwLPb7VDiJPYN71AOoE-vVs_0';
+
   static String get apiKey =>
-      String.fromEnvironment(_defineName, defaultValue: '');
+      String.fromEnvironment(_defineName, defaultValue: _defaultKey);
 
   static bool get hasKey => apiKey.trim().isNotEmpty;
 

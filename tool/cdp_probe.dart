@@ -15,6 +15,7 @@ Future<void> main(List<String> args) async {
 
   void log(String msg) {
     final ms = DateTime.now().difference(started).inMilliseconds;
+    // ignore: avoid_print
     print('[${ms}ms] $msg');
   }
 
@@ -78,7 +79,7 @@ Future<void> main(List<String> args) async {
     proc.kill();
     exit(1);
   }
-  log('connected pageWs=${ws != null} browserWs=${browserWs != null}');
+  log('connected pageWs=yes browserWs=${browserWs != null}');
 
   var id = 0;
   final pending = <int, Completer<Map<String, dynamic>>>{};
@@ -128,7 +129,7 @@ Future<void> main(List<String> args) async {
     final c = Completer<Map<String, dynamic>>();
     final i = ++bId;
     bPending[i] = c;
-    browserWs!.add(jsonEncode({'id': i, 'method': method, 'params': params}));
+    browserWs.add(jsonEncode({'id': i, 'method': method, 'params': params}));
     return c.future.timeout(const Duration(seconds: 10));
   }
 
@@ -155,7 +156,7 @@ Future<void> main(List<String> args) async {
     }
   });
 
-  ws!.listen((data) {
+  ws.listen((data) {
     final m = jsonDecode(data as String) as Map<String, dynamic>;
     if (m.containsKey('id')) {
       final c = pending.remove(m['id']);
@@ -173,8 +174,8 @@ Future<void> main(List<String> args) async {
       final args = (params['args'] as List)
           .map((a) =>
               (a as Map)['value'] ??
-              (a as Map)['description'] ??
-              (a as Map)['type'] ??
+              (a)['description'] ??
+              (a)['type'] ??
               '')
           .join(' ');
       final type = params['type'];
@@ -193,7 +194,7 @@ Future<void> main(List<String> args) async {
       log('EXCEPTION: ${d['text']} ${ex['description'] ?? ex['value'] ?? ''}');
     } else if (method.contains('targetCrashed') ||
         method.contains('Target.targetCrashed')) {
-      log('TARGET CRASHED: $method ${params}');
+      log('TARGET CRASHED: $method $params');
     } else if (method == 'Inspector.detached') {
       log('INSPECTOR DETACHED: ${params['reason']}');
     } else {

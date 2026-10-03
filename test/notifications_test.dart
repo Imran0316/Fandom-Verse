@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fandom_verse/core/streams.dart';
 import 'package:fandom_verse/models/notification_docs.dart';
 import 'package:fandom_verse/screens/dashboard/dashboard_screen.dart';
 import 'package:fandom_verse/screens/profile/notifications_screen.dart';
@@ -37,6 +38,46 @@ void main() {
     expect(find.text('Mark all read'), findsNothing);
     expect(find.text('Clear'), findsNothing);
     expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Tapping a notification row only marks it read — no navigation', (
+    tester,
+  ) async {
+    final row = NotificationDoc(
+      id: 'n1',
+      recipientUid: 'user-1',
+      actorUid: 'system',
+      type: 'fandomContent',
+      contentId: 'c1',
+      title: 'New update',
+      body: 'Fresh fandom content is live.',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotificationsScreen(items: onceStream([row])),
+        routes: {
+          '/content': (_) => const Text('content page'),
+          '/dashboard': (_) => const Text('dashboard page'),
+          '/explore': (_) => const Text('explore page'),
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('New update'), findsOneWidget);
+
+    await tester.tap(find.text('New update'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(NotificationsScreen), findsOneWidget);
+    expect(find.text('New update'), findsOneWidget);
+    expect(find.text('content page'), findsNothing);
+    expect(find.text('dashboard page'), findsNothing);
+    expect(find.text('explore page'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

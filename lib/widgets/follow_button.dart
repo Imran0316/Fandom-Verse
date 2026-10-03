@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/auth_gate.dart';
 import '../services/user_service.dart';
 
 /// Relationship of the signed-in viewer to [FollowButton.targetUid].
@@ -56,6 +57,7 @@ class _FollowButtonState extends State<FollowButton> {
     Future<void> Function() action,
   ) async {
     if (_busy) return;
+    if (!requireSignIn(context)) return;
     final previous = _relation;
     setState(() {
       _busy = true;

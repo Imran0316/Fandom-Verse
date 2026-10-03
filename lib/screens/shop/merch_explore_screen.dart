@@ -8,6 +8,7 @@ import '../../models/catalog_docs.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/stream_cache.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -396,12 +397,11 @@ class _MerchExploreCardState extends State<MerchExploreCard> {
                     ),
                   ),
                   if (widget.item.imageUrl?.isNotEmpty == true)
-                    Image.network(
-                      widget.item.imageUrl!,
+                    CachedImage(
+                      url: widget.item.imageUrl,
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
                   Positioned(
                     left: 0,

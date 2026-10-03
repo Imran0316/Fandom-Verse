@@ -8,6 +8,7 @@ import '../../services/community_service.dart';
 import '../../services/image_upload_service.dart';
 import '../../services/stream_cache.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/cached_image.dart';
 import '../../widgets/glass_button.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../core/animations/app_transitions.dart';
@@ -133,7 +134,6 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                           final c = items[i];
                           return FadeSlideIn(
                             key: ValueKey(c.id),
-                            delay: Duration(milliseconds: 40 * i.clamp(0, 8)),
                             child: _CommunityTile(community: c),
                           );
                         },
@@ -238,11 +238,9 @@ class _CommunityTile extends StatelessWidget {
                   border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                 ),
                 child: community.profileImageUrl?.isNotEmpty == true
-                    ? Image.network(
-                        community.profileImageUrl!,
+                    ? CachedImage(
+                        url: community.profileImageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            Icon(community.icon, color: Colors.white, size: 26),
                       )
                     : Icon(community.icon, color: Colors.white, size: 26),
               ),
@@ -591,13 +589,9 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                             ? Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  Image.network(
-                                    _coverUrl!,
+                                  CachedImage(
+                                    url: _coverUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(Icons.broken_image_outlined,
-                                          color: Colors.white38),
-                                    ),
                                   ),
                                   Positioned(
                                     top: 8,
@@ -690,13 +684,9 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                                 ),
                               )
                             : _profileUrl != null
-                                ? Image.network(
-                                    _profileUrl!,
+                                ? CachedImage(
+                                    url: _profileUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(Icons.broken_image_outlined,
-                                          color: Colors.white38),
-                                    ),
                                   )
                                 : Icon(
                                     Icons.add_a_photo_outlined,
