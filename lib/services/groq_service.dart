@@ -23,7 +23,10 @@ class GroqService {
 
   static final GroqService instance = GroqService();
 
-  static const String _apiKey = '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';
+  static const String _apiKey = String.fromEnvironment(
+    'GROQ_API_KEY',
+    defaultValue: '',
+  );
   static const String _model = 'openai/gpt-oss-120b';
   static const String _host = 'api.groq.com';
 
@@ -43,9 +46,7 @@ class GroqService {
   /// Sends the full conversation [history] to Groq and returns the reply.
   Future<String> sendMessage(List<ChatMessage> history) async {
     if (!isConfigured) {
-      throw StateError(
-        'Groq API key is not configured.',
-      );
+      throw StateError('Groq API key is not configured.');
     }
 
     final uri = Uri.https(_host, '/openai/v1/chat/completions');

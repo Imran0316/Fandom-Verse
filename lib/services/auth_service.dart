@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart'
         ValueNotifier,
         defaultTargetPlatform,
         kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'user_service.dart';
